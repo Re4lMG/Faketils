@@ -12,6 +12,8 @@ object Config : Vigilant(
 
     var fullBlockButton = false
 
+    var noHurtCam = false
+
     init {
         category("Quality of Life") {
             subcategory("Blocks") {
@@ -24,6 +26,14 @@ object Config : Vigilant(
                     ::fullBlockLever,
                     name = "Bigger lever box",
                     description = "Increases the size of lever bounding box."
+                )
+            }
+
+            subcategory("Visual") {
+                switch(
+                    ::noHurtCam,
+                    name = "No hurt cam",
+                    description = "Disable the hurt cam."
                 )
             }
         }
