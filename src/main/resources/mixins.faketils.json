@@ -1,0 +1,8 @@
+{
+  "minVersion": "0.7",
+  "package": "com.faketils.mixin",
+  "plugin": "com.faketils.AutoDiscoveryMixinPlugin",
+  "refmap": "mixins.faketils.refmap.json",
+  "compatibilityLevel": "JAVA_8"
+}
+

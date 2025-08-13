@@ -1,0 +1,18 @@
+[
+  {
+	"modid": "${modid}",
+	"name": "${modname}",
+	"description": "Faketils a small skyblock qol mod.",
+	"version": "${version}",
+	"mcversion": "${mcversion}",
+	"url": "",
+	"updateUrl": "",
+	"authorList": [
+	  "GoatMG"
+	],
+	"credits": "",
+	"logoFile": "",
+	"screenshots": [],
+	"dependencies": []
+  }
+]
