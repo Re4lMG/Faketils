@@ -1,14 +1,18 @@
 package com.faketils
 
+import com.faketils.commands.Command
+import com.faketils.commands.warp.WarpCommandHandler
 import com.faketils.config.Config
 import com.faketils.config.PersistentData
-import com.faketils.commands.Command
+import com.faketils.features.Farming
+import com.faketils.features.FireFreezeTimer
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.entity.EntityPlayerSP
 import net.minecraft.client.gui.GuiScreen
 import net.minecraftforge.client.ClientCommandHandler
 import net.minecraftforge.common.MinecraftForge
+import net.minecraftforge.fml.client.registry.ClientRegistry
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.ModMetadata
 import net.minecraftforge.fml.common.event.FMLInitializationEvent
@@ -16,6 +20,7 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 import java.io.File
+
 
 @Mod(
     modid = "faketils",
@@ -35,11 +40,20 @@ class Faketils {
         persistentData = PersistentData.load()
         config = Config
         config.initialize()
+
+        WarpCommandHandler()
     }
+
+    private val farming = Farming()
 
     @Mod.EventHandler
     fun onInit(event: FMLInitializationEvent) {
         ClientCommandHandler.instance.registerCommand(Command())
+
+        MinecraftForge.EVENT_BUS.register(FireFreezeTimer())
+
+        farming.init()
+        MinecraftForge.EVENT_BUS.register(farming)
 
         listOf(
             this
