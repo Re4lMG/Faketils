@@ -1,7 +1,6 @@
 package com.faketils.features
 
 import com.faketils.Faketils
-import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraftforge.client.event.ClientChatReceivedEvent
@@ -39,7 +38,6 @@ class FireFreezeTimer {
 
     @SubscribeEvent
     fun onRenderOverlay(event: RenderGameOverlayEvent.Text) {
-        if (!Utils.inDungeons) return
         if (!Faketils.config.fireFreezeTimer || !isFireFreezeInHotbar()) return
         if (!shouldFireFreeze) return
 

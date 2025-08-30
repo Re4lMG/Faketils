@@ -16,7 +16,9 @@ object Config : Vigilant(
 
     var fireFreezeTimer = false
 
-    var macroStatus = false
+    var funnyStatus = false
+
+    var fishingHelper = false
 
     init {
         category("Quality of Life") {
@@ -51,11 +53,20 @@ object Config : Vigilant(
             }
         }
         category("Farming") {
-            subcategory("Macro") {
+            subcategory("Funny") {
                 switch(
-                    ::macroStatus,
-                    name = "Macro status",
-                    description = "Display the if the macro is active or not disable it if you aren't farming."
+                    ::funnyStatus,
+                    name = "Funny status",
+                    description = "Display the if the funny is active or not disable it if you aren't farming."
+                )
+            }
+        }
+        category("Fishing") {
+            subcategory("Funny") {
+                switch(
+                    ::fishingHelper,
+                    name = "Fishing helper",
+                    description = "Enables the funny fishing helper."
                 )
             }
         }
