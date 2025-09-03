@@ -85,14 +85,6 @@ object Config : Vigilant(
     var fishingHelperDelay = 150
 
     @Property(
-        type = PropertyType.NUMBER, name = "Recast Delay",
-        description = "Rod recast delay.",
-        category = "Fishing", subcategory = "Funny",
-        min = 0, max = 1000, increment = 20
-    )
-    var fishingHelperDelayRecast = 500
-
-    @Property(
         type = PropertyType.SWITCH, name = "Debug",
         description = "Dev stuff.",
         category = "Debug", subcategory = "Debug"

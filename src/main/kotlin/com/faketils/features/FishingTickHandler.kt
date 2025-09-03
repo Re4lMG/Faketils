@@ -39,7 +39,7 @@ object FishingTickHandler {
                     val dist = hook.getDistanceSq(packet.xCoordinate, hook.posY, packet.zCoordinate)
                     if (dist < 1.0) {
                         val now = System.currentTimeMillis()
-                        if (now - lastBiteTime >= Faketils.config.fishingHelperDelayRecast) {
+                        if (now - lastBiteTime >= 1000) {
                             lastBiteTime = now
                             scheduledClickTime = System.currentTimeMillis() + Faketils.config.fishingHelperDelay
                         }

@@ -25,7 +25,6 @@ import java.io.File
 @Mod(
     modid = "faketils",
     name = "Faketils",
-    version = "0.1",
     useMetadata = true,
     clientSideOnly = true
 )

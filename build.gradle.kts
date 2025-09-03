@@ -9,8 +9,9 @@ plugins {
     id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
-group = "com.faketils"
-version = "0.2"
+group = project.property("group") as String
+version = project.property("version") as String
+
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(8))
@@ -100,6 +101,8 @@ tasks.withType<Jar> {
         this["MixinConfigs"] = "mixins.faketils.json"
         this["TweakClass"] = "org.spongepowered.asm.launch.MixinTweaker"
     }
+    archiveBaseName.set("Faketils")
+    archiveVersion.set(project.version.toString())
 }
 
 val remapJar by tasks.named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
