@@ -1,17 +1,35 @@
 package com.faketils.utils
 
+import com.faketils.Faketils
 import com.google.common.collect.Iterables
 import com.google.common.collect.Lists
 import net.minecraft.client.Minecraft
 import net.minecraft.scoreboard.Score
 import net.minecraft.scoreboard.ScorePlayerTeam
+import net.minecraft.util.ChatComponentText
 import net.minecraft.util.StringUtils
 
 object Utils {
 
-    fun cleanSB(scoreboard: String): String {
-        return StringUtils.stripControlCodes(scoreboard).filter { it.code in 21..126 }
+    private val mc: Minecraft = Minecraft.getMinecraft()
+
+    fun stripColorCodes(string: String): String {
+        return string.replace("§.".toRegex(), "")
     }
+
+    fun cleanSB(scoreboard: String): String {
+        val nvString = StringUtils.stripControlCodes(scoreboard).toCharArray()
+        val cleaned = StringBuilder()
+
+        for (c in nvString) {
+            if (c.code in 21..126) {
+                cleaned.append(c)
+            }
+        }
+
+        return cleaned.toString()
+    }
+
 
     fun getSidebarLines(): List<String> {
         val lines = mutableListOf<String>()
@@ -44,31 +62,24 @@ object Utils {
         return lines
     }
 
-    var inSkyblock = false
-
-    fun checkForSkyblock() {
-        val mc = Minecraft.getMinecraft()
-        if (mc.theWorld != null && !mc.isSingleplayer) {
-            val scoreboardObj = mc.theWorld.scoreboard.getObjectiveInDisplaySlot(1)
-            if (scoreboardObj != null) {
-                val scObjName = cleanSB(scoreboardObj.displayName)
-                inSkyblock = scObjName.contains("SKYBLOCK")
-                return
-            }
-        }
-        inSkyblock = false
+    fun log(message: String) {
+        if (!Faketils.config.debug) return
+        val player = mc.thePlayer ?: return
+        player.addChatComponentMessage(ChatComponentText("§7[§bFaketils§7] §f$message"))
     }
 
-    var inDungeons = false
+    fun isInSkyblock(): Boolean {
+        if (mc.theWorld == null || mc.thePlayer == null) return false
+        if (mc.isSingleplayer) return false
+        val objective = mc.thePlayer.worldScoreboard.getObjectiveInDisplaySlot(1) ?: return false
+        return stripColorCodes(objective.displayName).contains("skyblock", true)
+    }
 
-    fun checkForDungeons() {
-        if (inSkyblock) {
+    fun isInDungeons(): Boolean {
+        if (isInSkyblock()) {
             val sidebarLines = getSidebarLines()
-            if (sidebarLines.any { cleanSB(it).contains("The Catacombs") }) {
-                inDungeons = true
-                return
-            }
+            return sidebarLines.any { cleanSB(it).contains("The Catacombs") }
         }
-        inDungeons = false
+        return false
     }
 }

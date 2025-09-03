@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraftforge.client.event.ClientChatReceivedEvent
@@ -15,6 +16,7 @@ class FireFreezeTimer {
 
     @SubscribeEvent
     fun onChat(event: ClientChatReceivedEvent) {
+        if (!Utils.isInDungeons()) return
         val msg = event.message.unformattedText
         if (msg.startsWith("[BOSS] ") &&
             msg == "[BOSS] The Professor: Oh? You found my Guardians' one weakness?"
@@ -38,6 +40,7 @@ class FireFreezeTimer {
 
     @SubscribeEvent
     fun onRenderOverlay(event: RenderGameOverlayEvent.Text) {
+        if (!Utils.isInDungeons()) return
         if (!Faketils.config.fireFreezeTimer || !isFireFreezeInHotbar()) return
         if (!shouldFireFreeze) return
 

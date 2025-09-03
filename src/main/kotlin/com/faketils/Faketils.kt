@@ -6,9 +6,10 @@ import com.faketils.config.Config
 import com.faketils.config.PersistentData
 import com.faketils.features.Farming
 import com.faketils.features.FireFreezeTimer
+import com.faketils.features.FishingTickHandler
+import com.faketils.features.Misc
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
-import net.minecraft.client.entity.EntityPlayerSP
 import net.minecraft.client.gui.GuiScreen
 import net.minecraftforge.client.ClientCommandHandler
 import net.minecraftforge.common.MinecraftForge
@@ -50,6 +51,8 @@ class Faketils {
         ClientCommandHandler.instance.registerCommand(Command())
 
         MinecraftForge.EVENT_BUS.register(FireFreezeTimer())
+        MinecraftForge.EVENT_BUS.register(FishingTickHandler)
+        MinecraftForge.EVENT_BUS.register(Misc())
 
         farming.init()
         MinecraftForge.EVENT_BUS.register(farming)
@@ -67,16 +70,15 @@ class Faketils {
         mc.displayGuiScreen(currentGui)
         currentGui = null
 
-        val player: EntityPlayerSP? = mc.thePlayer
-
         tickAmount++
         if (tickAmount % 20 == 0) {
-            player?.let {
-                Utils.checkForSkyblock()
-                Utils.checkForDungeons()
+            if (mc.thePlayer != null) {
+                Utils.isInSkyblock()
+                Utils.isInDungeons()
             }
         }
     }
+
 
     companion object {
         val mc: Minecraft = Minecraft.getMinecraft()

@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.utils.Utils
 import net.minecraft.block.BlockPlanks
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
@@ -35,6 +36,7 @@ class Farming {
         if (mc.thePlayer != null && mc.theWorld != null) {
             isActive = false
             releaseAllKeys()
+            currentMode = ""
         }
     }
 
@@ -43,6 +45,8 @@ class Farming {
         if (event.phase != TickEvent.Phase.END) return
 
         if (mc.currentScreen != null) return
+        if (!Utils.isInSkyblock()) return
+        if (!Faketils.config.funnyToggle) return
 
         if (toggleKey.isPressed) {
             isActive = !isActive
@@ -103,7 +107,8 @@ class Farming {
     @SubscribeEvent
     fun onRenderGameOverlay(event: RenderGameOverlayEvent.Post) {
         if (event.type != RenderGameOverlayEvent.ElementType.ALL) return
-        if (!Faketils.config.funnyStatus) return
+        if (!Utils.isInSkyblock()) return
+        if (!Faketils.config.funnyToggle) return
 
         val mc = Minecraft.getMinecraft()
         val fontRenderer = mc.fontRendererObj

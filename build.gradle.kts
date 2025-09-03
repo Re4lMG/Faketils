@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.faketils"
-version = "0.1"
+version = "0.2"
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(8))
@@ -103,13 +103,13 @@ tasks.withType<Jar> {
 }
 
 val remapJar by tasks.named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
-    archiveClassifier.set("all")
+    archiveClassifier.set("")
     from(tasks.shadowJar)
     input.set(tasks.shadowJar.get().archiveFile)
 }
 
 tasks.shadowJar {
-    archiveClassifier.set("all-dev")
+    archiveClassifier.set("dev")
     configurations = listOf(shadowImpl)
     doLast {
         configurations.forEach {
