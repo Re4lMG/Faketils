@@ -4,45 +4,48 @@ import com.faketils.Faketils
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.settings.KeyBinding
-import net.minecraft.entity.projectile.EntityFishHook
+import net.minecraft.entity.item.EntityArmorStand
 import net.minecraft.item.ItemFishingRod
-import net.minecraft.network.play.server.S2APacketParticles
-import net.minecraft.util.BlockPos
-import net.minecraft.util.EnumParticleTypes
+import net.minecraft.item.ItemStack
+import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 
 object FishingTickHandler {
     private var clickTimer = 0
     private var hasClickedOnce = false
-    private var scheduledClickTime = 0L
-    private var lastBiteTime = 0L
+    private var scheduledClick = false
+    private var delayTimer = 0
+    private var fireVeilState = 0
+    private var originalSlot = 0
+    private var veilSlot = 0
+    private var delayCounter = 0
+
+    private val handledArmorStands = mutableSetOf<Int>()
 
     private val mc: Minecraft = Minecraft.getMinecraft()
 
-    fun onParticles(packet: S2APacketParticles) {
-        if (!Utils.isInSkyblock()) return
-        if (!Faketils.config.fishingHelper) return
-        val type = packet.particleType
-        if (type != EnumParticleTypes.WATER_WAKE && type != EnumParticleTypes.SMOKE_NORMAL) return
+    @SubscribeEvent
+    fun onRenderWorldLast(event: RenderWorldLastEvent) {
+        if (!Utils.isInSkyblock() || !Faketils.config.fishingHelper) return
 
+        if (mc.currentScreen != null) return
         val player = mc.thePlayer ?: return
         val heldItem = player.heldItem ?: return
+        if (heldItem.item !is ItemFishingRod) return
 
-        if (heldItem.item is ItemFishingRod) {
-            val hook: EntityFishHook? = player.fishEntity
-            if (hook != null) {
-                val blockPos = BlockPos(hook.posX, hook.posY, hook.posZ)
-                val block = hook.worldObj.getBlockState(blockPos).block
+        val armorStands = mc.theWorld?.loadedEntityList?.filterIsInstance<EntityArmorStand>() ?: return
 
-                if (block.material.isLiquid) {
-                    val dist = hook.getDistanceSq(packet.xCoordinate, hook.posY, packet.zCoordinate)
-                    if (dist < 1.0) {
-                        val now = System.currentTimeMillis()
-                        if (now - lastBiteTime >= 1000) {
-                            lastBiteTime = now
-                            scheduledClickTime = System.currentTimeMillis() + Faketils.config.fishingHelperDelay
-                        }
+        handledArmorStands.retainAll(armorStands.map { it.entityId }.toSet())
+
+        for (armorStand in armorStands) {
+            if (armorStand.isDead || !armorStand.hasCustomName()) continue
+            if (armorStand.customNameTag == "§c§l!!!") {
+                if (!handledArmorStands.contains(armorStand.entityId)) {
+                    if (delayTimer == 0) {
+                        scheduledClick = true
+                        handledArmorStands.add(armorStand.entityId)
+                        Utils.log("EntityID: "+ armorStand.entityId)
                     }
                 }
             }
@@ -57,14 +60,76 @@ object FishingTickHandler {
 
         val player = mc.thePlayer ?: return
 
-        if (scheduledClickTime > 0 && System.currentTimeMillis() >= scheduledClickTime) {
-            clickTimer = 10
+        if (delayTimer > 0) {
+            delayTimer--
+        }
+
+        if (fireVeilState > 0) {
+            when (fireVeilState) {
+                1 -> {
+                    if (delayCounter > 0) {
+                        delayCounter--
+                    } else {
+                        fireVeilState = 2
+                    }
+                }
+                2 -> {
+                    player.inventory.currentItem = veilSlot
+                    mc.playerController.updateController()
+                    delayCounter = 3
+                    fireVeilState = 3
+                }
+                3 -> {
+                    if (delayCounter > 0) {
+                        delayCounter--
+                    } else {
+                        fireVeilState = 4
+                    }
+                }
+                4 -> {
+                    KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
+                    KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
+                    KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
+                    delayCounter = 3
+                    fireVeilState = 5
+                }
+                5 -> {
+                    if (delayCounter > 0) {
+                        delayCounter--
+                    } else {
+                        fireVeilState = 6
+                    }
+                }
+                6 -> {
+                    player.inventory.currentItem = originalSlot
+                    mc.playerController.updateController()
+                    fireVeilState = 0
+                }
+            }
+            return
+        }
+
+        if (scheduledClick) {
+            clickTimer = 9
             hasClickedOnce = true
+
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
             KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
+
             player.playSound("random.orb", 1.0f, 1.0f)
-            scheduledClickTime = 0L
+            scheduledClick = false
+
+            if (Faketils.config.fishingHelperFireVeil) {
+                val detector = FireVeilDetector(mc)
+                val fireVeil = detector.findFireVeil()
+                if (fireVeil != null) {
+                    originalSlot = player.inventory.currentItem
+                    veilSlot = fireVeil.slot
+                    fireVeilState = 1
+                    delayCounter = 3
+                }
+            }
         }
 
         if (clickTimer > 0) {
@@ -77,6 +142,26 @@ object FishingTickHandler {
             } else if (clickTimer == 0) {
                 KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
             }
+        }
+    }
+
+    class FireVeilDetector(private val mc: Minecraft = Minecraft.getMinecraft()) {
+
+        data class FireVeilResult(val slot: Int, val keyBind: KeyBinding)
+
+        fun findFireVeil(): FireVeilResult? {
+            val player = mc.thePlayer ?: return null
+            val hotbar = player.inventory.mainInventory
+
+            for (slot in 0..8) {
+                val stack: ItemStack? = hotbar[slot]
+                if (stack != null && stack.hasDisplayName() && stack.displayName.contains("Fire Veil Wand")) {
+                    val keyBind = mc.gameSettings.keyBindsHotbar[slot]
+                    Utils.log("Veil at $slot")
+                    return FireVeilResult(slot, keyBind)
+                }
+            }
+            return null
         }
     }
 }

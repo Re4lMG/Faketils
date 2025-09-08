@@ -1,6 +1,7 @@
 package com.faketils
 
 import com.faketils.commands.Command
+import com.faketils.commands.FarmingCommand
 import com.faketils.commands.warp.WarpCommandHandler
 import com.faketils.config.Config
 import com.faketils.config.PersistentData
@@ -20,7 +21,6 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 import java.io.File
-
 
 @Mod(
     modid = "faketils",
@@ -48,10 +48,12 @@ class Faketils {
     @Mod.EventHandler
     fun onInit(event: FMLInitializationEvent) {
         ClientCommandHandler.instance.registerCommand(Command())
+        ClientCommandHandler.instance.registerCommand(FarmingCommand())
 
         MinecraftForge.EVENT_BUS.register(FireFreezeTimer())
         MinecraftForge.EVENT_BUS.register(FishingTickHandler)
         MinecraftForge.EVENT_BUS.register(Misc())
+        FarmingCommand.loadWaypoints()
 
         farming.init()
         MinecraftForge.EVENT_BUS.register(farming)

@@ -77,12 +77,11 @@ object Config : Vigilant(
     var fishingHelper = false
 
     @Property(
-        type = PropertyType.NUMBER, name = "Fishing Helper Delay",
-        description = "Fishing helper delay.",
-        category = "Fishing", subcategory = "Funny",
-        min = 0, max = 1000, increment = 20
+        type = PropertyType.SWITCH, name = "Fire Veil killing",
+        description = "Enables the fire veil killing, useful for lava fishing.",
+        category = "Fishing", subcategory = "Funny"
     )
-    var fishingHelperDelay = 150
+    var fishingHelperFireVeil = false
 
     @Property(
         type = PropertyType.SWITCH, name = "Debug",

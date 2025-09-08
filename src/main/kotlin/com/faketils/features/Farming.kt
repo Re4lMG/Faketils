@@ -1,12 +1,11 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.commands.FarmingCommand
 import com.faketils.utils.Utils
-import net.minecraft.block.BlockPlanks
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
-import net.minecraft.init.Blocks
 import net.minecraft.util.BlockPos
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.event.world.WorldEvent
@@ -20,9 +19,9 @@ class Farming {
     lateinit var toggleKey: KeyBinding
     var isActive = false
     var currentMode = "none"
-    var delayTimer = 0
-    var blockStandTimer = 0
-    var lastDetectedMode = "none"
+
+    private var lastWaypoint: BlockPos? = null
+    private var ticksOnWaypoint = 0
 
     val mc = Minecraft.getMinecraft()
 
@@ -36,14 +35,13 @@ class Farming {
         if (mc.thePlayer != null && mc.theWorld != null) {
             isActive = false
             releaseAllKeys()
-            currentMode = ""
+            currentMode = "none"
         }
     }
 
     @SubscribeEvent
     fun onClientTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.END) return
-
         if (mc.currentScreen != null) return
         if (!Utils.isInSkyblock()) return
         if (!Faketils.config.funnyToggle) return
@@ -53,54 +51,40 @@ class Farming {
             if (!isActive) {
                 releaseAllKeys()
                 currentMode = "none"
-                delayTimer = 0
-                blockStandTimer = 0
-                lastDetectedMode = "none"
+                lastWaypoint = null
+                ticksOnWaypoint = 0
             }
         }
 
         if (!isActive) return
 
-        if (delayTimer > 0) {
-            delayTimer--
-            if (delayTimer == 0) {
-                applyMode()
-            } else {
-                holdKeys()
-                return
-            }
-        }
-
         val player = mc.thePlayer ?: return
-        val pos = BlockPos(player.posX, player.posY - 1, player.posZ)
-        val world = player.worldObj
-        val state = world.getBlockState(pos)
-        val block = state.block
+        val pos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
 
-        var detectedMode = ""
-        if (block == Blocks.planks && state.getValue(BlockPlanks.VARIANT) == BlockPlanks.EnumType.OAK) {
-            detectedMode = "left"
-        } else if (block == Blocks.cobblestone) {
-            detectedMode = "right"
+        val rightList = FarmingCommand.waypoints["right"] ?: emptyList()
+        val leftList = FarmingCommand.waypoints["left"] ?: emptyList()
+
+        val targetMode = when {
+            rightList.any { it == pos } -> "right"
+            leftList.any { it == pos } -> "left"
+            else -> "none"
         }
 
-        if (detectedMode != lastDetectedMode) {
-            blockStandTimer = 0
-            lastDetectedMode = detectedMode
-        }
-
-        if (detectedMode != "" && detectedMode != currentMode) {
-            blockStandTimer++
-            if (blockStandTimer >= 40) {
-                delayTimer = 3
-                currentMode = detectedMode
-                blockStandTimer = 0
+        if (targetMode != "none") {
+            if (lastWaypoint == pos) {
+                ticksOnWaypoint++
+                if (ticksOnWaypoint >= 20) {
+                    currentMode = targetMode
+                }
+            } else {
+                lastWaypoint = pos
+                ticksOnWaypoint = 1
             }
-            holdKeys()
-            return
+        } else {
+            lastWaypoint = null
+            ticksOnWaypoint = 0
         }
 
-        blockStandTimer = 0
         holdKeys()
     }
 
@@ -124,10 +108,6 @@ class Farming {
         GL11.glScalef(scale, scale, 1.0f)
         fontRenderer.drawStringWithShadow(text, x / scale, y / scale, 0xFFFFFF)
         GL11.glPopMatrix()
-    }
-
-    private fun applyMode() {
-        holdKeys()
     }
 
     private fun holdKeys() {
