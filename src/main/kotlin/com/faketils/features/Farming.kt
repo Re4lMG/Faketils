@@ -4,12 +4,22 @@ import com.faketils.Faketils
 import com.faketils.commands.FarmingCommand
 import com.faketils.events.PacketEvent
 import com.faketils.utils.Utils
+import kotlin.math.abs
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
+import net.minecraft.init.Blocks
+import net.minecraft.block.Block
+import net.minecraft.client.renderer.GlStateManager
+import net.minecraft.client.renderer.RenderGlobal
+import net.minecraft.client.renderer.Tessellator
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.network.play.client.C07PacketPlayerDigging
+import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.BlockPos
+import net.minecraft.util.Vec3
 import net.minecraftforge.client.event.RenderGameOverlayEvent
+import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.event.world.WorldEvent
 import net.minecraftforge.fml.client.registry.ClientRegistry
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
@@ -24,16 +34,38 @@ class Farming {
 
     private var lastWaypoint: BlockPos? = null
     private var ticksOnWaypoint = 0
+    private var randomDelayTicks = (20..100).random()
 
     private var lastBrokenBlock = 0L
     private var blocksBroken = 0
     private var isBreaking = false
     private var startTime = 0L
     private var bps = 0.0
-    private var macroFailing = false
     private var lockedYaw = 0f
     private var lockedPitch = 0f
     private var lockedSlot = -1
+    private var bpsZeroStartTime = 0L
+    private val yawPitchTolerance = 1.0f
+
+    private val waypointColors = mapOf(
+        "right" to intArrayOf(0, 255, 0),    // Green
+        "left" to intArrayOf(255, 0, 0),     // Red
+        "warp" to intArrayOf(255, 255, 0)    // Yellow
+    )
+
+    private val farmableBlocks: Set<Block> = setOf(
+        Blocks.wheat,
+        Blocks.carrots,
+        Blocks.potatoes,
+        Blocks.pumpkin,
+        Blocks.melon_block,
+        Blocks.reeds,           // sugar cane
+        Blocks.cactus,
+        Blocks.cocoa,
+        Blocks.red_mushroom,
+        Blocks.brown_mushroom,
+        Blocks.nether_wart
+    )
 
     val mc = Minecraft.getMinecraft()
 
@@ -48,12 +80,18 @@ class Farming {
         if (packet is C07PacketPlayerDigging &&
             packet.status == C07PacketPlayerDigging.Action.START_DESTROY_BLOCK
         ) {
-            if (startTime == 0L) startTime = System.currentTimeMillis()
-            isBreaking = true
-            blocksBroken++
-            lastBrokenBlock = System.currentTimeMillis()
+            val pos = packet.position
+            val block = mc.theWorld.getBlockState(pos).block
+
+            if (block in farmableBlocks) {
+                if (startTime == 0L) startTime = System.currentTimeMillis()
+                isBreaking = true
+                blocksBroken++
+                lastBrokenBlock = System.currentTimeMillis()
+            }
         }
     }
+
 
     @SubscribeEvent
     fun onWorldUnLoad(event: WorldEvent.Unload) {
@@ -75,10 +113,9 @@ class Farming {
             isActive = !isActive
             if (!isActive) {
                 releaseAllKeys()
-                currentMode = "none"
+                currentMode = ""
                 lastWaypoint = null
                 ticksOnWaypoint = 0
-                macroFailing = false
             } else {
                 mc.thePlayer?.let {
                     lockedYaw = it.rotationYaw
@@ -110,27 +147,27 @@ class Farming {
         val warpList = FarmingCommand.waypoints["warp"] ?: emptyList()
 
         if (isActive && player.inventory.currentItem != lockedSlot) {
-            macroFailing = true
+            mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
             Utils.log("Slot changed")
         }
 
         if (isActive) {
             if (bps == 0.0) {
-                mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
-                Utils.log("BPS = 0")
+                if (bpsZeroStartTime == 0L) {
+                    bpsZeroStartTime = System.currentTimeMillis()
+                } else if (System.currentTimeMillis() - bpsZeroStartTime >= 3000) {
+                    mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                    Utils.log("BPS = 0 for 3 seconds")
+                }
+            } else {
+                bpsZeroStartTime = 0L
             }
         }
 
-
-        if (isActive) {
-            if (player.rotationYaw != lockedYaw || player.rotationPitch != lockedPitch) {
-                macroFailing = true
-                Utils.log("Yaw/pitch changed")
-            }
-        }
-
-        if (macroFailing) {
+        if (abs(player.rotationYaw - lockedYaw) > yawPitchTolerance ||
+            abs(player.rotationPitch - lockedPitch) > yawPitchTolerance) {
             mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+            Utils.log("Yaw/pitch changed")
         }
 
         val targetMode = when {
@@ -143,7 +180,7 @@ class Farming {
         if (targetMode != "none") {
             if (lastWaypoint == pos) {
                 ticksOnWaypoint++
-                if (ticksOnWaypoint >= 20) {
+                if (ticksOnWaypoint >= randomDelayTicks) {
                     if (targetMode == "warp") {
                         mc.thePlayer.sendChatMessage("/warp garden")
                         currentMode = "none"
@@ -153,6 +190,7 @@ class Farming {
                     } else {
                         currentMode = targetMode
                     }
+                    randomDelayTicks = (20..100).random()
                 }
             } else {
                 lastWaypoint = pos
