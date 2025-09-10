@@ -47,11 +47,11 @@ class FarmingCommand : CommandBase() {
 
     override fun getCommandName(): String = "ftset"
 
-    override fun getCommandUsage(sender: ICommandSender): String = "/ftset <right|left|reset>"
+    override fun getCommandUsage(sender: ICommandSender): String = "/ftset <right|left|warp|reset>"
 
     override fun processCommand(sender: ICommandSender, args: Array<String>) {
         if (args.isEmpty()) {
-            sender.addChatMessage(net.minecraft.util.ChatComponentText("§cUsage: /ftset <right|left|reset>"))
+            sender.addChatMessage(net.minecraft.util.ChatComponentText("§cUsage: /ftset <right|left|warp|reset>"))
             return
         }
 
@@ -74,6 +74,11 @@ class FarmingCommand : CommandBase() {
                 saveWaypoints()
                 sender.addChatMessage(net.minecraft.util.ChatComponentText("§eAll waypoints cleared!"))
                 return
+            }
+            "warp" -> {
+                val list = waypoints.getOrPut("warp") { mutableListOf() }
+                list.add(pos)
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§eWarp waypoint added!"))
             }
             else -> {
                 sender.addChatMessage(net.minecraft.util.ChatComponentText("§cInvalid argument. Use right/left/reset"))

@@ -2,10 +2,12 @@ package com.faketils.features
 
 import com.faketils.Faketils
 import com.faketils.commands.FarmingCommand
+import com.faketils.events.PacketEvent
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
+import net.minecraft.network.play.client.C07PacketPlayerDigging
 import net.minecraft.util.BlockPos
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.event.world.WorldEvent
@@ -23,11 +25,34 @@ class Farming {
     private var lastWaypoint: BlockPos? = null
     private var ticksOnWaypoint = 0
 
+    private var lastBrokenBlock = 0L
+    private var blocksBroken = 0
+    private var isBreaking = false
+    private var startTime = 0L
+    private var bps = 0.0
+    private var macroFailing = false
+    private var lockedYaw = 0f
+    private var lockedPitch = 0f
+    private var lockedSlot = -1
+
     val mc = Minecraft.getMinecraft()
 
     fun init() {
         toggleKey = KeyBinding("Funny Toggle", Keyboard.KEY_P, "Faketils")
         ClientRegistry.registerKeyBinding(toggleKey)
+    }
+
+    @SubscribeEvent
+    fun onPacketSent(event: PacketEvent.Send) {
+        val packet = event.packet
+        if (packet is C07PacketPlayerDigging &&
+            packet.status == C07PacketPlayerDigging.Action.START_DESTROY_BLOCK
+        ) {
+            if (startTime == 0L) startTime = System.currentTimeMillis()
+            isBreaking = true
+            blocksBroken++
+            lastBrokenBlock = System.currentTimeMillis()
+        }
     }
 
     @SubscribeEvent
@@ -53,20 +78,65 @@ class Farming {
                 currentMode = "none"
                 lastWaypoint = null
                 ticksOnWaypoint = 0
+                macroFailing = false
+            } else {
+                mc.thePlayer?.let {
+                    lockedYaw = it.rotationYaw
+                    lockedPitch = it.rotationPitch
+                    lockedSlot = it.inventory.currentItem
+                }
             }
         }
 
         if (!isActive) return
+
+        if (isBreaking) {
+            val secondsElapsed = (System.currentTimeMillis() - startTime) / 1000.0
+            bps = blocksBroken / secondsElapsed
+            if (System.currentTimeMillis() - lastBrokenBlock > 1000) {
+                bps = 0.0
+                isBreaking = false
+                blocksBroken = 0
+                startTime = 0
+                lastBrokenBlock = 0
+            }
+        }
 
         val player = mc.thePlayer ?: return
         val pos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
 
         val rightList = FarmingCommand.waypoints["right"] ?: emptyList()
         val leftList = FarmingCommand.waypoints["left"] ?: emptyList()
+        val warpList = FarmingCommand.waypoints["warp"] ?: emptyList()
+
+        if (isActive && player.inventory.currentItem != lockedSlot) {
+            macroFailing = true
+            Utils.log("Slot changed")
+        }
+
+        if (isActive) {
+            if (bps == 0.0) {
+                mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                Utils.log("BPS = 0")
+            }
+        }
+
+
+        if (isActive) {
+            if (player.rotationYaw != lockedYaw || player.rotationPitch != lockedPitch) {
+                macroFailing = true
+                Utils.log("Yaw/pitch changed")
+            }
+        }
+
+        if (macroFailing) {
+            mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+        }
 
         val targetMode = when {
             rightList.any { it == pos } -> "right"
             leftList.any { it == pos } -> "left"
+            warpList.any { it == pos } -> "warp"
             else -> "none"
         }
 
@@ -74,7 +144,15 @@ class Farming {
             if (lastWaypoint == pos) {
                 ticksOnWaypoint++
                 if (ticksOnWaypoint >= 20) {
-                    currentMode = targetMode
+                    if (targetMode == "warp") {
+                        mc.thePlayer.sendChatMessage("/warp garden")
+                        currentMode = "none"
+                        releaseAllKeys()
+                        lastWaypoint = null
+                        ticksOnWaypoint = 0
+                    } else {
+                        currentMode = targetMode
+                    }
                 }
             } else {
                 lastWaypoint = pos
@@ -97,16 +175,17 @@ class Farming {
         val mc = Minecraft.getMinecraft()
         val fontRenderer = mc.fontRendererObj
         val resolution = ScaledResolution(mc)
-        val text = if (isActive) "Funny: §aActive" else "Funny: §cInactive"
-        val textWidth = fontRenderer.getStringWidth(text)
+
+        val statusText = if (isActive) "Funny: §aActive" else "Funny: §cInactive"
+
         val scale = 4.0f
-        val scaledWidth = textWidth * scale
-        val x = (resolution.scaledWidth - scaledWidth) / 2.0f
+        val statusWidth = fontRenderer.getStringWidth(statusText) * scale
+        val x = (resolution.scaledWidth - statusWidth) / 2.0f
         val y = 20.0f
 
         GL11.glPushMatrix()
         GL11.glScalef(scale, scale, 1.0f)
-        fontRenderer.drawStringWithShadow(text, x / scale, y / scale, 0xFFFFFF)
+        fontRenderer.drawStringWithShadow(statusText, x / scale, y / scale, 0xFFFFFF)
         GL11.glPopMatrix()
     }
 

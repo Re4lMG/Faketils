@@ -40,6 +40,13 @@ object Config : Vigilant(
     var hideDyingMobs = false
 
     @Property(
+        type = PropertyType.SWITCH, name = "Performance mode",
+        description = "Toggle performance mode.",
+        category = "Quality of Life", subcategory = "Performance"
+    )
+    var performanceMode = false
+
+    @Property(
         type = PropertyType.DECIMAL_SLIDER, name = "Larger Head Scale",
         description = "Scale the heads inside the inventory.",
         category = "Quality of Life", subcategory = "Visual",
