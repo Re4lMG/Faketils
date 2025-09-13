@@ -8,7 +8,7 @@ import net.minecraft.command.ICommandSender
 class Command : CommandBase() {
     override fun getCommandName() = "ft"
 
-    override fun getCommandAliases() = listOf("ft")
+    override fun getCommandAliases() = listOf("ft", "faketils", "faketil")
 
     override fun getCommandUsage(sender: ICommandSender?) = "/$commandName"
 

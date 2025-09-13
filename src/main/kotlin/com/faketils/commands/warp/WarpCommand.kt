@@ -1,5 +1,6 @@
 package com.faketils.commands.warp
 
+import com.faketils.utils.Utils
 import net.minecraft.command.CommandBase
 import net.minecraft.command.ICommandSender
 import net.minecraft.client.Minecraft
@@ -21,6 +22,8 @@ class WarpCommand(
     override fun canCommandSenderUseCommand(sender: ICommandSender?): Boolean = true
 
     override fun processCommand(sender: ICommandSender?, args: Array<out String>?) {
-        mc.thePlayer.sendChatMessage("/warp $warpName")
+        if (Utils.isInSkyblock()) {
+            mc.thePlayer.sendChatMessage("/warp $warpName")
+        }
     }
 }

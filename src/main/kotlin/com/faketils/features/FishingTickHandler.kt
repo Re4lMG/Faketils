@@ -60,15 +60,13 @@ object FishingTickHandler {
 
         val player = mc.thePlayer ?: return
 
-        if (delayTimer > 0) {
-            delayTimer--
-        }
-
         if (fireVeilState > 0) {
             when (fireVeilState) {
                 1 -> {
                     if (delayCounter > 0) {
-                        delayCounter--
+                        if ((0..100).random() < 80) {
+                            delayCounter--
+                        }
                     } else {
                         fireVeilState = 2
                     }
@@ -76,12 +74,14 @@ object FishingTickHandler {
                 2 -> {
                     player.inventory.currentItem = veilSlot
                     mc.playerController.updateController()
-                    delayCounter = 3
+                    delayCounter = (2..5).random()
                     fireVeilState = 3
                 }
                 3 -> {
                     if (delayCounter > 0) {
-                        delayCounter--
+                        if ((0..100).random() < 80) {
+                            delayCounter--
+                        }
                     } else {
                         fireVeilState = 4
                     }
@@ -90,12 +90,14 @@ object FishingTickHandler {
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
-                    delayCounter = 3
+                    delayCounter = (2..5).random()
                     fireVeilState = 5
                 }
                 5 -> {
                     if (delayCounter > 0) {
-                        delayCounter--
+                        if ((0..100).random() < 80) {
+                            delayCounter--
+                        }
                     } else {
                         fireVeilState = 6
                     }
@@ -110,7 +112,7 @@ object FishingTickHandler {
         }
 
         if (scheduledClick) {
-            clickTimer = 9
+            clickTimer = (5..18).random()
             hasClickedOnce = true
 
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
@@ -127,7 +129,7 @@ object FishingTickHandler {
                     originalSlot = player.inventory.currentItem
                     veilSlot = fireVeil.slot
                     fireVeilState = 1
-                    delayCounter = 3
+                    delayCounter = (2..5).random()
                 }
             }
         }

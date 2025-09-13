@@ -55,6 +55,13 @@ object Config : Vigilant(
     var largerHeadScale = 1f
 
     @Property(
+        type = PropertyType.PERCENT_SLIDER, name = "Item rarity display",
+        description = "Changes the opacity of the background rarity of an item, set to 0 to disable.",
+        category = "Quality of Life", subcategory = "Visual",
+    )
+    var itemRarity = 0f
+
+    @Property(
         type = PropertyType.DECIMAL_SLIDER, name = "Dropped Item Size",
         description = "Change the size of dropped items.",
         category = "Quality of Life", subcategory = "Visual",

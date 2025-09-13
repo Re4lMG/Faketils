@@ -46,6 +46,7 @@ class Farming {
     private var lockedSlot = -1
     private var bpsZeroStartTime = 0L
     private val yawPitchTolerance = 1.0f
+    private var lockedItemName: String? = null
 
     private val waypointColors = mapOf(
         "right" to intArrayOf(0, 255, 0),    // Green
@@ -92,7 +93,6 @@ class Farming {
         }
     }
 
-
     @SubscribeEvent
     fun onWorldUnLoad(event: WorldEvent.Unload) {
         if (mc.thePlayer != null && mc.theWorld != null) {
@@ -113,7 +113,7 @@ class Farming {
             isActive = !isActive
             if (!isActive) {
                 releaseAllKeys()
-                currentMode = ""
+                currentMode = "none"
                 lastWaypoint = null
                 ticksOnWaypoint = 0
             } else {
@@ -121,6 +121,7 @@ class Farming {
                     lockedYaw = it.rotationYaw
                     lockedPitch = it.rotationPitch
                     lockedSlot = it.inventory.currentItem
+                    lockedItemName = it.heldItem?.displayName
                 }
             }
         }
@@ -152,15 +153,10 @@ class Farming {
         }
 
         if (isActive) {
-            if (bps == 0.0) {
-                if (bpsZeroStartTime == 0L) {
-                    bpsZeroStartTime = System.currentTimeMillis()
-                } else if (System.currentTimeMillis() - bpsZeroStartTime >= 3000) {
-                    mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
-                    Utils.log("BPS = 0 for 3 seconds")
-                }
-            } else {
-                bpsZeroStartTime = 0L
+            val currentName = player.heldItem?.displayName
+            if (currentName != lockedItemName) {
+                mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                Utils.log("Item changed from $lockedItemName to $currentName")
             }
         }
 
@@ -175,6 +171,22 @@ class Farming {
             leftList.any { it == pos } -> "left"
             warpList.any { it == pos } -> "warp"
             else -> "none"
+        }
+
+        if (isActive) {
+            if (bps == 0.0) {
+                if (bpsZeroStartTime == 0L) {
+                    bpsZeroStartTime = System.currentTimeMillis()
+                } else {
+                    val delay = if (targetMode != "none") 5000 else 3000
+                    if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
+                        mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                        Utils.log("BPS = 0 for ${delay / 1000} seconds")
+                    }
+                }
+            } else {
+                bpsZeroStartTime = 0L
+            }
         }
 
         if (targetMode != "none") {
@@ -235,10 +247,6 @@ class Farming {
         val attack = settings.keyBindAttack
 
         if (currentMode == "none") {
-            KeyBinding.setKeyBindState(forward.keyCode, false)
-            KeyBinding.setKeyBindState(left.keyCode, false)
-            KeyBinding.setKeyBindState(right.keyCode, false)
-            KeyBinding.setKeyBindState(attack.keyCode, false)
             return
         }
 
