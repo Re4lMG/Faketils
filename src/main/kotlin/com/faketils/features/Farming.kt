@@ -192,6 +192,7 @@ class Farming {
         if (isActive) {
             if (mc.thePlayer.posY < 63) {
                 currentMode = "none"
+                releaseAllKeys()
             }
         }
 
