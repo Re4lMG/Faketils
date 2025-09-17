@@ -64,9 +64,7 @@ object FishingTickHandler {
             when (fireVeilState) {
                 1 -> {
                     if (delayCounter > 0) {
-                        if ((0..100).random() < 80) {
-                            delayCounter--
-                        }
+                        delayCounter--
                     } else {
                         fireVeilState = 2
                     }
@@ -79,9 +77,7 @@ object FishingTickHandler {
                 }
                 3 -> {
                     if (delayCounter > 0) {
-                        if ((0..100).random() < 80) {
-                            delayCounter--
-                        }
+                        delayCounter--
                     } else {
                         fireVeilState = 4
                     }
@@ -95,9 +91,7 @@ object FishingTickHandler {
                 }
                 5 -> {
                     if (delayCounter > 0) {
-                        if ((0..100).random() < 80) {
-                            delayCounter--
-                        }
+                        delayCounter--
                     } else {
                         fireVeilState = 6
                     }
@@ -112,7 +106,7 @@ object FishingTickHandler {
         }
 
         if (scheduledClick) {
-            clickTimer = (5..18).random()
+            clickTimer = (5..10).random()
             hasClickedOnce = true
 
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)

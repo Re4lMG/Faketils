@@ -40,6 +40,22 @@ object ItemRarity {
     fun renderRarityOverlay(stack: ItemStack?, x: Int, y: Int) {
         if (!Utils.isInSkyblock()) return
         if (stack == null) return
+
+        val mc = Minecraft.getMinecraft()
+        val screen = mc.currentScreen
+
+        val isContainerSlot = if (screen is net.minecraft.client.gui.inventory.GuiContainer) {
+            screen.inventorySlots.inventorySlots.any { slot ->
+                slot.hasStack && slot.stack == stack
+            }
+        } else {
+            false
+        }
+
+        val isHotbarSlot = mc.thePlayer.inventory.mainInventory.any { it == stack }
+
+        if (!isContainerSlot && !isHotbarSlot) return
+
         val rarity = getItemRarity(stack) ?: return
         renderRarityBackground(x, y, rarity)
     }

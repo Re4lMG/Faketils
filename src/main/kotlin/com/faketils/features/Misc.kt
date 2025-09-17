@@ -2,6 +2,7 @@ package com.faketils.features
 
 import com.faketils.Faketils
 import com.faketils.utils.Utils
+import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.GlStateManager
 import net.minecraft.client.resources.model.IBakedModel
 import net.minecraft.entity.EntityLivingBase
@@ -18,11 +19,28 @@ class Misc {
         @JvmStatic
         fun renderItemPre(stack: ItemStack, model: IBakedModel, ci: CallbackInfo) {
             if (!Utils.isInSkyblock()) return
+
+            val mc = Minecraft.getMinecraft()
+            val screen = mc.currentScreen
+
+            val isContainerSlot = if (screen is net.minecraft.client.gui.inventory.GuiContainer) {
+                screen.inventorySlots.inventorySlots.any { slot ->
+                    slot.hasStack && slot.stack == stack
+                }
+            } else {
+                false
+            }
+
+            val isHotbarSlot = mc.thePlayer.inventory.mainInventory.any { it == stack }
+
+            if (!isContainerSlot && !isHotbarSlot) return
+
             if (stack.item === Items.skull) {
                 val scale = Faketils.config.largerHeadScale.toDouble()
                 GlStateManager.scale(scale, scale, scale)
             }
         }
+
         @JvmStatic
         fun scaleItemDrop(
             entity: EntityItem,

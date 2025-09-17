@@ -189,6 +189,12 @@ class Farming {
             }
         }
 
+        if (isActive) {
+            if (mc.thePlayer.posY < 63) {
+                currentMode = "none"
+            }
+        }
+
         if (targetMode != "none") {
             if (lastWaypoint == pos) {
                 ticksOnWaypoint++
