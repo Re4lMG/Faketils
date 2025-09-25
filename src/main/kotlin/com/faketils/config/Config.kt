@@ -26,6 +26,13 @@ object Config : Vigilant(
     var fullBlockLever = false
 
     @Property(
+        type = PropertyType.SWITCH, name = "Bigger Glass Panes Box",
+        description = "Increases the size of Glass Panes bounding box.",
+        category = "Quality of Life", subcategory = "Blocks"
+    )
+    var fullBlockPanes = false
+
+    @Property(
         type = PropertyType.SWITCH, name = "No Hurt Cam",
         description = "Disable the hurt cam.",
         category = "Quality of Life", subcategory = "Visual"

@@ -60,6 +60,33 @@ object FishingTickHandler {
 
         val player = mc.thePlayer ?: return
 
+        if (scheduledClick) {
+            clickTimer = (5..10).random()
+            hasClickedOnce = true
+
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
+            KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
+
+            player.playSound("random.orb", 1.0f, 1.0f)
+            scheduledClick = false
+
+            if (Faketils.config.fishingHelperFireVeil) {
+                val detector = FireVeilDetector(mc)
+                val fireVeil = detector.findFireVeil()
+                if (fireVeil != null) {
+                    originalSlot = player.inventory.currentItem
+                    veilSlot = fireVeil.slot
+                    fireVeilState = 1
+                    delayCounter = (2..5).random()
+                }
+            }
+        }
+
+        if (clickTimer > 0) {
+            clickTimer--
+        }
+
         if (fireVeilState > 0) {
             when (fireVeilState) {
                 1 -> {
@@ -105,39 +132,13 @@ object FishingTickHandler {
             return
         }
 
-        if (scheduledClick) {
-            clickTimer = (5..10).random()
-            hasClickedOnce = true
-
+        if (clickTimer == 0 && hasClickedOnce) {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
             KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
-
-            player.playSound("random.orb", 1.0f, 1.0f)
-            scheduledClick = false
-
-            if (Faketils.config.fishingHelperFireVeil) {
-                val detector = FireVeilDetector(mc)
-                val fireVeil = detector.findFireVeil()
-                if (fireVeil != null) {
-                    originalSlot = player.inventory.currentItem
-                    veilSlot = fireVeil.slot
-                    fireVeilState = 1
-                    delayCounter = (2..5).random()
-                }
-            }
-        }
-
-        if (clickTimer > 0) {
-            clickTimer--
-            if (clickTimer == 0 && hasClickedOnce) {
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
-                KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
-                hasClickedOnce = false
-            } else if (clickTimer == 0) {
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
-            }
+            hasClickedOnce = false
+        } else if (clickTimer == 0) {
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
         }
     }
 

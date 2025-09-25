@@ -10,14 +10,9 @@ import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
 import net.minecraft.init.Blocks
 import net.minecraft.block.Block
-import net.minecraft.client.renderer.GlStateManager
-import net.minecraft.client.renderer.RenderGlobal
-import net.minecraft.client.renderer.Tessellator
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.network.play.client.C07PacketPlayerDigging
-import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.BlockPos
-import net.minecraft.util.Vec3
+import net.minecraft.util.MouseHelper
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.event.world.WorldEvent
@@ -25,10 +20,14 @@ import net.minecraftforge.fml.client.registry.ClientRegistry
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 import org.lwjgl.input.Keyboard
+import org.lwjgl.input.Mouse
 import org.lwjgl.opengl.GL11
+import java.awt.event.MouseEvent
 
 class Farming {
     lateinit var toggleKey: KeyBinding
+    lateinit var fakeKey: KeyBinding
+
     var isActive = false
     var currentMode = "none"
 
@@ -47,6 +46,9 @@ class Farming {
     private var bpsZeroStartTime = 0L
     private val yawPitchTolerance = 1.0f
     private var lockedItemName: String? = null
+
+    private var originalMouseSensitivity = 0.0f
+    private var isMouseLocked = false
 
     private val waypointColors = mapOf(
         "right" to intArrayOf(0, 255, 0),    // Green
@@ -73,6 +75,9 @@ class Farming {
     fun init() {
         toggleKey = KeyBinding("Funny Toggle", Keyboard.KEY_P, "Faketils")
         ClientRegistry.registerKeyBinding(toggleKey)
+
+        fakeKey = KeyBinding("Reset fake fails", Keyboard.KEY_P, "Faketils")
+        ClientRegistry.registerKeyBinding(fakeKey)
     }
 
     @SubscribeEvent
@@ -99,6 +104,7 @@ class Farming {
             isActive = false
             releaseAllKeys()
             currentMode = "none"
+            unlockMouse()
         }
     }
 
@@ -116,6 +122,7 @@ class Farming {
                 currentMode = "none"
                 lastWaypoint = null
                 ticksOnWaypoint = 0
+                unlockMouse()
             } else {
                 mc.thePlayer?.let {
                     lockedYaw = it.rotationYaw
@@ -123,10 +130,20 @@ class Farming {
                     lockedSlot = it.inventory.currentItem
                     lockedItemName = it.heldItem?.displayName
                 }
+                lockMouse()
             }
         }
 
         if (!isActive) return
+
+        if (fakeKey.isPressed) {
+            mc.thePlayer?.let {
+                lockedYaw = it.rotationYaw
+                lockedPitch = it.rotationPitch
+                lockedSlot = it.inventory.currentItem
+                lockedItemName = it.heldItem?.displayName
+            }
+        }
 
         if (isBreaking) {
             val secondsElapsed = (System.currentTimeMillis() - startTime) / 1000.0
@@ -178,7 +195,12 @@ class Farming {
                 if (bpsZeroStartTime == 0L) {
                     bpsZeroStartTime = System.currentTimeMillis()
                 } else {
-                    val delay = if (targetMode != "none") 5000 else 3000
+                    val playerPos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
+                    val isOnWaypoint = rightList.any { it == playerPos } ||
+                            leftList.any { it == playerPos } ||
+                            warpList.any { it == playerPos }
+
+                    val delay = if (isOnWaypoint) 5000 else 3000
                     if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
                         mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
                         Utils.log("BPS = 0 for ${delay / 1000} seconds")
@@ -275,5 +297,22 @@ class Farming {
         KeyBinding.setKeyBindState(settings.keyBindLeft.keyCode, false)
         KeyBinding.setKeyBindState(settings.keyBindRight.keyCode, false)
         KeyBinding.setKeyBindState(settings.keyBindAttack.keyCode, false)
+    }
+
+    private fun lockMouse() {
+        if (!isMouseLocked) {
+            originalMouseSensitivity = mc.gameSettings.mouseSensitivity
+            mc.gameSettings.mouseSensitivity = -1f / 3f
+            isMouseLocked = true
+            Utils.log("Mouse locked")
+        }
+    }
+
+    private fun unlockMouse() {
+        if (isMouseLocked) {
+            mc.gameSettings.mouseSensitivity = originalMouseSensitivity
+            isMouseLocked = false
+            Utils.log("Mouse unlocked")
+        }
     }
 }
