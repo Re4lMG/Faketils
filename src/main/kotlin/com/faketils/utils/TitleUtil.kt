@@ -16,9 +16,8 @@ object TitleUtil {
 
     fun showTitle(text: String, color: Color? = Color.RED, durationMillis: Int = 1000) {
         val endTime = System.currentTimeMillis() + durationMillis
-        Minecraft.getMinecraft().addScheduledTask {
-            titles.add(Title(text, color, endTime))
-        }
+        titles.clear()
+        titles.add(Title(text, color, endTime))
     }
 
     @SubscribeEvent
