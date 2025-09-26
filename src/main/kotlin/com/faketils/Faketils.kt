@@ -5,6 +5,7 @@ import com.faketils.commands.FarmingCommand
 import com.faketils.commands.warp.WarpCommandHandler
 import com.faketils.config.Config
 import com.faketils.features.*
+import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiScreen
@@ -54,6 +55,7 @@ class Faketils {
         farming.init()
         MinecraftForge.EVENT_BUS.register(farming)
         MinecraftForge.EVENT_BUS.register(PerformanceMode)
+        MinecraftForge.EVENT_BUS.register(TitleUtil)
 
         listOf(
             this

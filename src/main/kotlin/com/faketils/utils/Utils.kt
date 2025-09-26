@@ -13,7 +13,9 @@ import net.minecraft.scoreboard.ScorePlayerTeam
 import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.ChatComponentText
 import net.minecraft.util.StringUtils
+import net.minecraft.util.Vec3
 import org.lwjgl.opengl.GL11
+import scala.swing.Oriented.`Wrapper$class`.orientation
 import java.awt.Color
 
 
@@ -172,30 +174,59 @@ object Utils {
         GlStateManager.popMatrix()
     }
 
-    fun drawLineToEntity(x: Double, y: Double, z: Double, color: Color) {
+    fun draw3DLine(pos: Vec3?, color: Color?, partialTicks: Float) {
+        val viewer = Minecraft.getMinecraft().renderViewEntity
+        val interp = getInterpolatedPosition(viewer, partialTicks)
+
         GlStateManager.pushMatrix()
+        GlStateManager.translate(-interp.xCoord, -interp.yCoord, -interp.zCoord)
         GlStateManager.disableTexture2D()
         GlStateManager.enableBlend()
+        GL11.glDisable(GL11.GL_LIGHTING)
+        GlStateManager.disableLighting()
+        GlStateManager.disableAlpha()
         GlStateManager.disableDepth()
         GlStateManager.disableCull()
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
 
-        GL11.glLineWidth(2f)
-        GlStateManager.color(color.red / 255f, color.green / 255f, color.blue / 255f, 1f)
+        renderLine(pos!!, getPlayerLookVec(), color!!)
 
-        val tessellator = Tessellator.getInstance()
-        val buffer = tessellator.worldRenderer
-        buffer.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION)
-
-        buffer.pos(0.0, Minecraft.getMinecraft().thePlayer.eyeHeight.toDouble(), 0.0).endVertex()
-        buffer.pos(x, y, z).endVertex()
-
-        tessellator.draw()
-
-        GlStateManager.enableDepth()
-        GlStateManager.enableCull()
-        GlStateManager.disableBlend()
         GlStateManager.enableTexture2D()
+        GlStateManager.enableAlpha()
+        GlStateManager.disableBlend()
+        GlStateManager.enableCull()
+        GlStateManager.enableDepth()
+        GL11.glEnable(GL11.GL_LIGHTING)
+        GlStateManager.enableLighting()
+        GlStateManager.translate(interp.xCoord, interp.yCoord, interp.zCoord)
         GlStateManager.popMatrix()
+    }
+
+    private fun getPlayerLookVec(): Vec3 {
+        val mc = Minecraft.getMinecraft()
+        val yaw = -mc.thePlayer.rotationYaw
+        val pitch = -mc.thePlayer.rotationPitch
+        return Vec3(0.0, 0.0, 1.0)
+            .rotatePitch(Math.toRadians(pitch.toDouble()).toFloat())
+            .rotateYaw(Math.toRadians(yaw.toDouble()).toFloat())
+    }
+
+    private fun getInterpolatedPosition(entity: Entity, partialTicks: Float): Vec3 {
+        val x = entity.lastTickPosX + (entity.posX - entity.lastTickPosX) * partialTicks
+        val y = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * partialTicks
+        val z = entity.lastTickPosZ + (entity.posZ - entity.lastTickPosZ) * partialTicks
+        return Vec3(x, y, z)
+    }
+
+    private fun renderLine(start: Vec3, end: Vec3, color: Color) {
+        val wr = Tessellator.getInstance().worldRenderer
+        GlStateManager.color(
+            color.red / 255f, color.green / 255f,
+            color.blue / 255f, color.alpha / 255f
+        )
+        wr.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION)
+        wr.pos(start.xCoord, start.yCoord, start.zCoord).endVertex()
+        wr.pos(end.xCoord, end.yCoord, end.zCoord).endVertex()
+        Tessellator.getInstance().draw()
     }
 }

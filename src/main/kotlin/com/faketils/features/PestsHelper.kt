@@ -6,9 +6,11 @@ import net.minecraft.client.Minecraft
 import net.minecraft.entity.item.EntityArmorStand
 import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.StringUtils
+import net.minecraft.util.Vec3
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import java.awt.Color
+
 
 class PestsHelper {
 
@@ -26,14 +28,14 @@ class PestsHelper {
                 val customName = entity.getCustomNameTag() ?: continue
                 val unformattedName = StringUtils.stripControlCodes(customName)
 
-                if (unformattedName.startsWith("ൠ", ignoreCase = true)) {
+                if (unformattedName.startsWith("ൠ")) {
                     val x = entity.lastTickPosX + (entity.posX - entity.lastTickPosX) * partialTicks
                     val y = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * partialTicks
                     val z = entity.lastTickPosZ + (entity.posZ - entity.lastTickPosZ) * partialTicks
                     val aabb = AxisAlignedBB(x - 0.5, y, z - 0.5, x + 0.5, y + 1.0, z + 0.5)
 
                     Utils.drawFilledBoundingBoxEntity(aabb, 0.8f, Color.CYAN, partialTicks)
-                    Utils.drawLineToEntity(x, y + entity.height / 2.0, z, Color.CYAN)
+                    Utils.draw3DLine(Vec3(entity.posX, entity.posY + 1.75, entity.posZ), Color.CYAN, partialTicks)
                 }
             }
         }

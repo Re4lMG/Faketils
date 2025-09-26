@@ -17,7 +17,7 @@ class Misc {
 
     companion object {
         @JvmStatic
-        fun renderItemPre(stack: ItemStack) {
+        fun renderItemPre(stack: ItemStack, model: IBakedModel, ci: CallbackInfo) {
             if (!Utils.isInSkyblock()) return
 
             val mc = Minecraft.getMinecraft()
@@ -42,7 +42,13 @@ class Misc {
         }
 
         @JvmStatic
-        fun scaleItemDrop() {
+        fun scaleItemDrop(entity: EntityItem,
+                          x: Double,
+                          y: Double,
+                          z: Double,
+                          entityYaw: Float,
+                          partialTicks: Float,
+                          ci: CallbackInfo) {
             if (!Utils.isInSkyblock()) return
             val scale = Faketils.config.itemDropScale.toDouble()
             GlStateManager.scale(scale, scale, scale)
