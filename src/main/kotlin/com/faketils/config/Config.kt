@@ -91,6 +91,13 @@ object Config : Vigilant(
     var funnyToggle = false
 
     @Property(
+        type = PropertyType.SWITCH, name = "Pest Helper",
+        description = "Draws a line and a box to the nearest pests.",
+        category = "Farming", subcategory = "Pests"
+    )
+    var pestHelper = false
+
+    @Property(
         type = PropertyType.SWITCH, name = "Fishing Helper",
         description = "Enables the fishing helper.",
         category = "Fishing", subcategory = "Funny"

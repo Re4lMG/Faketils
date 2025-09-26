@@ -4,7 +4,6 @@ import com.faketils.commands.Command
 import com.faketils.commands.FarmingCommand
 import com.faketils.commands.warp.WarpCommandHandler
 import com.faketils.config.Config
-import com.faketils.config.PersistentData
 import com.faketils.features.*
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
@@ -33,7 +32,6 @@ class Faketils {
         val directory = File(event.modConfigurationDirectory, event.modMetadata.modId)
         directory.mkdirs()
         configDirectory = directory
-        persistentData = PersistentData.load()
         config = Config
         config.initialize()
 
@@ -50,6 +48,7 @@ class Faketils {
         MinecraftForge.EVENT_BUS.register(FireFreezeTimer())
         MinecraftForge.EVENT_BUS.register(FishingTickHandler)
         MinecraftForge.EVENT_BUS.register(Misc())
+        MinecraftForge.EVENT_BUS.register(PestsHelper())
         FarmingCommand.loadWaypoints()
 
         farming.init()
@@ -88,7 +87,6 @@ class Faketils {
 
         lateinit var configDirectory: File
         lateinit var config: Config
-        lateinit var persistentData: PersistentData
 
         lateinit var metadata: ModMetadata
 
@@ -96,7 +94,6 @@ class Faketils {
         fun saveAll() {
             config.markDirty()
             config.writeData()
-            persistentData.save()
         }
     }
 }

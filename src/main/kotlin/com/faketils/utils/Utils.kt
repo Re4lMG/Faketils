@@ -4,10 +4,18 @@ import com.faketils.Faketils
 import com.google.common.collect.Iterables
 import com.google.common.collect.Lists
 import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.GlStateManager
+import net.minecraft.client.renderer.Tessellator
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats
+import net.minecraft.entity.Entity
 import net.minecraft.scoreboard.Score
 import net.minecraft.scoreboard.ScorePlayerTeam
+import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.ChatComponentText
 import net.minecraft.util.StringUtils
+import org.lwjgl.opengl.GL11
+import java.awt.Color
+
 
 object Utils {
 
@@ -81,5 +89,113 @@ object Utils {
             return sidebarLines.any { cleanSB(it).contains("The Catacombs") }
         }
         return false
+    }
+
+    fun drawFilledBoundingBoxEntity(aabb: AxisAlignedBB, alpha: Float, color: Color, partialTicks: Float) {
+        val render: Entity = Minecraft.getMinecraft().renderViewEntity
+
+        val coordX: Double = render.lastTickPosX + (render.posX - render.lastTickPosX) * partialTicks
+        val coordY: Double = render.lastTickPosY + (render.posY - render.lastTickPosY) * partialTicks
+        val coordZ: Double = render.lastTickPosZ + (render.posZ - render.lastTickPosZ) * partialTicks
+
+        GlStateManager.pushMatrix()
+        GlStateManager.translate(-coordX, -coordY, -coordZ)
+
+        GlStateManager.disableTexture2D()
+        GlStateManager.enableBlend()
+        GL11.glDisable(GL11.GL_LIGHTING)
+        GlStateManager.disableLighting()
+        GlStateManager.disableAlpha()
+        GlStateManager.disableDepth()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
+
+        GlStateManager.color(
+            color.getRed() / 255f,
+            color.getGreen() / 255f,
+            color.getBlue() / 255f,
+            (color.getAlpha() / 255f) * alpha
+        )
+
+        val tessellator = Tessellator.getInstance()
+        val worldrenderer = tessellator.worldRenderer
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.maxZ).endVertex()
+        tessellator.draw()
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.maxZ).endVertex()
+        tessellator.draw()
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.minZ).endVertex()
+        tessellator.draw()
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.maxZ).endVertex()
+        tessellator.draw()
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.minY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.minX, aabb.maxY, aabb.minZ).endVertex()
+        tessellator.draw()
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.minZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.minY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.maxZ).endVertex()
+        worldrenderer.pos(aabb.maxX, aabb.maxY, aabb.minZ).endVertex()
+        tessellator.draw()
+
+        GlStateManager.enableTexture2D()
+        GlStateManager.enableAlpha()
+        GlStateManager.disableBlend()
+        GlStateManager.enableCull()
+        GlStateManager.enableDepth()
+        GL11.glEnable(GL11.GL_LIGHTING)
+        GlStateManager.enableLighting()
+        GlStateManager.popMatrix()
+    }
+
+    fun drawLineToEntity(x: Double, y: Double, z: Double, color: Color) {
+        GlStateManager.pushMatrix()
+        GlStateManager.disableTexture2D()
+        GlStateManager.enableBlend()
+        GlStateManager.disableDepth()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
+
+        GL11.glLineWidth(2f)
+        GlStateManager.color(color.red / 255f, color.green / 255f, color.blue / 255f, 1f)
+
+        val tessellator = Tessellator.getInstance()
+        val buffer = tessellator.worldRenderer
+        buffer.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION)
+
+        buffer.pos(0.0, Minecraft.getMinecraft().thePlayer.eyeHeight.toDouble(), 0.0).endVertex()
+        buffer.pos(x, y, z).endVertex()
+
+        tessellator.draw()
+
+        GlStateManager.enableDepth()
+        GlStateManager.enableCull()
+        GlStateManager.disableBlend()
+        GlStateManager.enableTexture2D()
+        GlStateManager.popMatrix()
     }
 }

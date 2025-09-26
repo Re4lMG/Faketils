@@ -3,6 +3,7 @@ package com.faketils.features
 import com.faketils.Faketils
 import com.faketils.commands.FarmingCommand
 import com.faketils.events.PacketEvent
+import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
 import kotlin.math.abs
 import net.minecraft.client.Minecraft
@@ -22,13 +23,16 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
 import org.lwjgl.input.Keyboard
 import org.lwjgl.input.Mouse
 import org.lwjgl.opengl.GL11
+import java.awt.Color
 import java.awt.event.MouseEvent
 
 class Farming {
     lateinit var toggleKey: KeyBinding
     lateinit var fakeKey: KeyBinding
+    lateinit var pauseKey: KeyBinding
 
     var isActive = false
+    var isPaused = false
     var currentMode = "none"
 
     private var lastWaypoint: BlockPos? = null
@@ -73,10 +77,13 @@ class Farming {
     val mc = Minecraft.getMinecraft()
 
     fun init() {
-        toggleKey = KeyBinding("Funny Toggle", Keyboard.KEY_P, "Faketils")
+        toggleKey = KeyBinding("Macro Toggle", Keyboard.KEY_F8, "Faketils")
         ClientRegistry.registerKeyBinding(toggleKey)
 
-        fakeKey = KeyBinding("Reset fake fails", Keyboard.KEY_P, "Faketils")
+        pauseKey = KeyBinding("Pause & Unpause Macro", Keyboard.KEY_P, "Faketils")
+        ClientRegistry.registerKeyBinding(pauseKey)
+
+        fakeKey = KeyBinding("Reset fake fails", Keyboard.KEY_BACK, "Faketils")
         ClientRegistry.registerKeyBinding(fakeKey)
     }
 
@@ -117,6 +124,7 @@ class Farming {
 
         if (toggleKey.isPressed) {
             isActive = !isActive
+            isPaused = false
             if (!isActive) {
                 releaseAllKeys()
                 currentMode = "none"
@@ -134,7 +142,19 @@ class Farming {
             }
         }
 
-        if (!isActive) return
+        if (isActive && pauseKey.isPressed) {
+            isPaused = !isPaused
+            if (isPaused) {
+                releaseAllKeys()
+                unlockMouse()
+                Utils.log("Macro paused")
+            } else {
+                lockMouse()
+                Utils.log("Macro resumed")
+            }
+        }
+
+        if (!isActive || isPaused) return
 
         if (fakeKey.isPressed) {
             mc.thePlayer?.let {
@@ -166,6 +186,7 @@ class Farming {
 
         if (isActive && player.inventory.currentItem != lockedSlot) {
             mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+            TitleUtil.showTitle("Slot changed")
             Utils.log("Slot changed")
         }
 
@@ -173,6 +194,7 @@ class Farming {
             val currentName = player.heldItem?.displayName
             if (currentName != lockedItemName) {
                 mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                TitleUtil.showTitle("Item changed")
                 Utils.log("Item changed from $lockedItemName to $currentName")
             }
         }
@@ -180,6 +202,7 @@ class Farming {
         if (abs(player.rotationYaw - lockedYaw) > yawPitchTolerance ||
             abs(player.rotationPitch - lockedPitch) > yawPitchTolerance) {
             mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+            TitleUtil.showTitle("Yaw/pitch changed")
             Utils.log("Yaw/pitch changed")
         }
 
@@ -196,13 +219,15 @@ class Farming {
                     bpsZeroStartTime = System.currentTimeMillis()
                 } else {
                     val playerPos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
-                    val isOnWaypoint = rightList.any { it == playerPos } ||
-                            leftList.any { it == playerPos } ||
-                            warpList.any { it == playerPos }
+                    val isOnWaypoint =
+                        rightList.any { Math.abs(playerPos.x - it.x) <= 2 && Math.abs(playerPos.z - it.z) <= 2 } ||
+                                leftList.any { Math.abs(playerPos.x - it.x) <= 2 && Math.abs(playerPos.z - it.z) <= 2 } ||
+                                warpList.any { Math.abs(playerPos.x - it.x) <= 2 && Math.abs(playerPos.z - it.z) <= 2 }
 
                     val delay = if (isOnWaypoint) 5000 else 3000
                     if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
                         mc.thePlayer?.playSound("random.anvil_land", 1.0f, 1.0f)
+                        TitleUtil.showTitle("BPS = 0")
                         Utils.log("BPS = 0 for ${delay / 1000} seconds")
                     }
                 }
@@ -255,7 +280,11 @@ class Farming {
         val fontRenderer = mc.fontRendererObj
         val resolution = ScaledResolution(mc)
 
-        val statusText = if (isActive) "Funny: §aActive" else "Funny: §cInactive"
+        val statusText = when {
+            !isActive -> "Macro: §cInactive"
+            isPaused -> "Macro: §ePaused"
+            else -> "Macro: §aActive"
+        }
 
         val scale = 4.0f
         val statusWidth = fontRenderer.getStringWidth(statusText) * scale
