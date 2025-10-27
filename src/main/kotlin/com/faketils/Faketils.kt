@@ -1,9 +1,10 @@
 package com.faketils
 
-import com.faketils.commands.Command
+import cc.polyfrost.oneconfig.utils.commands.CommandManager
+import com.faketils.commands.FaketilsCommand
 import com.faketils.commands.FarmingCommand
 import com.faketils.commands.warp.WarpCommandHandler
-import com.faketils.config.Config
+import com.faketils.config.FaketilsConfig
 import com.faketils.features.*
 import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
@@ -20,8 +21,8 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
 import java.io.File
 
 @Mod(
-    modid = "faketils",
-    name = "Faketils",
+    modid = Faketils.MOD_ID,
+    name = Faketils.NAME,
     useMetadata = true,
     clientSideOnly = true
 )
@@ -33,8 +34,7 @@ class Faketils {
         val directory = File(event.modConfigurationDirectory, event.modMetadata.modId)
         directory.mkdirs()
         configDirectory = directory
-        config = Config
-        config.initialize()
+        config = FaketilsConfig()
 
         WarpCommandHandler()
     }
@@ -43,7 +43,7 @@ class Faketils {
 
     @Mod.EventHandler
     fun onInit(event: FMLInitializationEvent) {
-        ClientCommandHandler.instance.registerCommand(Command())
+        CommandManager.register(FaketilsCommand())
         ClientCommandHandler.instance.registerCommand(FarmingCommand())
 
         MinecraftForge.EVENT_BUS.register(FireFreezeTimer())
@@ -87,14 +87,8 @@ class Faketils {
         const val NAME = "Faketils"
 
         lateinit var configDirectory: File
-        lateinit var config: Config
+        lateinit var config: FaketilsConfig
 
         lateinit var metadata: ModMetadata
-
-
-        fun saveAll() {
-            config.markDirty()
-            config.writeData()
-        }
     }
 }

@@ -209,7 +209,7 @@ class Farming {
                 if (bpsZeroStartTime == 0L) {
                     bpsZeroStartTime = System.currentTimeMillis()
                 } else {
-                    val playerPos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
+                    val playerPos = BlockPos(player.posX, player.posY + 0.5, player.posZ)
                     val isOnWaypoint =
                         rightList.any { Math.abs(playerPos.x - it.x) <= 2 && Math.abs(playerPos.z - it.z) <= 2 } ||
                                 leftList.any { Math.abs(playerPos.x - it.x) <= 2 && Math.abs(playerPos.z - it.z) <= 2 } ||
@@ -308,7 +308,6 @@ class Farming {
             }
         }
     }
-
 
     private fun holdKeys() {
         val settings = Minecraft.getMinecraft().gameSettings

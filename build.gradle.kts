@@ -46,6 +46,7 @@ sourceSets.main {
 }
 
 repositories {
+    maven("https://repo.polyfrost.cc/releases")
     maven("https://repo.spongepowered.org/maven/")
     mavenCentral()
     maven("https://maven.minecraftforge.net/")
@@ -71,8 +72,8 @@ dependencies {
     shadowImpl("org.spongepowered:mixin:0.7.11-SNAPSHOT") { isTransitive = false }
     annotationProcessor("org.spongepowered:mixin:0.8.4-SNAPSHOT")
 
-    shadowImpl("gg.essential:loader-launchwrapper:1.1.3")
-    implementation("gg.essential:essential-1.8.9-forge:3662")
+    compileOnly("cc.polyfrost:oneconfig-1.8.9-forge:0.2.1-alpha+")
+    shadowImpl("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
 }
 
 tasks {
