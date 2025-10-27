@@ -16,10 +16,13 @@ object FishingTickHandler {
     private var hasClickedOnce = false
     private var scheduledClick = false
     private var delayTimer = 0
-    private var fireVeilState = 0
+    private var weaponState = 0
     private var originalSlot = 0
-    private var veilSlot = 0
+    private var weaponSlot = 0
     private var delayCounter = 0
+    private var slugFishingActive = false
+    private var slugStartTime = 0L
+    private var lastBobberId = -1
 
     private val handledArmorStands = mutableSetOf<Int>()
 
@@ -60,6 +63,32 @@ object FishingTickHandler {
 
         val player = mc.thePlayer ?: return
 
+        if (Faketils.config.slugFishing) {
+            val bobber = player.fishEntity
+            if (bobber != null) {
+                if (bobber.entityId != lastBobberId) {
+                    lastBobberId = bobber.entityId
+                    slugStartTime = System.currentTimeMillis()
+                    slugFishingActive = true
+                    Utils.log("Slug cooldown started.")
+                }
+            } else if (lastBobberId != -1) {
+                lastBobberId = -1
+                slugFishingActive = false
+            }
+
+            if (slugFishingActive) {
+                val elapsed = System.currentTimeMillis() - slugStartTime
+                if (elapsed < 10_000) {
+                    scheduledClick = false
+                    return
+                } else {
+                    slugFishingActive = false
+                    Utils.log("Slug cooldown ended.")
+                }
+            }
+        }
+
         if (scheduledClick) {
             clickTimer = (5..10).random()
             hasClickedOnce = true
@@ -71,13 +100,13 @@ object FishingTickHandler {
             player.playSound("random.orb", 1.0f, 1.0f)
             scheduledClick = false
 
-            if (Faketils.config.fishingHelperFireVeil) {
-                val detector = FireVeilDetector(mc)
-                val fireVeil = detector.findFireVeil()
-                if (fireVeil != null) {
+            if (Faketils.config.fishingHelperKilling) {
+                val detector = WeaponDetector(mc)
+                val weapon = detector.findWeapon()
+                if (weapon != null) {
                     originalSlot = player.inventory.currentItem
-                    veilSlot = fireVeil.slot
-                    fireVeilState = 1
+                    weaponSlot = weapon.slot
+                    weaponState = 1
                     delayCounter = (2..5).random()
                 }
             }
@@ -87,26 +116,26 @@ object FishingTickHandler {
             clickTimer--
         }
 
-        if (fireVeilState > 0) {
-            when (fireVeilState) {
+        if (weaponState > 0) {
+            when (weaponState) {
                 1 -> {
                     if (delayCounter > 0) {
                         delayCounter--
                     } else {
-                        fireVeilState = 2
+                        weaponState = 2
                     }
                 }
                 2 -> {
-                    player.inventory.currentItem = veilSlot
+                    player.inventory.currentItem = weaponSlot
                     mc.playerController.updateController()
                     delayCounter = (2..5).random()
-                    fireVeilState = 3
+                    weaponState = 3
                 }
                 3 -> {
                     if (delayCounter > 0) {
                         delayCounter--
                     } else {
-                        fireVeilState = 4
+                        weaponState = 4
                     }
                 }
                 4 -> {
@@ -114,19 +143,19 @@ object FishingTickHandler {
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
                     delayCounter = (2..5).random()
-                    fireVeilState = 5
+                    weaponState = 5
                 }
                 5 -> {
                     if (delayCounter > 0) {
                         delayCounter--
                     } else {
-                        fireVeilState = 6
+                        weaponState = 6
                     }
                 }
                 6 -> {
                     player.inventory.currentItem = originalSlot
                     mc.playerController.updateController()
-                    fireVeilState = 0
+                    weaponState = 0
                 }
             }
             return
@@ -142,20 +171,20 @@ object FishingTickHandler {
         }
     }
 
-    class FireVeilDetector(private val mc: Minecraft = Minecraft.getMinecraft()) {
+    class WeaponDetector(private val mc: Minecraft = Minecraft.getMinecraft()) {
 
-        data class FireVeilResult(val slot: Int, val keyBind: KeyBinding)
+        data class WeaponResult(val slot: Int, val keyBind: KeyBinding)
 
-        fun findFireVeil(): FireVeilResult? {
+        fun findWeapon(): WeaponResult? {
             val player = mc.thePlayer ?: return null
             val hotbar = player.inventory.mainInventory
 
             for (slot in 0..8) {
                 val stack: ItemStack? = hotbar[slot]
-                if (stack != null && stack.hasDisplayName() && stack.displayName.contains("Fire Veil Wand")) {
+                if (stack != null && stack.hasDisplayName() && stack.displayName.contains(Faketils.config.fishingHelperKillingWeapon)) {
                     val keyBind = mc.gameSettings.keyBindsHotbar[slot]
-                    Utils.log("Veil at $slot")
-                    return FireVeilResult(slot, keyBind)
+                    Utils.log("Weapon at $slot")
+                    return WeaponResult(slot, keyBind)
                 }
             }
             return null

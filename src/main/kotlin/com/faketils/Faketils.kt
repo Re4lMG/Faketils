@@ -79,7 +79,6 @@ class Faketils {
         }
     }
 
-
     companion object {
         val mc: Minecraft = Minecraft.getMinecraft()
         var currentGui: GuiScreen? = null

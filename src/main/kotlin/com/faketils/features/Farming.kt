@@ -5,15 +5,13 @@ import com.faketils.commands.FarmingCommand
 import com.faketils.events.PacketEvent
 import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
-import kotlin.math.abs
+import net.minecraft.block.Block
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
 import net.minecraft.init.Blocks
-import net.minecraft.block.Block
 import net.minecraft.network.play.client.C07PacketPlayerDigging
 import net.minecraft.util.BlockPos
-import net.minecraft.util.MouseHelper
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.event.world.WorldEvent
@@ -21,10 +19,9 @@ import net.minecraftforge.fml.client.registry.ClientRegistry
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 import org.lwjgl.input.Keyboard
-import org.lwjgl.input.Mouse
 import org.lwjgl.opengl.GL11
 import java.awt.Color
-import java.awt.event.MouseEvent
+import kotlin.math.abs
 
 class Farming {
     lateinit var toggleKey: KeyBinding
@@ -53,12 +50,6 @@ class Farming {
 
     private var originalMouseSensitivity = 0.0f
     private var isMouseLocked = false
-
-    private val waypointColors = mapOf(
-        "right" to intArrayOf(0, 255, 0),    // Green
-        "left" to intArrayOf(255, 0, 0),     // Red
-        "warp" to intArrayOf(255, 255, 0)    // Yellow
-    )
 
     private val farmableBlocks: Set<Block> = setOf(
         Blocks.wheat,
@@ -178,7 +169,7 @@ class Farming {
         }
 
         val player = mc.thePlayer ?: return
-        val pos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
+        val pos = BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 0.5, mc.thePlayer.posZ)
 
         val rightList = FarmingCommand.waypoints["right"] ?: emptyList()
         val leftList = FarmingCommand.waypoints["left"] ?: emptyList()
@@ -296,6 +287,28 @@ class Farming {
         fontRenderer.drawStringWithShadow(statusText, x / scale, y / scale, 0xFFFFFF)
         GL11.glPopMatrix()
     }
+
+    @SubscribeEvent
+    fun onRenderWorldLast(event: RenderWorldLastEvent) {
+        val mc = Minecraft.getMinecraft()
+        if (!Utils.isInSkyblock()) return
+        if (!Faketils.config.funnyToggle) return
+        if (mc.thePlayer == null || mc.theWorld == null) return
+
+        for ((type, list) in FarmingCommand.waypoints) {
+            val color = when (type.lowercase()) {
+                "left" -> Color(255, 0, 0, 100)   // red
+                "right" -> Color(0, 255, 0, 100)  // green
+                "warp" -> Color(255, 255, 0, 100) // yellow
+                else -> Color(0, 150, 255, 100)   // blue fallback
+            }
+
+            for (pos in list) {
+                Utils.drawFilledBlockBox(pos, color, 0.5f, event.partialTicks)
+            }
+        }
+    }
+
 
     private fun holdKeys() {
         val settings = Minecraft.getMinecraft().gameSettings

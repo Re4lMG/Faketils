@@ -35,7 +35,11 @@ class PestsHelper {
                     val aabb = AxisAlignedBB(x - 0.5, y, z - 0.5, x + 0.5, y + 1.0, z + 0.5)
 
                     Utils.drawFilledBoundingBoxEntity(aabb, 0.8f, Color.CYAN, partialTicks)
-                    Utils.draw3DLine(Vec3(entity.posX, entity.posY + 1.75, entity.posZ), Color.CYAN, partialTicks)
+                    Utils.draw3DLine(
+                        Vec3(entity.posX, entity.posY, entity.posZ),
+                        mc.thePlayer.getPositionEyes(partialTicks),
+                        Color.CYAN, partialTicks
+                    )
                 }
             }
         }

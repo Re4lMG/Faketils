@@ -56,7 +56,7 @@ class FarmingCommand : CommandBase() {
         }
 
         val player = mc.thePlayer ?: return
-        val pos = BlockPos(player.posX.toInt(), player.posY.toInt(), player.posZ.toInt())
+        val pos = BlockPos(player.posX, player.posY + 0.5, player.posZ)
 
         when (args[0].lowercase()) {
             "right" -> {

@@ -57,7 +57,7 @@ object Config : Vigilant(
         type = PropertyType.DECIMAL_SLIDER, name = "Larger Head Scale",
         description = "Scale the heads inside the inventory.",
         category = "Quality of Life", subcategory = "Visual",
-        maxF = 3f, minF = 0.1f, decimalPlaces = 2
+        maxF = 3f, minF = 0.1f
     )
     var largerHeadScale = 1f
 
@@ -72,7 +72,7 @@ object Config : Vigilant(
         type = PropertyType.DECIMAL_SLIDER, name = "Dropped Item Size",
         description = "Change the size of dropped items.",
         category = "Quality of Life", subcategory = "Visual",
-        maxF = 3f, minF = 0.1f, decimalPlaces = 2
+        maxF = 3f, minF = 0.1f
     )
     var itemDropScale = 1f
 
@@ -105,11 +105,29 @@ object Config : Vigilant(
     var fishingHelper = false
 
     @Property(
-        type = PropertyType.SWITCH, name = "Fire Veil killing",
-        description = "Enables the fire veil killing, useful for lava fishing.",
+        type = PropertyType.SWITCH,
+        name = "Slug Trophy Fishing Helper",
+        description = "Enables slug trophy fishing helper.",
         category = "Fishing", subcategory = "Funny"
     )
-    var fishingHelperFireVeil = false
+    var slugFishing = false
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Sea Creatures Killing Helper",
+        description = "Enables sea creature killing, useful for lava fishing.",
+        category = "Fishing", subcategory = "Funny"
+    )
+    var fishingHelperKilling: Boolean = false
+
+    @Property(
+        type = PropertyType.TEXT,
+        name = "Weapon",
+        description = "Write the weapon name to use for killing (hyperion, flay & veil all work).",
+        category = "Fishing", subcategory = "Funny",
+        placeholder = "Enter weapon name"
+    )
+    var fishingHelperKillingWeapon: String = ""
 
     @Property(
         type = PropertyType.SWITCH, name = "Debug",

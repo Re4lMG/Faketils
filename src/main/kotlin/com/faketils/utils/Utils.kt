@@ -10,12 +10,8 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.entity.Entity
 import net.minecraft.scoreboard.Score
 import net.minecraft.scoreboard.ScorePlayerTeam
-import net.minecraft.util.AxisAlignedBB
-import net.minecraft.util.ChatComponentText
-import net.minecraft.util.StringUtils
-import net.minecraft.util.Vec3
+import net.minecraft.util.*
 import org.lwjgl.opengl.GL11
-import scala.swing.Oriented.`Wrapper$class`.orientation
 import java.awt.Color
 
 
@@ -174,8 +170,81 @@ object Utils {
         GlStateManager.popMatrix()
     }
 
-    fun draw3DLine(pos: Vec3?, color: Color?, partialTicks: Float) {
-        val viewer = Minecraft.getMinecraft().renderViewEntity
+    fun drawFilledBlockBox(pos: BlockPos, color: Color, alpha: Float, partialTicks: Float) {
+        val mc = Minecraft.getMinecraft()
+        val render = mc.renderViewEntity ?: return
+
+        val coordX = render.lastTickPosX + (render.posX - render.lastTickPosX) * partialTicks
+        val coordY = render.lastTickPosY + (render.posY - render.lastTickPosY) * partialTicks
+        val coordZ = render.lastTickPosZ + (render.posZ - render.lastTickPosZ) * partialTicks
+
+        val aabb = AxisAlignedBB(
+            pos.x.toDouble(),
+            pos.y.toDouble(),
+            pos.z.toDouble(),
+            pos.x + 1.0,
+            pos.y + 1.0,
+            pos.z + 1.0
+        )
+
+        GlStateManager.pushMatrix()
+        GlStateManager.translate(-coordX, -coordY, -coordZ)
+
+        GlStateManager.disableTexture2D()
+        GlStateManager.enableBlend()
+        GL11.glDisable(GL11.GL_LIGHTING)
+        GlStateManager.disableLighting()
+        GlStateManager.disableAlpha()
+        GlStateManager.disableDepth()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
+
+        GlStateManager.color(
+            color.red / 255f,
+            color.green / 255f,
+            color.blue / 255f,
+            (color.alpha / 255f) * alpha
+        )
+
+        val tessellator = Tessellator.getInstance()
+        val worldRenderer = tessellator.worldRenderer
+
+        fun drawFace(x1: Double, y1: Double, z1: Double, x2: Double, y2: Double, z2: Double,
+                     x3: Double, y3: Double, z3: Double, x4: Double, y4: Double, z4: Double) {
+            worldRenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION)
+            worldRenderer.pos(x1, y1, z1).endVertex()
+            worldRenderer.pos(x2, y2, z2).endVertex()
+            worldRenderer.pos(x3, y3, z3).endVertex()
+            worldRenderer.pos(x4, y4, z4).endVertex()
+            tessellator.draw()
+        }
+
+        // Bottom
+        drawFace(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.minY, aabb.minZ, aabb.maxX, aabb.minY, aabb.maxZ, aabb.minX, aabb.minY, aabb.maxZ)
+        // Top
+        drawFace(aabb.minX, aabb.maxY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ, aabb.minX, aabb.maxY, aabb.maxZ)
+        // North
+        drawFace(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.minZ, aabb.minX, aabb.maxY, aabb.minZ)
+        // South
+        drawFace(aabb.minX, aabb.minY, aabb.maxZ, aabb.maxX, aabb.minY, aabb.maxZ, aabb.maxX, aabb.maxY, aabb.maxZ, aabb.minX, aabb.maxY, aabb.maxZ)
+        // West
+        drawFace(aabb.minX, aabb.minY, aabb.minZ, aabb.minX, aabb.minY, aabb.maxZ, aabb.minX, aabb.maxY, aabb.maxZ, aabb.minX, aabb.maxY, aabb.minZ)
+        // East
+        drawFace(aabb.maxX, aabb.minY, aabb.minZ, aabb.maxX, aabb.minY, aabb.maxZ, aabb.maxX, aabb.maxY, aabb.maxZ, aabb.maxX, aabb.maxY, aabb.minZ)
+
+        GlStateManager.enableTexture2D()
+        GlStateManager.enableAlpha()
+        GlStateManager.disableBlend()
+        GlStateManager.enableCull()
+        GlStateManager.enableDepth()
+        GL11.glEnable(GL11.GL_LIGHTING)
+        GlStateManager.enableLighting()
+        GlStateManager.popMatrix()
+    }
+
+
+    fun draw3DLine(pos: Vec3, pos2: Vec3, color: Color, partialTicks: Float) {
+        val viewer = Minecraft.getMinecraft().getRenderViewEntity()
         val interp = getInterpolatedPosition(viewer, partialTicks)
 
         GlStateManager.pushMatrix()
@@ -189,7 +258,7 @@ object Utils {
         GlStateManager.disableCull()
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
 
-        renderLine(pos!!, getPlayerLookVec(), color!!)
+        renderLine(pos, pos2, color)
 
         GlStateManager.enableTexture2D()
         GlStateManager.enableAlpha()
