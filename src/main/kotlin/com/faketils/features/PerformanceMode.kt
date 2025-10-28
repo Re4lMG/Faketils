@@ -1,6 +1,5 @@
 package com.faketils.features
 
-import com.faketils.Faketils
 import com.faketils.config.FaketilsConfig
 import net.minecraft.client.Minecraft
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent

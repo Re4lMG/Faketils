@@ -1,6 +1,5 @@
 package com.faketils.features
 
-import com.faketils.Faketils
 import com.faketils.config.FaketilsConfig
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft

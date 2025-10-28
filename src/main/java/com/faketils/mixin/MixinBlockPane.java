@@ -1,6 +1,5 @@
 package com.faketils.mixin;
 
-import com.faketils.Faketils;
 import com.faketils.config.FaketilsConfig;
 import com.faketils.utils.Utils;
 import net.minecraft.block.BlockPane;

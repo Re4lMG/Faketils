@@ -1,16 +1,16 @@
 @file:Suppress("UnstableApiUsage", "PropertyName")
 
-import cc.polyfrost.gradle.util.noServerRunConfigs
+import org.polyfrost.gradle.util.noServerRunConfigs
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
     kotlin("jvm")
-    id("cc.polyfrost.multi-version")
-    id("cc.polyfrost.defaults.repo")
-    id("cc.polyfrost.defaults.java")
-    id("cc.polyfrost.defaults.loom")
+    id("org.polyfrost.multi-version")
+    id("org.polyfrost.defaults.repo")
+    id("org.polyfrost.defaults.java")
+    id("org.polyfrost.defaults.loom")
     id("com.github.johnrengelman.shadow")
-    id("net.kyori.blossom") version "1.3.0"
+    id("net.kyori.blossom") version "1.3.2"
     id("signing")
     java
 }
@@ -19,11 +19,6 @@ val mod_name: String by project
 val mod_version: String by project
 val mod_id: String by project
 val mod_archives_name: String by project
-
-
-preprocess {
-    vars.put("MODERN", if (project.platform.mcMinor >= 16) 1 else 0)
-}
 
 blossom {
     replaceToken("@VER@", mod_version)
@@ -42,13 +37,11 @@ loom {
     noServerRunConfigs()
 
     if (project.platform.isLegacyForge) {
-        launchConfigs.named("client") {
-            arg("--tweakClass", "cc.polyfrost.oneconfig.loader.stage0.LaunchWrapperTweaker")
-
-            property(
-                "mixin.debug.export",
-                "true"
-            )
+        runConfigs {
+            "client" {
+                programArgs("--tweakClass", "cc.polyfrost.oneconfig.loader.stage0.LaunchWrapperTweaker")
+                property("mixin.debug.export", "true")
+            }
         }
     }
     if (project.platform.isForge) {
@@ -56,10 +49,14 @@ loom {
             mixinConfig("mixins.${mod_id}.json")
         }
     }
+    mixin.defaultRefmapName.set("mixins.${mod_id}.refmap.json")
 }
 
 val shade: Configuration by configurations.creating {
     configurations.implementation.get().extendsFrom(this)
+}
+val modShade: Configuration by configurations.creating {
+    configurations.modImplementation.get().extendsFrom(this)
 }
 
 sourceSets {
@@ -79,7 +76,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.24")
 
     if (platform.isLegacyForge) {
-        shade("org.spongepowered:mixin:0.7.11-SNAPSHOT")
+        compileOnly("org.spongepowered:mixin:0.7.11-SNAPSHOT")
         shade("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
     }
 }
@@ -142,11 +139,16 @@ tasks {
 
     named<ShadowJar>("shadowJar") {
         archiveClassifier.set("dev")
-        configurations = listOf(shade)
+        configurations = listOf(shade, modShade)
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
     remapJar {
+        inputFile.set(shadowJar.get().archiveFile)
+        archiveClassifier.set("")
+    }
+
+    jar {
         if (platform.isLegacyForge) {
             manifest.attributes += mapOf(
                 "ModSide" to "CLIENT",
@@ -157,11 +159,7 @@ tasks {
             )
         }
         dependsOn(shadowJar)
-        input.set(shadowJar.get().archiveFile)
         archiveClassifier.set("")
-    }
-
-    jar {
         enabled = false
     }
 }

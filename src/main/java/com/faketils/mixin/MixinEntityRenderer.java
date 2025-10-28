@@ -1,6 +1,5 @@
 package com.faketils.mixin;
 
-import com.faketils.Faketils;
 import com.faketils.config.FaketilsConfig;
 import net.minecraft.client.renderer.EntityRenderer;
 import org.spongepowered.asm.mixin.Mixin;

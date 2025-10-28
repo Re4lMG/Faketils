@@ -1,10 +1,8 @@
 package com.faketils.features
 
-import com.faketils.Faketils
 import com.faketils.commands.FarmingCommand
 import com.faketils.config.FaketilsConfig
 import com.faketils.events.PacketEvent
-import com.faketils.hud.MacroStatusHUD
 import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
 import com.faketils.utils.Utils.isInSkyblock

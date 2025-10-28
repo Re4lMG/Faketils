@@ -1,6 +1,5 @@
 package com.faketils.utils
 
-import com.faketils.Faketils
 import com.faketils.config.FaketilsConfig
 import com.google.common.collect.Iterables
 import com.google.common.collect.Lists
