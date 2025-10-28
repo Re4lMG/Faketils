@@ -79,7 +79,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.24")
 
     if (platform.isLegacyForge) {
-        compileOnly("org.spongepowered:mixin:0.7.11-SNAPSHOT")
+        shade("org.spongepowered:mixin:0.7.11-SNAPSHOT")
         shade("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
     }
 }
@@ -147,22 +147,21 @@ tasks {
     }
 
     remapJar {
-        input.set(shadowJar.get().archiveFile)
-        archiveClassifier.set("")
-    }
-
-    jar {
         if (platform.isLegacyForge) {
             manifest.attributes += mapOf(
                 "ModSide" to "CLIENT",
                 "ForceLoadAsMod" to true,
                 "TweakOrder" to "0",
-                "MixinConfigs" to "mixin.${mod_id}.json",
+                "MixinConfigs" to "mixins.${mod_id}.json",
                 "TweakClass" to "cc.polyfrost.oneconfig.loader.stage0.LaunchWrapperTweaker"
             )
         }
         dependsOn(shadowJar)
+        input.set(shadowJar.get().archiveFile)
         archiveClassifier.set("")
+    }
+
+    jar {
         enabled = false
     }
 }

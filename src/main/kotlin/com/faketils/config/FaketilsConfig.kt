@@ -207,7 +207,7 @@ object FaketilsConfig : Config(
          category = "HUD",
          subcategory = "Misc"
     )
-    val invSpecHUD = InvSpecHUD()
+    var invSpecHUD = InvSpecHUD()
 
     init {
         initialize()
