@@ -1,21 +1,28 @@
+@file:Suppress("PropertyName")
+
 pluginManagement {
     repositories {
-        maven("https://repo.polyfrost.cc/releases")
-        maven("https://repo.essential.gg/repository/maven-public/")
-        maven("https://maven.architectury.dev/")
-        maven("https://maven.fabricmc.net/")
-        maven("https://maven.minecraftforge.net/")
-        maven("https://repo.spongepowered.org/maven/")
         gradlePluginPortal()
         mavenCentral()
+        maven("https://repo.polyfrost.cc/releases")
     }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "gg.essential.loom") {
-                useModule("gg.essential:architectury-loom:${requested.version}")
-            }
-        }
+    plugins {
+        val pgtVersion = "0.1.28"
+        id("cc.polyfrost.multi-version.root") version pgtVersion
     }
 }
 
-rootProject.name = "Faketils"
+val mod_name: String by settings
+
+rootProject.name = mod_name
+rootProject.buildFileName = "root.gradle.kts"
+
+listOf(
+    "1.8.9-forge",
+).forEach { version ->
+    include(":$version")
+    project(":$version").apply {
+        projectDir = file("versions/$version")
+        buildFileName = "../../build.gradle.kts"
+    }
+}

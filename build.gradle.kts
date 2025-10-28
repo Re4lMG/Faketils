@@ -1,125 +1,168 @@
+@file:Suppress("UnstableApiUsage", "PropertyName")
+
+import cc.polyfrost.gradle.util.noServerRunConfigs
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
-    kotlin("jvm") version "1.8.21"
-    kotlin("plugin.serialization") version "1.8.21"
-
-    idea
+    kotlin("jvm")
+    id("cc.polyfrost.multi-version")
+    id("cc.polyfrost.defaults.repo")
+    id("cc.polyfrost.defaults.java")
+    id("cc.polyfrost.defaults.loom")
+    id("com.github.johnrengelman.shadow")
+    id("net.kyori.blossom") version "1.3.0"
+    id("signing")
     java
-    id("gg.essential.loom") version "0.10.0.5"
-    id("dev.architectury.architectury-pack200") version "0.1.3"
-    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
-group = project.property("group") as String
-version = project.property("version") as String
+val mod_name: String by project
+val mod_version: String by project
+val mod_id: String by project
+val mod_archives_name: String by project
 
 
-java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(8))
+preprocess {
+    vars.put("MODERN", if (project.platform.mcMinor >= 16) 1 else 0)
 }
 
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
-    }
+blossom {
+    replaceToken("@VER@", mod_version)
+    replaceToken("@NAME@", mod_name)
+    replaceToken("@ID@", mod_id)
+}
+
+version = mod_version
+group = "com.faketils"
+
+base {
+    archivesName.set("$mod_archives_name-$platform")
 }
 
 loom {
-    launchConfigs {
-        "client" {
-            property("mixin.debug", "true")
-            property("asmhelper.verbose", "true")
-            arg("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker")
-            arg("--mixin", "mixins.faketils.json")
+    noServerRunConfigs()
+
+    if (project.platform.isLegacyForge) {
+        launchConfigs.named("client") {
+            arg("--tweakClass", "cc.polyfrost.oneconfig.loader.stage0.LaunchWrapperTweaker")
+
+            property(
+                "mixin.debug.export",
+                "true"
+            )
         }
     }
-    forge {
-        pack200Provider.set(dev.architectury.pack200.java.Pack200Adapter())
-        mixinConfig("mixins.faketils.json")
-    }
-    mixin {
-        defaultRefmapName.set("mixins.faketils.refmap.json")
+    if (project.platform.isForge) {
+        forge {
+            mixinConfig("mixins.${mod_id}.json")
+        }
     }
 }
 
-sourceSets.main {
-    output.setResourcesDir(file("$buildDir/classes/java/main"))
+val shade: Configuration by configurations.creating {
+    configurations.implementation.get().extendsFrom(this)
+}
+
+sourceSets {
+    main {
+        output.setResourcesDir(java.classesDirectory)
+    }
 }
 
 repositories {
     maven("https://repo.polyfrost.cc/releases")
-    maven("https://repo.spongepowered.org/maven/")
-    mavenCentral()
-    maven("https://maven.minecraftforge.net/")
-    maven("https://repo.essential.gg/repository/maven-public/")
-    maven("https://maven.architectury.dev/")
-    maven("https://mvnrepository.com/repos/central")
-}
-
-val shadowImpl: Configuration by configurations.creating {
-    configurations.implementation.get().extendsFrom(this)
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
-
-    minecraft("com.mojang:minecraft:1.8.9")
-    mappings("de.oceanlabs.mcp:mcp_stable:22-1.8.9")
-    forge("net.minecraftforge:forge:1.8.9-11.15.1.2318-1.8.9")
+    modCompileOnly("cc.polyfrost:oneconfig-$platform:0.2.0-alpha+")
 
     compileOnly("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
 
-    shadowImpl("org.spongepowered:mixin:0.7.11-SNAPSHOT") { isTransitive = false }
-    annotationProcessor("org.spongepowered:mixin:0.8.4-SNAPSHOT")
-
-    compileOnly("cc.polyfrost:oneconfig-1.8.9-forge:0.2.1-alpha+")
-    shadowImpl("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
+    if (platform.isLegacyForge) {
+        compileOnly("org.spongepowered:mixin:0.7.11-SNAPSHOT")
+        shade("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
+    }
 }
 
 tasks {
     processResources {
-        filesMatching("mcmod.info") {
+        inputs.property("id", mod_id)
+        inputs.property("name", mod_name)
+        val java = if (project.platform.mcMinor >= 18) {
+            17
+        } else {
+            if (project.platform.mcMinor == 17)
+                16
+            else
+                8
+        }
+        val compatLevel = "JAVA_${java}"
+        inputs.property("java", java)
+        inputs.property("java_level", compatLevel)
+        inputs.property("version", mod_version)
+        inputs.property("mcVersionStr", project.platform.mcVersionStr)
+        filesMatching(listOf("mcmod.info", "mixins.${mod_id}.json", "mods.toml")) {
             expand(
                 mapOf(
-                    "modname" to project.name,
-                    "modid" to project.name.toLowerCase(),
-                    "version" to project.version,
-                    "mcversion" to "1.8.9"
+                    "id" to mod_id,
+                    "name" to mod_name,
+                    "java" to java,
+                    "java_level" to compatLevel,
+                    "version" to mod_version,
+                    "mcVersionStr" to project.platform.mcVersionStr
+                )
+            )
+        }
+        filesMatching("fabric.mod.json") {
+            expand(
+                mapOf(
+                    "id" to mod_id,
+                    "name" to mod_name,
+                    "java" to java,
+                    "java_level" to compatLevel,
+                    "version" to mod_version,
+                    "mcVersionStr" to project.platform.mcVersionStr.substringBeforeLast(".") + ".x"
                 )
             )
         }
     }
-}
 
-tasks.withType<JavaCompile> {
-    options.encoding = "UTF-8"
-}
-
-tasks.withType<Jar> {
-    manifest.attributes.run {
-        this["FMLCorePluginContainsFMLMod"] = "true"
-        this["ForceLoadAsMod"] = "true"
-        this["MixinConfigs"] = "mixins.faketils.json"
-        this["TweakClass"] = "org.spongepowered.asm.launch.MixinTweaker"
-    }
-    archiveBaseName.set("Faketils")
-    archiveVersion.set(project.version.toString())
-}
-
-val remapJar by tasks.named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
-    archiveClassifier.set("")
-    from(tasks.shadowJar)
-    input.set(tasks.shadowJar.get().archiveFile)
-}
-
-tasks.shadowJar {
-    archiveClassifier.set("dev")
-    configurations = listOf(shadowImpl)
-    doLast {
-        configurations.forEach {
-            println("Config: ${it.files}")
+    withType(Jar::class.java) {
+        if (project.platform.isFabric) {
+            exclude("mcmod.info", "mods.toml")
+        } else {
+            exclude("fabric.mod.json")
+            if (project.platform.isLegacyForge) {
+                exclude("mods.toml")
+            } else {
+                exclude("mcmod.info")
+            }
         }
     }
-}
 
-tasks.assemble.get().dependsOn(tasks.remapJar)
+    named<ShadowJar>("shadowJar") {
+        archiveClassifier.set("dev")
+        configurations = listOf(shade)
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    remapJar {
+        input.set(shadowJar.get().archiveFile)
+        archiveClassifier.set("")
+    }
+
+    jar {
+        if (platform.isLegacyForge) {
+            manifest.attributes += mapOf(
+                "ModSide" to "CLIENT",
+                "ForceLoadAsMod" to true,
+                "TweakOrder" to "0",
+                "MixinConfigs" to "mixin.${mod_id}.json",
+                "TweakClass" to "cc.polyfrost.oneconfig.loader.stage0.LaunchWrapperTweaker"
+            )
+        }
+        dependsOn(shadowJar)
+        archiveClassifier.set("")
+        enabled = false
+    }
+}

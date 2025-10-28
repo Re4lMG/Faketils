@@ -1,6 +1,7 @@
 package com.faketils.utils
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import com.google.common.collect.Iterables
 import com.google.common.collect.Lists
 import net.minecraft.client.Minecraft
@@ -69,7 +70,7 @@ object Utils {
     }
 
     fun log(message: String) {
-        if (!Faketils.config.debug) return
+        if (!FaketilsConfig.debug) return
         val player = mc.thePlayer ?: return
         player.addChatComponentMessage(ChatComponentText("§7[§bFaketils§7] §f$message"))
     }

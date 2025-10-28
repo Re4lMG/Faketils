@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.settings.KeyBinding
@@ -30,7 +31,7 @@ object FishingTickHandler {
 
     @SubscribeEvent
     fun onRenderWorldLast(event: RenderWorldLastEvent) {
-        if (!Utils.isInSkyblock() || !Faketils.config.fishingHelper) return
+        if (!Utils.isInSkyblock() || !FaketilsConfig.fishingHelper) return
 
         if (mc.currentScreen != null) return
         val player = mc.thePlayer ?: return
@@ -58,12 +59,12 @@ object FishingTickHandler {
     @SubscribeEvent
     fun onClientTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.END) return
-        if (!Faketils.config.fishingHelper) return
+        if (!FaketilsConfig.fishingHelper) return
         if (mc.currentScreen != null) return
 
         val player = mc.thePlayer ?: return
 
-        if (Faketils.config.slugFishing) {
+        if (FaketilsConfig.slugFishing) {
             val bobber = player.fishEntity
             if (bobber != null) {
                 if (bobber.entityId != lastBobberId) {
@@ -100,7 +101,7 @@ object FishingTickHandler {
             player.playSound("random.orb", 1.0f, 1.0f)
             scheduledClick = false
 
-            if (Faketils.config.fishingHelperKilling) {
+            if (FaketilsConfig.fishingHelperKilling) {
                 val detector = WeaponDetector(mc)
                 val weapon = detector.findWeapon()
                 if (weapon != null) {
@@ -181,7 +182,7 @@ object FishingTickHandler {
 
             for (slot in 0..8) {
                 val stack: ItemStack? = hotbar[slot]
-                if (stack != null && stack.hasDisplayName() && stack.displayName.contains(Faketils.config.fishingHelperKillingWeapon)) {
+                if (stack != null && stack.hasDisplayName() && stack.displayName.contains(FaketilsConfig.fishingHelperKillingWeapon)) {
                     val keyBind = mc.gameSettings.keyBindsHotbar[slot]
                     Utils.log("Weapon at $slot")
                     return WeaponResult(slot, keyBind)

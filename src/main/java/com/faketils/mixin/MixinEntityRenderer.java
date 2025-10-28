@@ -1,6 +1,7 @@
 package com.faketils.mixin;
 
 import com.faketils.Faketils;
+import com.faketils.config.FaketilsConfig;
 import net.minecraft.client.renderer.EntityRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinEntityRenderer {
     @Inject(method = {"hurtCameraEffect"}, at = {@At("HEAD")}, cancellable = true)
     public void hurtCameraEffect(CallbackInfo ci) {
-        if (Faketils.config.getNoHurtCam()) {
+        if (FaketilsConfig.INSTANCE.getNoHurtCam()) {
             ci.cancel();
         }
     }

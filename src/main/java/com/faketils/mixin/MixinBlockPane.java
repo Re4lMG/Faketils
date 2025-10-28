@@ -1,6 +1,7 @@
 package com.faketils.mixin;
 
 import com.faketils.Faketils;
+import com.faketils.config.FaketilsConfig;
 import com.faketils.utils.Utils;
 import net.minecraft.block.BlockPane;
 import net.minecraft.util.BlockPos;
@@ -16,7 +17,7 @@ public abstract class MixinBlockPane {
     @Inject(method = "setBlockBoundsBasedOnState", at = @At("HEAD"), cancellable = true)
     private void modifyPaneBoundingBox(IBlockAccess worldIn, BlockPos pos, CallbackInfo ci) {
         if (!Utils.INSTANCE.isInSkyblock()) return;
-        if (Faketils.config.getFullBlockPanes()) {
+        if (FaketilsConfig.INSTANCE.getFullBlockPanes()) {
             ((BlockPane)(Object)this).setBlockBounds(0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F);
             ci.cancel();
         }

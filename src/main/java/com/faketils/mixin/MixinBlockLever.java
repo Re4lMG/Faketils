@@ -1,6 +1,7 @@
 package com.faketils.mixin;
 
 import com.faketils.Faketils;
+import com.faketils.config.FaketilsConfig;
 import com.faketils.utils.Utils;
 import net.minecraft.block.BlockLever;
 import net.minecraft.util.BlockPos;
@@ -18,7 +19,7 @@ public abstract class MixinBlockLever {
     @Inject(method = "setBlockBoundsBasedOnState", at = @At("HEAD"), cancellable = true)
     private void modifyLeverBoundingBox(IBlockAccess worldIn, BlockPos pos, CallbackInfo ci) {
         if (!Utils.INSTANCE.isInSkyblock()) return;
-        if (Faketils.config.getFullBlockLever()) {
+        if (FaketilsConfig.INSTANCE.getFullBlockLever()) {
             BlockLever lever = (BlockLever) (Object) this;
             IBlockState state = worldIn.getBlockState(pos);
             EnumFacing facing = state.getValue(BlockLever.FACING).getFacing();

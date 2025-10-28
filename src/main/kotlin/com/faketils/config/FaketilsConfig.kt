@@ -1,13 +1,19 @@
 package com.faketils.config
 
 import cc.polyfrost.oneconfig.config.Config
+import cc.polyfrost.oneconfig.config.annotations.HUD
+import cc.polyfrost.oneconfig.config.annotations.KeyBind
 import cc.polyfrost.oneconfig.config.annotations.Slider
 import cc.polyfrost.oneconfig.config.annotations.Switch
 import cc.polyfrost.oneconfig.config.annotations.Text
+import cc.polyfrost.oneconfig.config.core.OneKeyBind
 import cc.polyfrost.oneconfig.config.data.Mod
 import cc.polyfrost.oneconfig.config.data.ModType
+import com.faketils.hud.InvSpecHUD
+import com.faketils.hud.MacroStatusHUD
+import org.lwjgl.input.Keyboard
 
-class FaketilsConfig : Config(
+object FaketilsConfig : Config(
     Mod("Faketils", ModType.UTIL_QOL),
     "faketils.json"
 ) {
@@ -17,7 +23,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Blocks"
     )
-    var fullBlockButton: Boolean = false
+    var fullBlockButton = false
 
     @Switch(
         name = "Bigger Lever Box",
@@ -25,7 +31,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Blocks"
     )
-    var fullBlockLever: Boolean = false
+    var fullBlockLever = false
 
     @Switch(
         name = "Bigger Glass Panes Box",
@@ -33,7 +39,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Blocks"
     )
-    var fullBlockPanes: Boolean = false
+    var fullBlockPanes = false
 
     @Switch(
         name = "No Hurt Cam",
@@ -41,7 +47,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Visual"
     )
-    var noHurtCam: Boolean = false
+    var noHurtCam = false
 
     @Switch(
         name = "Hide Dying Mobs",
@@ -49,7 +55,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Visual"
     )
-    var hideDyingMobs: Boolean = false
+    var hideDyingMobs = false
 
     @Switch(
         name = "Performance mode",
@@ -57,7 +63,7 @@ class FaketilsConfig : Config(
         category = "Quality of Life",
         subcategory = "Performance"
     )
-    var performanceMode: Boolean = false
+    var performanceMode = false
 
     @Slider(
         name = "Larger Head Scale",
@@ -67,7 +73,7 @@ class FaketilsConfig : Config(
         min = 0.1f,
         max = 3.0f
     )
-    var largerHeadScale: Float = 1.0f
+    var largerHeadScale = 1.0f
 
     @Slider(
         name = "Item rarity display",
@@ -77,7 +83,7 @@ class FaketilsConfig : Config(
         min = 0.0f,
         max = 1.0f
     )
-    var itemRarity: Float = 0.0f
+    var itemRarity = 0.0f
 
     @Slider(
         name = "Dropped Item Size",
@@ -87,7 +93,7 @@ class FaketilsConfig : Config(
         min = 0.1f,
         max = 3.0f
     )
-    var itemDropScale: Float = 1.0f
+    var itemDropScale = 1.0f
 
     @Switch(
         name = "Fire Freeze Timer",
@@ -95,7 +101,7 @@ class FaketilsConfig : Config(
         category = "Dungeons",
         subcategory = "M3/F3"
     )
-    var fireFreezeTimer: Boolean = false
+    var fireFreezeTimer = false
 
     @Switch(
         name = "Funny Toggle",
@@ -103,7 +109,42 @@ class FaketilsConfig : Config(
         category = "Farming",
         subcategory = "Funny"
     )
-    var funnyToggle: Boolean = false
+    var funnyToggle = false
+
+    @Switch(
+        name = "Show waypoints",
+        description = "Display the lane switching waypoints. Disable if you aren't farming.",
+        category = "Farming",
+        subcategory = "Funny"
+    )
+    var funnyWaypoints = false
+
+    @KeyBind(
+        name = "Macro keybind",
+        category = "Keybinds",
+        subcategory = "Macro",
+        description = "Toggles the macro on/off",
+        size = 2
+    )
+    var toggleMacro = OneKeyBind(Keyboard.KEY_F8)
+
+    @KeyBind(
+        name = "Pause & Unpause Macro",
+        category = "Keybinds",
+        subcategory = "Macro",
+        description = "Pauses or unpauses the macro",
+        size = 2
+    )
+    var pauseMacro = OneKeyBind(Keyboard.KEY_P)
+
+    @KeyBind(
+        name = "Reset Fake Fails",
+        category = "Keybinds",
+        subcategory = "Macro",
+        description = "Resets fake fails for the macro",
+        size = 2
+    )
+    var resetFakeFails = OneKeyBind(Keyboard.KEY_BACK)
 
     @Switch(
         name = "Pest Helper",
@@ -111,7 +152,7 @@ class FaketilsConfig : Config(
         category = "Farming",
         subcategory = "Pests"
     )
-    var pestHelper: Boolean = false
+    var pestHelper = false
 
     @Switch(
         name = "Fishing Helper",
@@ -119,7 +160,7 @@ class FaketilsConfig : Config(
         category = "Fishing",
         subcategory = "Funny"
     )
-    var fishingHelper: Boolean = false
+    var fishingHelper = false
 
     @Switch(
         name = "Slug Trophy Fishing Helper",
@@ -127,7 +168,7 @@ class FaketilsConfig : Config(
         category = "Fishing",
         subcategory = "Funny"
     )
-    var slugFishing: Boolean = false
+    var slugFishing = false
 
     @Switch(
         name = "Sea Creatures Killing Helper",
@@ -135,7 +176,7 @@ class FaketilsConfig : Config(
         category = "Fishing",
         subcategory = "Funny"
     )
-    var fishingHelperKilling: Boolean = false
+    var fishingHelperKilling = false
 
     @Text(
         name = "Weapon",
@@ -144,7 +185,7 @@ class FaketilsConfig : Config(
         subcategory = "Funny",
         placeholder = "Enter weapon name"
     )
-    var fishingHelperKillingWeapon: String = ""
+    var fishingHelperKillingWeapon = ""
 
     @Switch(
         name = "Debug",
@@ -152,7 +193,21 @@ class FaketilsConfig : Config(
         category = "Debug",
         subcategory = "Debug"
     )
-    var debug: Boolean = false
+    var debug = false
+
+    @HUD(
+        name = "Farming Macro status HUD",
+        category = "HUD",
+        subcategory = "Farming"
+    )
+    var macroStatusHUD = MacroStatusHUD()
+
+    @HUD(
+         name = "Inventory HUD",
+         category = "HUD",
+         subcategory = "Misc"
+    )
+    val invSpecHUD = InvSpecHUD()
 
     init {
         initialize()

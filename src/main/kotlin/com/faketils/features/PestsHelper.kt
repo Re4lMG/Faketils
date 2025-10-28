@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.entity.item.EntityArmorStand
@@ -12,12 +13,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import java.awt.Color
 
 
-class PestsHelper {
+object PestsHelper {
 
     @SubscribeEvent
     fun onRenderLast(event: RenderWorldLastEvent) {
         if (!Utils.isInSkyblock()) return
-        if (!Faketils.config.pestHelper) return
+        if (!FaketilsConfig.pestHelper) return
         val mc = Minecraft.getMinecraft()
         val world = mc.theWorld ?: return
 

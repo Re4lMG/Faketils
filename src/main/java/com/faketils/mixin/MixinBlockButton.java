@@ -1,6 +1,7 @@
 package com.faketils.mixin;
 
 import com.faketils.Faketils;
+import com.faketils.config.FaketilsConfig;
 import com.faketils.utils.Utils;
 import net.minecraft.block.BlockButton;
 import net.minecraft.util.BlockPos;
@@ -18,7 +19,7 @@ public abstract class MixinBlockButton {
     @Inject(method = "setBlockBoundsBasedOnState", at = @At("HEAD"), cancellable = true)
     private void modifyButtonBoundingBox(IBlockAccess worldIn, BlockPos pos, CallbackInfo ci) {
         if (!Utils.INSTANCE.isInSkyblock()) return;
-        if (Faketils.config.getFullBlockButton()) {
+        if (FaketilsConfig.INSTANCE.getFullBlockButton()) {
             BlockButton button = (BlockButton) (Object) this;
             IBlockState state = worldIn.getBlockState(pos);
             EnumFacing facing = state.getValue(BlockButton.FACING);

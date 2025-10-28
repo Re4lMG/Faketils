@@ -1,10 +1,10 @@
 [
   {
-	"modid": "${modid}",
-	"name": "${modname}",
+	"modid": "${id}",
+	"name": "${name}",
 	"description": "Faketils a small skyblock qol mod.",
 	"version": "${version}",
-	"mcversion": "${mcversion}",
+	"mcversion": "1.8.9",
 	"url": "https://github.com/Re4lMG/Faketils",
 	"updateUrl": "",
 	"authorList": [

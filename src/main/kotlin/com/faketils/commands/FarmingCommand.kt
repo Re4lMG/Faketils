@@ -9,39 +9,38 @@ import java.io.File
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
-class FarmingCommand : CommandBase() {
+object FarmingCommand : CommandBase() {
 
     private val mc: Minecraft = Minecraft.getMinecraft()
 
-    companion object {
-        val waypoints = mutableMapOf<String, MutableList<BlockPos>>()
 
-        fun loadWaypoints() {
-            val file = File(Faketils.configDirectory, "farming.json")
-            if (file.exists()) {
-                try {
-                    val type = object : TypeToken<Map<String, List<Map<String, Int>>>>() {}.type
-                    val data: Map<String, List<Map<String, Int>>> = Gson().fromJson(file.readText(), type)
-                    waypoints.clear()
-                    data.forEach { (key, list) ->
-                        waypoints[key] = list.map { BlockPos(it["x"]!!, it["y"]!!, it["z"]!!) }.toMutableList()
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
+    val waypoints = mutableMapOf<String, MutableList<BlockPos>>()
 
-        fun saveWaypoints() {
+    fun loadWaypoints() {
+        val file = File(Faketils.configDirectory, "farming.json")
+        if (file.exists()) {
             try {
-                val data = waypoints.mapValues { (_, list) ->
-                    list.map { pos -> mapOf("x" to pos.x, "y" to pos.y, "z" to pos.z) }
+                val type = object : TypeToken<Map<String, List<Map<String, Int>>>>() {}.type
+                val data: Map<String, List<Map<String, Int>>> = Gson().fromJson(file.readText(), type)
+                waypoints.clear()
+                data.forEach { (key, list) ->
+                    waypoints[key] = list.map { BlockPos(it["x"]!!, it["y"]!!, it["z"]!!) }.toMutableList()
                 }
-                val file = File(Faketils.configDirectory, "farming.json")
-                file.writeText(Gson().toJson(data))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun saveWaypoints() {
+        try {
+            val data = waypoints.mapValues { (_, list) ->
+                list.map { pos -> mapOf("x" to pos.x, "y" to pos.y, "z" to pos.z) }
+            }
+            val file = File(Faketils.configDirectory, "farming.json")
+            file.writeText(Gson().toJson(data))
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

@@ -2,31 +2,33 @@ package com.faketils.features
 
 import com.faketils.Faketils
 import com.faketils.commands.FarmingCommand
+import com.faketils.config.FaketilsConfig
 import com.faketils.events.PacketEvent
+import com.faketils.hud.MacroStatusHUD
 import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
+import com.faketils.utils.Utils.isInSkyblock
+import com.faketils.utils.Utils.log
 import net.minecraft.block.Block
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.settings.KeyBinding
 import net.minecraft.init.Blocks
 import net.minecraft.network.play.client.C07PacketPlayerDigging
 import net.minecraft.util.BlockPos
-import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.event.world.WorldEvent
-import net.minecraftforge.fml.client.registry.ClientRegistry
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
+import net.minecraftforge.fml.common.gameevent.InputEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
 import org.lwjgl.input.Keyboard
-import org.lwjgl.opengl.GL11
 import java.awt.Color
 import kotlin.math.abs
 
-class Farming {
-    lateinit var toggleKey: KeyBinding
-    lateinit var fakeKey: KeyBinding
-    lateinit var pauseKey: KeyBinding
+object Farming {
+
+    private val toggleKey: Int = (if (FaketilsConfig.toggleMacro.getKeyBinds().isEmpty()) 0 else FaketilsConfig.toggleMacro.getKeyBinds().get(0))!!
+    private val pauseKey: Int = (if (FaketilsConfig.pauseMacro.getKeyBinds().isEmpty()) 0 else FaketilsConfig.pauseMacro.getKeyBinds().get(0))!!
+    private val resetKey: Int = (if (FaketilsConfig.resetFakeFails.getKeyBinds().isEmpty()) 0 else FaketilsConfig.resetFakeFails.getKeyBinds().get(0))!!
 
     var isActive = false
     var isPaused = false
@@ -67,17 +69,6 @@ class Farming {
 
     val mc = Minecraft.getMinecraft()
 
-    fun init() {
-        toggleKey = KeyBinding("Macro Toggle", Keyboard.KEY_F8, "Faketils")
-        ClientRegistry.registerKeyBinding(toggleKey)
-
-        pauseKey = KeyBinding("Pause & Unpause Macro", Keyboard.KEY_P, "Faketils")
-        ClientRegistry.registerKeyBinding(pauseKey)
-
-        fakeKey = KeyBinding("Reset fake fails", Keyboard.KEY_BACK, "Faketils")
-        ClientRegistry.registerKeyBinding(fakeKey)
-    }
-
     @SubscribeEvent
     fun onPacketSent(event: PacketEvent.Send) {
         val packet = event.packet
@@ -100,9 +91,67 @@ class Farming {
     fun onWorldUnLoad(event: WorldEvent.Unload) {
         if (mc.thePlayer != null && mc.theWorld != null) {
             isActive = false
+            isPaused = false
             releaseAllKeys()
+            FaketilsConfig.macroStatusHUD.isActive = false
+            FaketilsConfig.macroStatusHUD.isPaused = false
             currentMode = "none"
             unlockMouse()
+        }
+    }
+
+    @SubscribeEvent
+    fun onKeyPress(event: InputEvent.KeyInputEvent?) {
+        if (mc.currentScreen != null || !isInSkyblock() || !FaketilsConfig.funnyToggle) return
+
+        val keyCode = Keyboard.getEventKey()
+        val keyPressed = Keyboard.getEventKeyState()
+
+        if (keyCode == toggleKey && keyPressed) {
+            isActive = !isActive
+            isPaused = false
+
+            FaketilsConfig.macroStatusHUD.isActive = isActive
+            FaketilsConfig.macroStatusHUD.isPaused = isPaused
+
+            if (!isActive) {
+                releaseAllKeys()
+                currentMode = "none"
+                lastWaypoint = null
+                ticksOnWaypoint = 0
+                unlockMouse()
+            } else if (mc.thePlayer != null) {
+                lockedYaw = mc.thePlayer.rotationYaw
+                lockedPitch = mc.thePlayer.rotationPitch
+                lockedSlot = mc.thePlayer.inventory.currentItem
+                lockedItemName =
+                    if (mc.thePlayer.getHeldItem() != null) mc.thePlayer.getHeldItem().getDisplayName() else null
+                lockMouse()
+            }
+            log("Macro toggled: " + isActive)
+        }
+
+        if (keyCode == pauseKey && keyPressed && isActive) {
+            isPaused = !isPaused
+
+            FaketilsConfig.macroStatusHUD.isPaused = isPaused
+            if (isPaused) {
+                releaseAllKeys()
+                unlockMouse()
+                log("Macro paused")
+            } else {
+                lockMouse()
+                log("Macro resumed")
+            }
+        }
+
+        if (keyCode == resetKey && keyPressed && isActive && mc.thePlayer != null) {
+            lockedYaw = mc.thePlayer.rotationYaw
+            lockedPitch = mc.thePlayer.rotationPitch
+            lockedSlot = mc.thePlayer.inventory.currentItem
+            lockedItemName =
+                if (mc.thePlayer.getHeldItem() != null) mc.thePlayer.getHeldItem().getDisplayName() else null
+            log("Reset fake fails")
         }
     }
 
@@ -111,50 +160,9 @@ class Farming {
         if (event.phase != TickEvent.Phase.END) return
         if (mc.currentScreen != null) return
         if (!Utils.isInSkyblock()) return
-        if (!Faketils.config.funnyToggle) return
-
-        if (toggleKey.isPressed) {
-            isActive = !isActive
-            isPaused = false
-            if (!isActive) {
-                releaseAllKeys()
-                currentMode = "none"
-                lastWaypoint = null
-                ticksOnWaypoint = 0
-                unlockMouse()
-            } else {
-                mc.thePlayer?.let {
-                    lockedYaw = it.rotationYaw
-                    lockedPitch = it.rotationPitch
-                    lockedSlot = it.inventory.currentItem
-                    lockedItemName = it.heldItem?.displayName
-                }
-                lockMouse()
-            }
-        }
-
-        if (isActive && pauseKey.isPressed) {
-            isPaused = !isPaused
-            if (isPaused) {
-                releaseAllKeys()
-                unlockMouse()
-                Utils.log("Macro paused")
-            } else {
-                lockMouse()
-                Utils.log("Macro resumed")
-            }
-        }
+        if (!FaketilsConfig.funnyToggle) return
 
         if (!isActive || isPaused) return
-
-        if (fakeKey.isPressed) {
-            mc.thePlayer?.let {
-                lockedYaw = it.rotationYaw
-                lockedPitch = it.rotationPitch
-                lockedSlot = it.inventory.currentItem
-                lockedItemName = it.heldItem?.displayName
-            }
-        }
 
         if (isBreaking) {
             val secondsElapsed = (System.currentTimeMillis() - startTime) / 1000.0
@@ -262,37 +270,10 @@ class Farming {
     }
 
     @SubscribeEvent
-    fun onRenderGameOverlay(event: RenderGameOverlayEvent.Post) {
-        if (event.type != RenderGameOverlayEvent.ElementType.ALL) return
-        if (!Utils.isInSkyblock()) return
-        if (!Faketils.config.funnyToggle) return
-
-        val mc = Minecraft.getMinecraft()
-        val fontRenderer = mc.fontRendererObj
-        val resolution = ScaledResolution(mc)
-
-        val statusText = when {
-            !isActive -> "Macro: §cInactive"
-            isPaused -> "Macro: §ePaused"
-            else -> "Macro: §aActive"
-        }
-
-        val scale = 4.0f
-        val statusWidth = fontRenderer.getStringWidth(statusText) * scale
-        val x = (resolution.scaledWidth - statusWidth) / 2.0f
-        val y = 20.0f
-
-        GL11.glPushMatrix()
-        GL11.glScalef(scale, scale, 1.0f)
-        fontRenderer.drawStringWithShadow(statusText, x / scale, y / scale, 0xFFFFFF)
-        GL11.glPopMatrix()
-    }
-
-    @SubscribeEvent
     fun onRenderWorldLast(event: RenderWorldLastEvent) {
         val mc = Minecraft.getMinecraft()
         if (!Utils.isInSkyblock()) return
-        if (!Faketils.config.funnyToggle) return
+        if (!FaketilsConfig.funnyWaypoints) return
         if (mc.thePlayer == null || mc.theWorld == null) return
 
         for ((type, list) in FarmingCommand.waypoints) {

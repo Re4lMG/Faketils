@@ -12,6 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinRenderEntityItem {
     @Inject(method = "doRender", at = @At(value = "INVOKE", target = "net/minecraft/client/renderer/GlStateManager.pushMatrix()V", shift = At.Shift.AFTER, ordinal = 1))
     private void scaleItemDrop(EntityItem entity, double x, double y, double z, float entityYaw, float partialTicks, CallbackInfo ci) {
-        Misc.scaleItemDrop(entity, x, y, z, entityYaw, partialTicks, ci);
+        Misc.INSTANCE.scaleItemDrop(entity, x, y, z, entityYaw, partialTicks, ci);
     }
 }

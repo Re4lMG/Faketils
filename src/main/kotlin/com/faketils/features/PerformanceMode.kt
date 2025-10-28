@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import net.minecraft.client.Minecraft
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
@@ -25,7 +26,7 @@ object PerformanceMode {
         if (event.phase != TickEvent.Phase.END) return
         if (mc.thePlayer == null || mc.theWorld == null) return
 
-        if (Faketils.config.performanceMode) {
+        if (FaketilsConfig.performanceMode) {
             if (!isEnabled()) {
                 start()
             }
@@ -38,7 +39,7 @@ object PerformanceMode {
 
 
     fun start() {
-        if (!Faketils.config.performanceMode || enabled) return
+        if (!FaketilsConfig.performanceMode || enabled) return
         enabled = true
 
         renderDistanceBefore = mc.gameSettings.renderDistanceChunks

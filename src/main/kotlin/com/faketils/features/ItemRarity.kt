@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Gui
@@ -80,7 +81,7 @@ object ItemRarity {
         val r = (rgb shr 16 and 0xFF) / 255f
         val g = (rgb shr 8 and 0xFF) / 255f
         val b = (rgb and 0xFF) / 255f
-        GlStateManager.color(r, g, b, Faketils.config.itemRarity)
+        GlStateManager.color(r, g, b, FaketilsConfig.itemRarity)
     }
 
     private fun getColorValue(format: EnumChatFormatting): Int {

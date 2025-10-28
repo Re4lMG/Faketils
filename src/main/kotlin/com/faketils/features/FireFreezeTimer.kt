@@ -1,6 +1,7 @@
 package com.faketils.features
 
 import com.faketils.Faketils
+import com.faketils.config.FaketilsConfig
 import com.faketils.utils.Utils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ScaledResolution
@@ -8,7 +9,7 @@ import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 
-class FireFreezeTimer {
+object FireFreezeTimer {
 
     private val mc: Minecraft = Minecraft.getMinecraft()
     private var shouldFireFreeze = false
@@ -41,7 +42,7 @@ class FireFreezeTimer {
     @SubscribeEvent
     fun onRenderOverlay(event: RenderGameOverlayEvent.Text) {
         if (!Utils.isInDungeons()) return
-        if (!Faketils.config.fireFreezeTimer || !isFireFreezeInHotbar()) return
+        if (!FaketilsConfig.fireFreezeTimer || !isFireFreezeInHotbar()) return
         if (!shouldFireFreeze) return
 
         val remaining = fireFreezeTimer - System.currentTimeMillis()
