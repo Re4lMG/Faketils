@@ -45,7 +45,7 @@ object Farming {
     private var lockedPitch = 0f
     private var lockedSlot = -1
     private var bpsZeroStartTime = 0L
-    private val yawPitchTolerance = 1.0f
+    private val yawPitchTolerance = 0.5f
     private var lockedItemName: String? = null
 
     private var originalMouseSensitivity = 0.0f
