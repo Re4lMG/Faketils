@@ -16,7 +16,6 @@ import java.awt.Color
 
 
 object Utils {
-
     private val mc: Minecraft = Minecraft.getMinecraft()
 
     fun stripColorCodes(string: String): String {

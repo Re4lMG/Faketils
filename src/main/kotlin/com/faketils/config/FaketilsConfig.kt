@@ -188,6 +188,14 @@ object FaketilsConfig : Config(
     var fishingHelperKillingWeapon = ""
 
     @Switch(
+        name = "Sphinx Solver",
+        description = "Enables the solver for sphinx.",
+        category = "Diana",
+        subcategory = "Funny"
+    )
+    var sphinxSolver = false
+
+    @Switch(
         name = "Debug",
         description = "Dev stuff.",
         category = "Debug",
