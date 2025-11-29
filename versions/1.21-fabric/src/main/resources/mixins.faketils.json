@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.faketils.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "PlayerInventoryAccessor"
+  ],
+  "client": [
+  ],
+  "refmap": "mixins.faketils.refmap.json"
+}

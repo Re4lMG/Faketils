@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "${modid}",
+	"version": "${version}",
+	"name": "${modname}",
+	"description": "Faketils, a small Skyblock QoL mod.",
+	"authors": [
+		"Re4lMG"
+	],
+	"contact": {
+		"homepage": "https://github.com/Re4lMG/Faketils",
+		"sources": "https://github.com/Re4lMG/Faketils"
+	},
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.faketils.Faketils"
+		]
+	},
+	"mixins": [
+		"mixins.faketils.json"
+	],
+	"depends": {
+		"minecraft": ">=1.21",
+		"fabricloader": ">=0.16.7",
+		"fabric-api": ">=0.100.7+1.21"
+	}
+}
