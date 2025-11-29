@@ -1,7 +1,5 @@
 @file:Suppress("UnstableApiUsage")
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 plugins {
     kotlin("jvm") version "1.9.23"
     id("gg.essential.loom") version "0.10.0.5"
@@ -24,6 +22,16 @@ blossom {
     replaceToken("@ID@", project.property("mod_id")!!)
 }
 
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(8))
+}
+
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+}
+
 loom {
     launchConfigs {
         "client" {
@@ -42,6 +50,10 @@ loom {
     }
 }
 
+val shadowImpl: Configuration by configurations.creating {
+    configurations.implementation.get().extendsFrom(this)
+}
+
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
 
@@ -52,16 +64,59 @@ dependencies {
     compileOnly("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
 
-    shade("org.spongepowered:mixin:0.7.11-SNAPSHOT")
+    shadowImpl("org.spongepowered:mixin:0.7.11-SNAPSHOT")
     annotationProcessor("org.spongepowered:mixin:0.8.4-SNAPSHOT")
 
     modCompileOnly("cc.polyfrost:oneconfig-$platform:0.2.0-alpha+")
     implementation("gg.essential:essential-1.8.9-forge:3662")
     compileOnly("org.spongepowered:mixin:0.7.11-SNAPSHOT")
-    shade("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
+    shadowImpl("cc.polyfrost:oneconfig-wrapper-launchwrapper:1.0.0-beta+")
 }
 
-tasks.withType<ShadowJar> {
-    archiveClassifier.set("dev")
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+tasks {
+    processResources {
+        filesMatching("mcmod.info") {
+            expand(
+                mapOf(
+                    "name" to project.name,
+                    "modid" to project.name.toLowerCase(),
+                    "version" to project.version,
+                    "mcversion" to "1.8.9"
+                )
+            )
+        }
+    }
 }
+
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+}
+
+tasks.withType<Jar> {
+    manifest.attributes.run {
+        this["FMLCorePluginContainsFMLMod"] = "true"
+        this["ForceLoadAsMod"] = "true"
+        this["MixinConfigs"] = "mixins.faketils.json"
+        this["TweakClass"] = "org.spongepowered.asm.launch.MixinTweaker"
+    }
+    archiveBaseName.set("Faketils")
+    archiveVersion.set(project.version.toString())
+}
+
+val remapJar by tasks.named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
+    archiveClassifier.set("")
+    from(tasks.shadowJar)
+    input.set(tasks.shadowJar.get().archiveFile)
+}
+
+tasks.shadowJar {
+    archiveClassifier.set("dev")
+    configurations = listOf(shadowImpl)
+    doLast {
+        configurations.forEach {
+            println("Config: ${it.files}")
+        }
+    }
+}
+
+tasks.assemble.get().dependsOn(tasks.remapJar)

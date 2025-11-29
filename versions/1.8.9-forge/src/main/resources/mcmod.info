@@ -1,6 +1,6 @@
 [
   {
-	"modid": "${id}",
+	"modid": "${modid}",
 	"name": "${name}",
 	"description": "Faketils a small skyblock qol mod.",
 	"version": "${version}",
