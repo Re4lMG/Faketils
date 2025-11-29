@@ -27,6 +27,4 @@ subprojects {
             toolchain.languageVersion.set(JavaLanguageVersion.of(if (legacy) 8 else 21))
         }
     }
-
-    configurations.maybeCreate("shade")
 }

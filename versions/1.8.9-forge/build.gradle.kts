@@ -1,5 +1,3 @@
-@file:Suppress("UnstableApiUsage")
-
 plugins {
     kotlin("jvm") version "1.9.23"
     id("gg.essential.loom") version "0.10.0.5"
@@ -12,10 +10,6 @@ group = "com.faketils"
 version = project.property("mod_version")!!
 val platform = "1.8.9-forge"
 
-base {
-    archivesName.set("${project.property("mod_archives_name")}-$platform")
-}
-
 blossom {
     replaceToken("@VER@", version.toString())
     replaceToken("@NAME@", project.property("mod_name")!!)
@@ -27,9 +21,7 @@ java {
 }
 
 kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
-    }
+    jvmToolchain { languageVersion.set(JavaLanguageVersion.of(8)) }
 }
 
 loom {
@@ -48,6 +40,10 @@ loom {
     mixin {
         defaultRefmapName.set("mixins.faketils.refmap.json")
     }
+}
+
+sourceSets.main {
+    output.setResourcesDir(file("$buildDir/classes/java/main"))
 }
 
 val shadowImpl: Configuration by configurations.creating {
@@ -78,9 +74,9 @@ tasks {
         filesMatching("mcmod.info") {
             expand(
                 mapOf(
-                    "name" to project.name,
-                    "modid" to project.name.toLowerCase(),
-                    "version" to project.version,
+                    "name" to project.property("mod_name")!!,
+                    "modid" to project.property("mod_id")!!,
+                    "version" to project.property("mod_version")!!,
                     "mcversion" to "1.8.9"
                 )
             )
@@ -88,18 +84,16 @@ tasks {
     }
 }
 
-tasks.withType<JavaCompile> {
-    options.encoding = "UTF-8"
-}
+tasks.withType<JavaCompile> { options.encoding = "UTF-8" }
 
 tasks.withType<Jar> {
-    manifest.attributes.run {
+    manifest.attributes.apply {
         this["FMLCorePluginContainsFMLMod"] = "true"
         this["ForceLoadAsMod"] = "true"
         this["MixinConfigs"] = "mixins.faketils.json"
         this["TweakClass"] = "org.spongepowered.asm.launch.MixinTweaker"
     }
-    archiveBaseName.set("Faketils")
+    archiveBaseName.set("${project.property("mod_archives_name")}-$platform")
     archiveVersion.set(project.version.toString())
 }
 
