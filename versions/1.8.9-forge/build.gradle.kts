@@ -10,6 +10,10 @@ group = "com.faketils"
 version = project.property("mod_version")!!
 val platform = "1.8.9-forge"
 
+base {
+    archivesName.set("${project.property("mod_name")}-Forge-1.8.9")
+}
+
 blossom {
     replaceToken("@VER@", version.toString())
     replaceToken("@NAME@", project.property("mod_name")!!)
@@ -19,7 +23,6 @@ blossom {
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(8))
 }
-
 kotlin {
     jvmToolchain { languageVersion.set(JavaLanguageVersion.of(8)) }
 }
@@ -87,14 +90,12 @@ tasks {
 tasks.withType<JavaCompile> { options.encoding = "UTF-8" }
 
 tasks.withType<Jar> {
-    manifest.attributes.apply {
+    manifest.attributes.run {
         this["FMLCorePluginContainsFMLMod"] = "true"
         this["ForceLoadAsMod"] = "true"
         this["MixinConfigs"] = "mixins.faketils.json"
         this["TweakClass"] = "org.spongepowered.asm.launch.MixinTweaker"
     }
-    archiveBaseName.set("${project.property("mod_archives_name")}-$platform")
-    archiveVersion.set(project.version.toString())
 }
 
 val remapJar by tasks.named<net.fabricmc.loom.task.RemapJarTask>("remapJar") {
