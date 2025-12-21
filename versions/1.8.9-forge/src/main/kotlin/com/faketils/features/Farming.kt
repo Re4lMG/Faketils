@@ -243,7 +243,14 @@ object Farming {
         if (targetMode != "none") {
             if (lastWaypoint == pos) {
                 ticksOnWaypoint++
-                if (ticksOnWaypoint >= randomDelayTicks) {
+
+                val requiredTicks = if (FaketilsConfig.instaSwitch) {
+                    15
+                } else {
+                    randomDelayTicks
+                }
+
+                if (ticksOnWaypoint >= requiredTicks) {
                     if (targetMode == "warp") {
                         mc.thePlayer.sendChatMessage("/warp garden")
                         currentMode = "none"
@@ -253,7 +260,10 @@ object Farming {
                     } else {
                         currentMode = targetMode
                     }
-                    randomDelayTicks = (20..100).random()
+
+                    if (!FaketilsConfig.instaSwitch) {
+                        randomDelayTicks = (20..100).random()  // 1–5 seconds
+                    }
                 }
             } else {
                 lastWaypoint = pos
@@ -291,23 +301,48 @@ object Farming {
     private fun holdKeys() {
         val settings = Minecraft.getMinecraft().gameSettings
         val forward = settings.keyBindForward
+        val back = settings.keyBindBack
         val left = settings.keyBindLeft
         val right = settings.keyBindRight
         val attack = settings.keyBindAttack
 
-        if (currentMode == "none") {
-            return
-        }
+        if (currentMode == "none") return
 
-        KeyBinding.setKeyBindState(forward.keyCode, true)
         KeyBinding.setKeyBindState(attack.keyCode, true)
 
-        if (currentMode == "left") {
-            KeyBinding.setKeyBindState(left.keyCode, true)
-            KeyBinding.setKeyBindState(right.keyCode, false)
-        } else if (currentMode == "right") {
-            KeyBinding.setKeyBindState(left.keyCode, false)
-            KeyBinding.setKeyBindState(right.keyCode, true)
+        when (currentMode) {
+            "left" -> {
+                KeyBinding.setKeyBindState(left.keyCode, true)
+                KeyBinding.setKeyBindState(right.keyCode, false)
+
+                if (FaketilsConfig.holdBack == 1) {
+                    KeyBinding.setKeyBindState(back.keyCode, true)
+                    KeyBinding.setKeyBindState(forward.keyCode, false)
+                } else {
+                    KeyBinding.setKeyBindState(back.keyCode, false)
+                    KeyBinding.setKeyBindState(forward.keyCode, true)
+                }
+            }
+
+            "right" -> {
+                KeyBinding.setKeyBindState(left.keyCode, false)
+                KeyBinding.setKeyBindState(right.keyCode, true)
+
+                if (FaketilsConfig.holdBack == 2) {
+                    KeyBinding.setKeyBindState(back.keyCode, true)
+                    KeyBinding.setKeyBindState(forward.keyCode, false)
+                } else {
+                    KeyBinding.setKeyBindState(back.keyCode, false)
+                    KeyBinding.setKeyBindState(forward.keyCode, true)
+                }
+            }
+
+            else -> {
+                KeyBinding.setKeyBindState(left.keyCode, false)
+                KeyBinding.setKeyBindState(right.keyCode, false)
+                KeyBinding.setKeyBindState(back.keyCode, false)
+                KeyBinding.setKeyBindState(forward.keyCode, false)
+            }
         }
     }
 
@@ -315,6 +350,7 @@ object Farming {
         val settings = Minecraft.getMinecraft().gameSettings
         KeyBinding.setKeyBindState(settings.keyBindForward.keyCode, false)
         KeyBinding.setKeyBindState(settings.keyBindLeft.keyCode, false)
+        KeyBinding.setKeyBindState(settings.keyBindBack.keyCode, false)
         KeyBinding.setKeyBindState(settings.keyBindRight.keyCode, false)
         KeyBinding.setKeyBindState(settings.keyBindAttack.keyCode, false)
     }

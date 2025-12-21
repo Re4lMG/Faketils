@@ -1,6 +1,7 @@
 package com.faketils.config
 
 import cc.polyfrost.oneconfig.config.Config
+import cc.polyfrost.oneconfig.config.annotations.Dropdown
 import cc.polyfrost.oneconfig.config.annotations.HUD
 import cc.polyfrost.oneconfig.config.annotations.KeyBind
 import cc.polyfrost.oneconfig.config.annotations.Slider
@@ -17,6 +18,15 @@ object FaketilsConfig : Config(
     Mod("Faketils", ModType.UTIL_QOL),
     "faketils.json"
 ) {
+
+    @Switch(
+        name = "Auto Start Carnival Quest",
+        description = "Auto Start Carnival Quest.",
+        category = "Quality of Life",
+        subcategory = "Misc"
+    )
+    var autoCarnival = false
+
     @Switch(
         name = "Bigger Button Box",
         description = "Increases the size of button bounding box.",
@@ -119,6 +129,23 @@ object FaketilsConfig : Config(
     )
     var funnyWaypoints = false
 
+    @Switch(
+        name = "Insta-lane switching",
+        description = "150ms when switching from right to left, useful in cocoabean farms.",
+        category = "Farming",
+        subcategory = "Funny"
+    )
+    var instaSwitch = false
+
+    @Dropdown(
+        name = "Hold back on right or left",
+        description = "Select a mode to hold back on, needed for sugar cane/cocoa farms.",
+        category = "Farming",
+        subcategory = "Funny",
+        options = ["Off", "Left", "Right"]
+    )
+    var holdBack = 0
+
     @KeyBind(
         name = "Macro keybind",
         category = "Keybinds",
@@ -211,9 +238,9 @@ object FaketilsConfig : Config(
     var macroStatusHUD = MacroStatusHUD()
 
     @HUD(
-         name = "Inventory HUD",
-         category = "HUD",
-         subcategory = "Misc"
+        name = "Inventory HUD",
+        category = "HUD",
+        subcategory = "Misc"
     )
     var invSpecHUD = InvSpecHUD()
 

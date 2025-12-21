@@ -1,5 +1,3 @@
-import org.gradle.api.tasks.wrapper.Wrapper
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.kotlin.dsl.*
 
 group = "com.faketils"
@@ -19,12 +17,5 @@ allprojects {
 subprojects {
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-    }
-
-    plugins.withId("java") {
-        extensions.configure(org.gradle.api.plugins.JavaPluginExtension::class.java) {
-            val legacy = project.name.contains("1.8")
-            toolchain.languageVersion.set(JavaLanguageVersion.of(if (legacy) 8 else 21))
-        }
     }
 }
