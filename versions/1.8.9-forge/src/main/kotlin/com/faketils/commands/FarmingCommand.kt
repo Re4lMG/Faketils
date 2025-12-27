@@ -61,26 +61,26 @@ object FarmingCommand : CommandBase() {
             "right" -> {
                 val list = waypoints.getOrPut("right") { mutableListOf() }
                 list.add(pos)
-                sender.addChatMessage(net.minecraft.util.ChatComponentText("§aRight waypoint added!"))
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§7[§bFaketils§7] §aRight waypoint added!"))
             }
             "left" -> {
                 val list = waypoints.getOrPut("left") { mutableListOf() }
                 list.add(pos)
-                sender.addChatMessage(net.minecraft.util.ChatComponentText("§cLeft waypoint added!"))
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§7[§bFaketils§7] §cLeft waypoint added!"))
             }
             "reset" -> {
                 waypoints.clear()
                 saveWaypoints()
-                sender.addChatMessage(net.minecraft.util.ChatComponentText("§eAll waypoints cleared!"))
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§7[§bFaketils§7] §eAll waypoints cleared!"))
                 return
             }
             "warp" -> {
                 val list = waypoints.getOrPut("warp") { mutableListOf() }
                 list.add(pos)
-                sender.addChatMessage(net.minecraft.util.ChatComponentText("§eWarp waypoint added!"))
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§7[§bFaketils§7] §eWarp waypoint added!"))
             }
             else -> {
-                sender.addChatMessage(net.minecraft.util.ChatComponentText("§cInvalid argument. Use right/left/reset"))
+                sender.addChatMessage(net.minecraft.util.ChatComponentText("§7[§bFaketils§7] §cInvalid argument. Use right/left/reset"))
                 return
             }
         }

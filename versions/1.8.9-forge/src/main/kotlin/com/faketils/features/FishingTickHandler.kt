@@ -23,6 +23,7 @@ object FishingTickHandler {
     private var slugFishingActive = false
     private var slugStartTime = 0L
     private var lastBobberId = -1
+    private var clickCount = 0
 
     private val handledArmorStands = mutableSetOf<Int>()
 
@@ -139,11 +140,24 @@ object FishingTickHandler {
                     }
                 }
                 4 -> {
+                    if (delayCounter > 0) {
+                        delayCounter--
+                        return
+                    }
+
+                    val maxClicks = FaketilsConfig.fishingHelperKillingAmount + 1
+
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, true)
                     KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.keyCode, false)
-                    delayCounter = (2..5).random()
-                    weaponState = 5
+
+                    clickCount++
+                    delayCounter = (3..6).random()
+
+                    if (clickCount >= maxClicks) {
+                        clickCount = 0
+                        weaponState = 5
+                    }
                 }
                 5 -> {
                     if (delayCounter > 0) {

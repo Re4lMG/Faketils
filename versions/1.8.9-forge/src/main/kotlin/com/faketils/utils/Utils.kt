@@ -16,6 +16,7 @@ import java.awt.Color
 
 
 object Utils {
+
     private val mc: Minecraft = Minecraft.getMinecraft()
 
     fun stripColorCodes(string: String): String {
@@ -84,6 +85,14 @@ object Utils {
         if (isInSkyblock()) {
             val sidebarLines = getSidebarLines()
             return sidebarLines.any { cleanSB(it).contains("The Catacombs") }
+        }
+        return false
+    }
+
+    fun isInGarden(): Boolean {
+        if (isInSkyblock()) {
+            val sidebarLines = getSidebarLines()
+            return sidebarLines.any { cleanSB(it).contains("The Garden") || cleanSB(it).contains("Plot -")}
         }
         return false
     }
@@ -297,4 +306,134 @@ object Utils {
         wr.pos(end.xCoord, end.yCoord, end.zCoord).endVertex()
         Tessellator.getInstance().draw()
     }
+
+    fun renderWaypointText(str: String, loc: BlockPos, partialTicks: Float) {
+        renderWaypointText(str, loc, partialTicks, true)
+    }
+
+    fun renderWaypointText(
+        str: String,
+        loc: BlockPos,
+        partialTicks: Float,
+        showDistance: Boolean
+    ) {
+        GlStateManager.alphaFunc(516, 0.1f)
+        GlStateManager.pushMatrix()
+        GlStateManager.disableLighting()
+        GL11.glDisable(GL11.GL_LIGHTING)
+
+        val mc = Minecraft.getMinecraft()
+        val viewer = mc.renderViewEntity ?: return
+
+        val viewerX =
+            viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks
+        val viewerY =
+            viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks
+        val viewerZ =
+            viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks
+
+        var x = loc.x + 0.5 - viewerX
+        var y = loc.y + 0.5 - viewerY - viewer.eyeHeight.toDouble()
+        var z = loc.z + 0.5 - viewerZ
+
+        val distSq = x * x + y * y + z * z
+        val dist = Math.sqrt(distSq)
+
+        if (distSq > 144) {
+            val scale = 12 / dist
+            x *= scale
+            y *= scale
+            z *= scale
+        }
+
+        GlStateManager.translate(x, y, z)
+        GlStateManager.translate(0.0, viewer.eyeHeight.toDouble(), 0.0)
+
+        val scale = 2.0f
+        GlStateManager.scale(scale, scale, scale)
+
+        drawNametag(str)
+
+        val renderManager = mc.renderManager
+        GlStateManager.rotate(-renderManager.playerViewY, 0.0f, 1.0f, 0.0f)
+        GlStateManager.rotate(renderManager.playerViewX, 1.0f, 0.0f, 0.0f)
+        GlStateManager.translate(0.0f, -0.25f, 0.0f)
+        GlStateManager.rotate(-renderManager.playerViewX, 1.0f, 0.0f, 0.0f)
+        GlStateManager.rotate(renderManager.playerViewY, 0.0f, 1.0f, 0.0f)
+
+        if (showDistance) {
+            drawNametag(EnumChatFormatting.YELLOW.toString() + Math.round(dist) + "m")
+        }
+
+        GL11.glEnable(GL11.GL_LIGHTING)
+        GlStateManager.enableLighting()
+        GlStateManager.popMatrix()
+    }
+
+    fun drawNametag(str: String) {
+        val mc = Minecraft.getMinecraft()
+        val fontRenderer = mc.fontRendererObj
+        val renderManager = mc.renderManager
+
+        val f = 1.6f
+        val f1 = 0.016666668f * f
+
+        GlStateManager.pushMatrix()
+        GL11.glNormal3f(0.0f, 1.0f, 0.0f)
+
+        GlStateManager.rotate(-renderManager.playerViewY, 0.0f, 1.0f, 0.0f)
+        GlStateManager.rotate(renderManager.playerViewX, 1.0f, 0.0f, 0.0f)
+        GlStateManager.scale(-f1, -f1, f1)
+
+        GlStateManager.disableLighting()
+        GL11.glDisable(GL11.GL_LIGHTING)
+        GlStateManager.depthMask(false)
+        GlStateManager.disableDepth()
+        GlStateManager.enableBlend()
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
+
+        val tessellator = Tessellator.getInstance()
+        val worldRenderer = tessellator.worldRenderer
+
+        val yOffset = 0
+        val width = fontRenderer.getStringWidth(str) / 2
+
+        GlStateManager.disableTexture2D()
+        worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR)
+        worldRenderer.pos((-width - 1).toDouble(), (-1 + yOffset).toDouble(), 0.0)
+            .color(0.0f, 0.0f, 0.0f, 0.25f).endVertex()
+        worldRenderer.pos((-width - 1).toDouble(), (8 + yOffset).toDouble(), 0.0)
+            .color(0.0f, 0.0f, 0.0f, 0.25f).endVertex()
+        worldRenderer.pos((width + 1).toDouble(), (8 + yOffset).toDouble(), 0.0)
+            .color(0.0f, 0.0f, 0.0f, 0.25f).endVertex()
+        worldRenderer.pos((width + 1).toDouble(), (-1 + yOffset).toDouble(), 0.0)
+            .color(0.0f, 0.0f, 0.0f, 0.25f).endVertex()
+        tessellator.draw()
+
+        GlStateManager.enableTexture2D()
+
+        fontRenderer.drawString(
+            str,
+            -fontRenderer.getStringWidth(str) / 2,
+            yOffset,
+            553648127
+        )
+
+        GlStateManager.depthMask(true)
+
+        fontRenderer.drawString(
+            str,
+            -fontRenderer.getStringWidth(str) / 2,
+            yOffset,
+            -1
+        )
+
+        GlStateManager.enableDepth()
+        GlStateManager.enableBlend()
+        GL11.glEnable(GL11.GL_LIGHTING)
+        GlStateManager.enableLighting()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
+        GlStateManager.popMatrix()
+    }
+
 }

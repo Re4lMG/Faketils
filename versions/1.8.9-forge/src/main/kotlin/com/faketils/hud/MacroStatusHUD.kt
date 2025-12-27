@@ -72,6 +72,6 @@ class MacroStatusHUD : BasicHud(
     }
 
     override fun shouldShow(): Boolean {
-        return Utils.isInSkyblock() && FaketilsConfig.funnyToggle && super.shouldShow()
+        return Utils.isInGarden() && FaketilsConfig.funnyToggle && super.shouldShow()
     }
 }

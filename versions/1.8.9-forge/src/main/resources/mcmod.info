@@ -1,7 +1,7 @@
 [
   {
-	"modid": "${modid}",
-	"name": "${name}",
+	"modid": "${id}",
+	"name": "Faketils",
 	"description": "Faketils a small skyblock qol mod.",
 	"version": "${version}",
 	"mcversion": "1.8.9",

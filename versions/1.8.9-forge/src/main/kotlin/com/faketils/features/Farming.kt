@@ -5,8 +5,6 @@ import com.faketils.config.FaketilsConfig
 import com.faketils.events.PacketEvent
 import com.faketils.utils.TitleUtil
 import com.faketils.utils.Utils
-import com.faketils.utils.Utils.isInSkyblock
-import com.faketils.utils.Utils.log
 import net.minecraft.block.Block
 import net.minecraft.client.Minecraft
 import net.minecraft.client.settings.KeyBinding
@@ -23,7 +21,6 @@ import java.awt.Color
 import kotlin.math.abs
 
 object Farming {
-
     private val toggleKey: Int = (if (FaketilsConfig.toggleMacro.getKeyBinds().isEmpty()) 0 else FaketilsConfig.toggleMacro.getKeyBinds().get(0))!!
     private val pauseKey: Int = (if (FaketilsConfig.pauseMacro.getKeyBinds().isEmpty()) 0 else FaketilsConfig.pauseMacro.getKeyBinds().get(0))!!
     private val resetKey: Int = (if (FaketilsConfig.resetFakeFails.getKeyBinds().isEmpty()) 0 else FaketilsConfig.resetFakeFails.getKeyBinds().get(0))!!
@@ -35,6 +32,8 @@ object Farming {
     private var lastWaypoint: BlockPos? = null
     private var ticksOnWaypoint = 0
     private var randomDelayTicks = (20..100).random()
+
+    var pauseWaypoint: BlockPos? = null
 
     private var lastBrokenBlock = 0L
     private var blocksBroken = 0
@@ -62,7 +61,8 @@ object Farming {
         Blocks.cocoa,
         Blocks.red_mushroom,
         Blocks.brown_mushroom,
-        Blocks.nether_wart
+        Blocks.nether_wart,
+        Blocks.double_plant
     )
 
     val mc = Minecraft.getMinecraft()
@@ -90,6 +90,7 @@ object Farming {
         if (mc.thePlayer != null && mc.theWorld != null) {
             isActive = false
             isPaused = false
+            pauseWaypoint = null
             releaseAllKeys()
             FaketilsConfig.macroStatusHUD.isActive = false
             FaketilsConfig.macroStatusHUD.isPaused = false
@@ -100,7 +101,8 @@ object Farming {
 
     @SubscribeEvent
     fun onKeyPress(event: InputEvent.KeyInputEvent?) {
-        if (mc.currentScreen != null || !isInSkyblock() || !FaketilsConfig.funnyToggle) return
+        if (mc.currentScreen != null || !Utils.isInSkyblock() || !FaketilsConfig.funnyToggle) return
+        if (!Utils.isInGarden()) return
 
         val keyCode = Keyboard.getEventKey()
         val keyPressed = Keyboard.getEventKeyState()
@@ -116,6 +118,7 @@ object Farming {
                 releaseAllKeys()
                 currentMode = "none"
                 lastWaypoint = null
+                pauseWaypoint = null
                 ticksOnWaypoint = 0
                 unlockMouse()
             } else if (mc.thePlayer != null) {
@@ -125,8 +128,9 @@ object Farming {
                 lockedItemName =
                     if (mc.thePlayer.getHeldItem() != null) mc.thePlayer.getHeldItem().getDisplayName() else null
                 lockMouse()
+                pauseWaypoint = null
             }
-            log("Macro toggled: " + isActive)
+            Utils.log("Macro toggled: " + isActive)
         }
 
         if (keyCode == pauseKey && keyPressed && isActive) {
@@ -136,10 +140,12 @@ object Farming {
             if (isPaused) {
                 releaseAllKeys()
                 unlockMouse()
-                log("Macro paused")
+                pauseWaypoint = BlockPos(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ)
+                Utils.log("Macro paused")
             } else {
                 lockMouse()
-                log("Macro resumed")
+                pauseWaypoint = null
+                Utils.log("Macro resumed")
             }
         }
 
@@ -149,7 +155,7 @@ object Farming {
             lockedSlot = mc.thePlayer.inventory.currentItem
             lockedItemName =
                 if (mc.thePlayer.getHeldItem() != null) mc.thePlayer.getHeldItem().getDisplayName() else null
-            log("Reset fake fails")
+            Utils.log("Reset fake fails")
         }
     }
 
@@ -159,6 +165,7 @@ object Farming {
         if (mc.currentScreen != null) return
         if (!Utils.isInSkyblock()) return
         if (!FaketilsConfig.funnyToggle) return
+        if (!Utils.isInGarden()) return
 
         if (!isActive || isPaused) return
 
@@ -282,6 +289,7 @@ object Farming {
         val mc = Minecraft.getMinecraft()
         if (!Utils.isInSkyblock()) return
         if (!FaketilsConfig.funnyWaypoints) return
+        if (!Utils.isInGarden()) return
         if (mc.thePlayer == null || mc.theWorld == null) return
 
         for ((type, list) in FarmingCommand.waypoints) {
@@ -295,6 +303,11 @@ object Farming {
             for (pos in list) {
                 Utils.drawFilledBlockBox(pos, color, 0.5f, event.partialTicks)
             }
+        }
+
+        if (pauseWaypoint != null) {
+            Utils.drawFilledBlockBox(BlockPos(pauseWaypoint), Color(0, 150, 255, 100), 1f, event.partialTicks)
+            Utils.renderWaypointText("Pause", BlockPos(pauseWaypoint), event.partialTicks)
         }
     }
 
@@ -311,37 +324,41 @@ object Farming {
         KeyBinding.setKeyBindState(attack.keyCode, true)
 
         when (currentMode) {
-            "left" -> {
-                KeyBinding.setKeyBindState(left.keyCode, true)
-                KeyBinding.setKeyBindState(right.keyCode, false)
-
-                if (FaketilsConfig.holdBack == 1) {
-                    KeyBinding.setKeyBindState(back.keyCode, true)
-                    KeyBinding.setKeyBindState(forward.keyCode, false)
-                } else {
-                    KeyBinding.setKeyBindState(back.keyCode, false)
-                    KeyBinding.setKeyBindState(forward.keyCode, true)
-                }
-            }
 
             "right" -> {
-                KeyBinding.setKeyBindState(left.keyCode, false)
+                KeyBinding.setKeyBindState(forward.keyCode, true)
+                KeyBinding.setKeyBindState(back.keyCode, false)
                 KeyBinding.setKeyBindState(right.keyCode, true)
-
-                if (FaketilsConfig.holdBack == 2) {
-                    KeyBinding.setKeyBindState(back.keyCode, true)
-                    KeyBinding.setKeyBindState(forward.keyCode, false)
-                } else {
-                    KeyBinding.setKeyBindState(back.keyCode, false)
-                    KeyBinding.setKeyBindState(forward.keyCode, true)
-                }
+                KeyBinding.setKeyBindState(left.keyCode, false)
             }
 
-            else -> {
-                KeyBinding.setKeyBindState(left.keyCode, false)
-                KeyBinding.setKeyBindState(right.keyCode, false)
-                KeyBinding.setKeyBindState(back.keyCode, false)
-                KeyBinding.setKeyBindState(forward.keyCode, false)
+            "left" -> {
+                when (FaketilsConfig.farmType) {
+
+                    0 -> {
+                        // forward + left
+                        KeyBinding.setKeyBindState(forward.keyCode, true)
+                        KeyBinding.setKeyBindState(back.keyCode, false)
+                        KeyBinding.setKeyBindState(left.keyCode, true)
+                        KeyBinding.setKeyBindState(right.keyCode, false)
+                    }
+
+                    1 -> {
+                        // back only
+                        KeyBinding.setKeyBindState(back.keyCode, true)
+                        KeyBinding.setKeyBindState(forward.keyCode, false)
+                        KeyBinding.setKeyBindState(left.keyCode, false)
+                        KeyBinding.setKeyBindState(right.keyCode, false)
+                    }
+
+                    2 -> {
+                        // back + left
+                        KeyBinding.setKeyBindState(back.keyCode, true)
+                        KeyBinding.setKeyBindState(forward.keyCode, false)
+                        KeyBinding.setKeyBindState(left.keyCode, true)
+                        KeyBinding.setKeyBindState(right.keyCode, false)
+                    }
+                }
             }
         }
     }

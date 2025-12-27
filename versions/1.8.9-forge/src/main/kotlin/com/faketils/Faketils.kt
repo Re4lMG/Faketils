@@ -18,13 +18,11 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
-import net.minecraftforge.fml.common.network.FMLNetworkEvent
 import java.io.File
 
 @Mod(
-    modid = Faketils.MOD_ID,
-    name = Faketils.NAME,
-    version = Faketils.VERSION,
+    modid = "faketils",
+    name = "Faketils",
     useMetadata = true,
     clientSideOnly = true
 )
@@ -48,7 +46,6 @@ class Faketils {
 
         FarmingCommand.loadWaypoints()
         SphinxSolver.init()
-
         listOf(
             FireFreezeTimer,
             FishingTickHandler,
@@ -58,6 +55,7 @@ class Faketils {
             PerformanceMode,
             TitleUtil,
             SphinxSolver,
+            AutoCarnival,
             this
         ).forEach(MinecraftForge.EVENT_BUS::register)
     }
@@ -73,20 +71,6 @@ class Faketils {
             Utils.isInSkyblock()
             Utils.isInDungeons()
         }
-    }
-
-    @SubscribeEvent
-    fun onServerConnection(event: FMLNetworkEvent.ClientConnectedToServerEvent) {
-        Thread {
-            Thread.sleep(5000)
-            if (mc.thePlayer != null) {
-                val brand = mc.thePlayer.clientBrand
-                val ip = mc.currentServerData.serverIP.toLowerCase()
-                Utils.log("Server Brand: $brand")
-                Utils.log("Server Ip: $ip")
-
-            }
-        }.start()
     }
 
     companion object {

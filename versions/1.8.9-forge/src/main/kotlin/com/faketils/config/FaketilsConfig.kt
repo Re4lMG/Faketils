@@ -52,6 +52,14 @@ object FaketilsConfig : Config(
     var fullBlockPanes = false
 
     @Switch(
+        name = "Bigger Sugar cane",
+        description = "Increases the size of Sugar cane bounding box, once toggled ingame requires a game restart to untoggle it (untoggle it on the settings first).",
+        category = "Farming",
+        subcategory = "Blocks"
+    )
+    var fullCane = false
+
+    @Switch(
         name = "No Hurt Cam",
         description = "Disable the hurt cam.",
         category = "Quality of Life",
@@ -121,6 +129,15 @@ object FaketilsConfig : Config(
     )
     var funnyToggle = false
 
+    @Dropdown(
+        name = "Farm Type",
+        description = "Select a farm.",
+        category = "Farming",
+        subcategory = "Funny",
+        options = ["Melon&Pumpkin -> MelonKingDe/Carrot/Potato/Wheat/Netherwarts", "Cane/Rose/Moon/Sun/Mushroom", "Cocoa Beans"]
+    )
+    var farmType = 0
+
     @Switch(
         name = "Show waypoints",
         description = "Display the lane switching waypoints. Disable if you aren't farming.",
@@ -131,20 +148,11 @@ object FaketilsConfig : Config(
 
     @Switch(
         name = "Insta-lane switching",
-        description = "150ms when switching from right to left, useful in cocoabean farms.",
+        description = "150ms when switching from right to left, useful in farming contests.",
         category = "Farming",
         subcategory = "Funny"
     )
     var instaSwitch = false
-
-    @Dropdown(
-        name = "Hold back on right or left",
-        description = "Select a mode to hold back on, needed for sugar cane/cocoa farms.",
-        category = "Farming",
-        subcategory = "Funny",
-        options = ["Off", "Left", "Right"]
-    )
-    var holdBack = 0
 
     @KeyBind(
         name = "Macro keybind",
@@ -204,6 +212,15 @@ object FaketilsConfig : Config(
         subcategory = "Funny"
     )
     var fishingHelperKilling = false
+
+    @Dropdown(
+        name = "Right clicks amount",
+        description = "2 for hyp, 1 for veil, 1 or 2 for flay.",
+        category = "Fishing",
+        subcategory = "Funny",
+        options = ["1", "2", "3"]
+    )
+    var fishingHelperKillingAmount = 0
 
     @Text(
         name = "Weapon",
