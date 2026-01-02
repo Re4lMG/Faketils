@@ -4,32 +4,62 @@ import com.faketils.Faketils;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.lwjgl.glfw.GLFW;
+
 import java.io.File;
 import java.nio.file.Files;
 
 public class Config {
     public static final Config INSTANCE = new Config();
 
-    private final File configFile = new File(Faketils.configDirectory, "config.json");
+    private File configFile;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private ConfigData data = new ConfigData();
 
+    public boolean funnyToggle = false;
+    public int farmType = 0; // 0 = Melon&Pumpkin..., 1 = Cane/Rose..., 2 = Cocoa Beans
+    public boolean funnyWaypoints = false;
+    public boolean instaSwitch = false;
+
+    public KeyBinding toggleMacro = new KeyBinding("Toggle macro", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F8, "Faketils");
+    public KeyBinding pauseMacro = new KeyBinding("Pause macro", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, "Faketils");
+    public KeyBinding resetFakeFails = new KeyBinding("Reset fails", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "Faketils");
+
+    public boolean pestHelper = false;
+
     public boolean fishingHelper = false;
+    public boolean slugFishing = false;
+    public boolean fishingHelperKilling = false;
+    public int fishingHelperKillingAmount = 0; // 0=1, 1=2, 2=3
+    public String fishingHelperKillingWeapon = "";
+
+    public boolean noHurtCam = false;
+    public boolean fullBlockPanes = false;
+
     public boolean fishingHelperFireVeil = false;
     public boolean fishingHelperFireVeilGalatea = false;
     public boolean debug = false;
 
     public void initialize() {
+        configFile = new File(Faketils.configDirectory, "config.json");
+
+        KeyBindingHelper.registerKeyBinding(toggleMacro);
+        KeyBindingHelper.registerKeyBinding(pauseMacro);
+        KeyBindingHelper.registerKeyBinding(resetFakeFails);
+
         if (configFile.exists()) {
             try {
                 String content = Files.readString(configFile.toPath());
                 data = gson.fromJson(content, ConfigData.class);
-                applyData();
+                if (data != null) applyData();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -38,10 +68,11 @@ public class Config {
 
     public void markDirty() {
         data = new ConfigData(
-                fishingHelper,
-                fishingHelperFireVeil,
-                fishingHelperFireVeilGalatea,
-                debug
+                funnyToggle, farmType, funnyWaypoints, instaSwitch,
+                pestHelper,
+                fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
+                noHurtCam, fullBlockPanes,
+                fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug
         );
     }
 
@@ -54,7 +85,22 @@ public class Config {
     }
 
     private void applyData() {
+        funnyToggle = data.funnyToggle;
+        farmType = data.farmType;
+        funnyWaypoints = data.funnyWaypoints;
+        instaSwitch = data.instaSwitch;
+
+        pestHelper = data.pestHelper;
+
         fishingHelper = data.fishingHelper;
+        slugFishing = data.slugFishing;
+        fishingHelperKilling = data.fishingHelperKilling;
+        fishingHelperKillingAmount = data.fishingHelperKillingAmount;
+        fishingHelperKillingWeapon = data.fishingHelperKillingWeapon != null ? data.fishingHelperKillingWeapon : "";
+
+        noHurtCam = data.noHurtCam;
+        fullBlockPanes = data.fullBlockPanes;
+
         fishingHelperFireVeil = data.fishingHelperFireVeil;
         fishingHelperFireVeilGalatea = data.fishingHelperFireVeilGalatea;
         debug = data.debug;
@@ -64,59 +110,185 @@ public class Config {
         ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(MinecraftClient.getInstance().currentScreen)
                 .setTitle(Text.literal("Faketils Config"))
-                .setSavingRunnable(() -> {
-                    markDirty();
-                    writeData();
-                });
+                .setSavingRunnable(() -> {Faketils.saveAll();});
 
+        ConfigEntryBuilder entry = builder.entryBuilder();
+
+        // Farming Category
+        ConfigCategory farming = builder.getOrCreateCategory(Text.literal("Farming"));
+
+        // Funny Subcategory
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Funny Toggle"), funnyToggle)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Display if the funny is active or not. Disable if you aren't farming."))
+                .setSaveConsumer(val -> funnyToggle = val)
+                .build());
+
+        farming.addEntry(entry.startEnumSelector(Text.literal("Farm Type"), FarmType.class, FarmType.values()[farmType])
+                .setDefaultValue(FarmType.MELON_PUMPKIN)
+                .setTooltip(Text.literal("Select a farm."))
+                .setSaveConsumer(val -> farmType = val.ordinal())
+                .build());
+
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Show Waypoints"), funnyWaypoints)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Display the lane switching waypoints. Disable if you aren't farming."))
+                .setSaveConsumer(val -> funnyWaypoints = val)
+                .build());
+
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Insta-Lane Switching"), instaSwitch)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("150ms when switching from right to left, useful in farming contests."))
+                .setSaveConsumer(val -> instaSwitch = val)
+                .build());
+
+        // Pests
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Pest Helper"), pestHelper)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Draws a line and a box to the nearest pests."))
+                .setSaveConsumer(val -> pestHelper = val)
+                .build());
+
+        // Fishing Category
         ConfigCategory fishing = builder.getOrCreateCategory(Text.literal("Fishing"));
-        ConfigCategory debugCategory = builder.getOrCreateCategory(Text.literal("Debug"));
 
-        ConfigEntryBuilder entryBuilder = builder.entryBuilder();
-
-        fishing.addEntry(entryBuilder.startBooleanToggle(Text.literal("Fishing Helper"), fishingHelper)
+        fishing.addEntry(entry.startBooleanToggle(Text.literal("Fishing Helper"), fishingHelper)
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Enables the fishing helper."))
                 .setSaveConsumer(val -> fishingHelper = val)
-                .build()
-        );
+                .build());
 
-        fishing.addEntry(entryBuilder.startBooleanToggle(Text.literal("Fire Veil Killing"), fishingHelperFireVeil)
+        fishing.addEntry(entry.startBooleanToggle(Text.literal("Slug Trophy Fishing Helper"), slugFishing)
                 .setDefaultValue(false)
-                .setTooltip(Text.literal("Enables the fire veil killing, useful for lava fishing."))
-                .setSaveConsumer(val -> fishingHelperFireVeil = val)
-                .build()
-        );
+                .setTooltip(Text.literal("Enables slug trophy fishing helper."))
+                .setSaveConsumer(val -> slugFishing = val)
+                .build());
 
-        fishing.addEntry(entryBuilder.startBooleanToggle(Text.literal("Fire Veil Killing in galatea"), fishingHelperFireVeilGalatea)
+        fishing.addEntry(entry.startBooleanToggle(Text.literal("Sea Creatures Killing Helper"), fishingHelperKilling)
                 .setDefaultValue(false)
-                .setTooltip(Text.literal("Enables the fire veil killing for galatea island, useful for lava fishing."))
-                .setSaveConsumer(val -> fishingHelperFireVeilGalatea = val)
-                .build()
-        );
+                .setTooltip(Text.literal("Enables sea creature killing, useful for lava fishing."))
+                .setSaveConsumer(val -> fishingHelperKilling = val)
+                .build());
 
-        debugCategory.addEntry(entryBuilder.startBooleanToggle(Text.literal("Debug"), debug)
+        fishing.addEntry(entry.startIntSlider(Text.literal("Right Clicks Amount"), fishingHelperKillingAmount + 1, 1, 3)
+                .setDefaultValue(1)
+                .setTooltip(Text.literal("2 for hyp, 1 for veil, 1 or 2 for flay."))
+                .setSaveConsumer(val -> fishingHelperKillingAmount = val - 1)
+                .build());
+
+        fishing.addEntry(entry.startStrField(Text.literal("Weapon"), fishingHelperKillingWeapon)
+                .setDefaultValue("")
+                .setTooltip(Text.literal("Write the weapon name to use for killing (hyperion, flay & veil all work)."))
+                .setSaveConsumer(val -> fishingHelperKillingWeapon = val)
+                .build());
+
+        // Quality of Life Category
+        ConfigCategory qol = builder.getOrCreateCategory(Text.literal("Quality of Life"));
+
+        qol.addEntry(entry.startBooleanToggle(Text.literal("No Hurt Cam"), noHurtCam)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Disable the hurt cam."))
+                .setSaveConsumer(val -> noHurtCam = val)
+                .build());
+
+        qol.addEntry(entry.startBooleanToggle(Text.literal("Bigger Glass Panes Box"), fullBlockPanes)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Increases the size of Glass Panes bounding box."))
+                .setSaveConsumer(val -> fullBlockPanes = val)
+                .build());
+
+        // Keybinds Category
+        ConfigCategory keybinds = builder.getOrCreateCategory(Text.literal("Keybinds"));
+
+        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Farming Macro Keybind"), toggleMacro.getDefaultKey())
+                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_F8, 0))
+                .setKeySaveConsumer(toggleMacro::setBoundKey)
+                .build());
+
+        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Pause & Unpause Farming Macro"), pauseMacro.getDefaultKey())
+                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_P, 0))
+                .setKeySaveConsumer(pauseMacro::setBoundKey)
+                .build());
+
+        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Reset Fake Fails"), resetFakeFails.getDefaultKey())
+                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_BACKSPACE, 0))
+                .setKeySaveConsumer(resetFakeFails::setBoundKey)
+                .build());
+
+        // Debug
+        ConfigCategory debugCat = builder.getOrCreateCategory(Text.literal("Debug"));
+        debugCat.addEntry(entry.startBooleanToggle(Text.literal("Debug"), debug)
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Dev stuff."))
                 .setSaveConsumer(val -> debug = val)
-                .build()
-        );
+                .build());
 
         return builder.build();
     }
 
-    private static class ConfigData {
-        public boolean fishingHelper;
-        public boolean fishingHelperFireVeil;
-        public boolean fishingHelperFireVeilGalatea;
-        public boolean debug;
+    // Helper enum for dropdown
+    public enum FarmType {
+        MELON_PUMPKIN("Melon&Pumpkin -> MelonKingDe/Carrot/Potato/Wheat/Netherwarts"),
+        CANE_ROSE("Cane/Rose/Moon/Sun/Mushroom"),
+        COCOA_BEANS("Cocoa Beans");
 
-        public ConfigData() {
-            this(false, false, false, false);
+        private final String displayName;
+
+        FarmType(String displayName) {
+            this.displayName = displayName;
         }
 
-        public ConfigData(boolean fishingHelper, boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea, boolean debug) {
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
+
+    private static class ConfigData {
+        boolean funnyToggle;
+        int farmType;
+        boolean funnyWaypoints;
+        boolean instaSwitch;
+
+        boolean pestHelper;
+
+        boolean fishingHelper;
+        boolean slugFishing;
+        boolean fishingHelperKilling;
+        int fishingHelperKillingAmount;
+        String fishingHelperKillingWeapon;
+
+        boolean noHurtCam;
+        boolean fullBlockPanes;
+
+        boolean fishingHelperFireVeil;
+        boolean fishingHelperFireVeilGalatea;
+        boolean debug;
+
+        ConfigData() {}
+
+        ConfigData(boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
+                   boolean pestHelper,
+                   boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling, int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
+                   boolean noHurtCam, boolean fullBlockPanes,
+                   boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea, boolean debug) {
+
+            this.funnyToggle = funnyToggle;
+            this.farmType = farmType;
+            this.funnyWaypoints = funnyWaypoints;
+            this.instaSwitch = instaSwitch;
+
+            this.pestHelper = pestHelper;
+
             this.fishingHelper = fishingHelper;
+            this.slugFishing = slugFishing;
+            this.fishingHelperKilling = fishingHelperKilling;
+            this.fishingHelperKillingAmount = fishingHelperKillingAmount;
+            this.fishingHelperKillingWeapon = fishingHelperKillingWeapon;
+
+            this.noHurtCam = noHurtCam;
+            this.fullBlockPanes = fullBlockPanes;
+
             this.fishingHelperFireVeil = fishingHelperFireVeil;
             this.fishingHelperFireVeilGalatea = fishingHelperFireVeilGalatea;
             this.debug = debug;
