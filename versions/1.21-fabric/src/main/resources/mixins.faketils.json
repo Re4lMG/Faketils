@@ -8,7 +8,8 @@
     "ClientConnectionMixin",
     "GameRendererMixin",
     "BlockViewMixin",
-    "AbstractBlockStateMixin"
+    "AbstractBlockStateMixin",
+    "MouseMixin"
   ],
   "client": [
   ],
