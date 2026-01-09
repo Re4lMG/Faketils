@@ -9,7 +9,8 @@
     "GameRendererMixin",
     "BlockViewMixin",
     "AbstractBlockStateMixin",
-    "MouseMixin"
+    "MouseMixin",
+    "ClientPlayerInteractionManagerMixin"
   ],
   "client": [
   ],
