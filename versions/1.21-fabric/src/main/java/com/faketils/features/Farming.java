@@ -1,20 +1,24 @@
 package com.faketils.features;
 
 import com.faketils.config.Config;
+import com.faketils.events.FtEvent;
+import com.faketils.events.FtEventBus;
 import com.faketils.events.PacketEvent;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.FarmingWaypoints;
+import com.faketils.utils.RenderUtils;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.text.Text;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
+import net.minecraft.registry.Registries;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
 import java.util.Random;
@@ -41,6 +45,7 @@ public class Farming {
     public static BlockPos pauseWaypoint = null;
 
     private static long lastBrokenBlock = 0L;
+    private static long lastXp = 0L;
     private static int blocksBroken = 0;
     private static boolean isBreaking = false;
     private static long startTime = 0L;
@@ -70,9 +75,30 @@ public class Farming {
             net.minecraft.block.Blocks.SUNFLOWER
     );
 
+    private static String currentFail = null;
+
+    public static String getCurrentFail() {
+        return currentFail;
+    }
+
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
-        WorldRenderEvents.LAST.register(context -> {onRenderWorldLast(context);});
+        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> {
+            onRenderWorldLast(event.worldContext);
+        });
+        PacketEvent.registerReceive((packet, connection) -> {
+            if (packet instanceof PlaySoundS2CPacket soundPacket) {
+                Utils.logSound(soundPacket);
+
+                SoundEvent soundEvent = soundPacket.getSound().value();
+                Identifier soundId = Registries.SOUND_EVENT.getId(soundEvent);
+
+                if (soundId != null && "minecraft:entity.experience_orb.pickup".equals(soundId.toString())) {
+                    lastXp = System.currentTimeMillis();
+                }
+            }
+        });
+
     }
 
     public static boolean isMouseLocked() {
@@ -183,22 +209,28 @@ public class Farming {
         int currentSlot = inv.getSelectedSlot();
         String currentItemName = mc.player.getMainHandStack().getName().getString();
 
+        if (isActive && lastXp >= 5000) {
+            mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
+            currentFail = "NO XP";
+            Utils.log("NO XP PACKET");
+        }
+
         if (isActive && currentSlot != lockedSlot) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            mc.inGameHud.setSubtitle(Text.literal("Slot changed"));
+            currentFail = "Slot changed";
             Utils.log("Slot changed");
         }
 
         if (isActive && !currentItemName.equals(lockedItemName)) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            mc.inGameHud.setSubtitle(Text.literal("Item changed"));
+            currentFail = "Item changed";
             Utils.log("Item changed from " + lockedItemName + " to " + currentItemName);
         }
 
         if (Math.abs(mc.player.getYaw() - lockedYaw) > yawPitchTolerance ||
                 Math.abs(mc.player.getPitch() - lockedPitch) > yawPitchTolerance) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            mc.inGameHud.setSubtitle(Text.literal("Yaw/pitch changed"));
+            currentFail ="Yaw/pitch changed";
             Utils.log("Yaw/pitch changed");
         }
 
@@ -211,7 +243,7 @@ public class Farming {
                 long delay = isOnWaypoint ? 5000L : 3000L;
                 if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
                     mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    mc.inGameHud.setSubtitle(Text.literal("BPS = 0"));
+                    currentFail ="BPS = 0";
                     Utils.log("BPS = 0 for " + (delay / 1000) + " seconds");
                 }
             }
@@ -314,26 +346,33 @@ public class Farming {
         if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyWaypoints ||
                 mc.player == null || mc.world == null) return;
 
+        MatrixStack matrices = context.matrixStack();
+        float tickDelta = context.tickCounter().getDynamicDeltaTicks();
+
+        Vec3d refPos = context.camera().getPos();
+
         for (var entry : FarmingWaypoints.WAYPOINTS.entrySet()) {
             String type = entry.getKey();
             var list = entry.getValue();
 
-            float[] colorComponents = switch (type.toLowerCase()) {
-                case "left" -> new float[]{1.0f, 0.0f, 0.0f};
-                case "right" -> new float[]{0.0f, 1.0f, 0.0f};
-                case "warp" -> new float[]{1.0f, 1.0f, 0.0f};
-                default -> new float[]{0.0f, 0.6f, 1.0f};
+            int color = switch (type.toLowerCase()) {
+                case "left"  -> 0xFFFF4444;   // red
+                case "right" -> 0xFF44FF44;   // green
+                case "warp"  -> 0xFFFFFF44;   // yellow
+                default      -> 0xFF4488FF;   // cyan
             };
 
-            for (BlockPos pos : list) {
-                Utils.drawFilledBox(context, new Utils.FtVec(pos.getX(), pos.getY(), pos.getZ()), 1.0, 1.0, 1.0, colorComponents, 1f, true);
+            for (BlockPos blockPos : list) {
+                Vec3d waypointPos = new Vec3d(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                RenderUtils.renderWaypointMarker(matrices, waypointPos, refPos, color, type);
             }
         }
 
         if (pauseWaypoint != null) {
-            float[] pauseColor = new float[]{0.0f, 0.6f, 1.0f};
-            Utils.drawFilledBox(context, new Utils.FtVec(pauseWaypoint.getX(), pauseWaypoint.getY(), pauseWaypoint.getZ()), 1.0, 1.0, 1.0, pauseColor, 1.0f, true);
-            //Utils.drawString(context, new BlockPos(pauseWaypoint.getX(), pauseWaypoint.getY(), pauseWaypoint.getZ()), 1.5, "Pause", 0xFFFFFFFF, true, 1, true);
+            Vec3d pausePos = new Vec3d(pauseWaypoint.getX(), pauseWaypoint.getY(), pauseWaypoint.getZ());
+            int pauseColor = 0xFF4488FF;
+
+            RenderUtils.renderWaypointMarker(matrices, pausePos, refPos, pauseColor, "Pause");
         }
     }
 }
