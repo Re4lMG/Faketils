@@ -17,6 +17,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -54,6 +55,7 @@ public class Farming {
     private static double bps = 0.0;
     private static float lockedYaw = 0f;
     private static float lockedPitch = 0f;
+    private static long lastFailTime = 0L;
     private static int lockedSlot = -1;
     private static long bpsZeroStartTime = 0L;
     private static final float yawPitchTolerance = 0.5f;
@@ -94,16 +96,12 @@ public class Farming {
         PacketEvent.registerReceive((packet, connection) -> {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
                 Utils.logSound(soundPacket);
-
-                SoundEvent soundEvent = soundPacket.getSound().value();
-                Identifier soundId = Registries.SOUND_EVENT.getId(soundEvent);
-
-                if (soundId != null && "minecraft:entity.experience_orb.pickup".equals(soundId.toString())) {
+                SoundEvent id = soundPacket.getSound().value();
+                if (id != null && id.equals(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)) {
                     lastXp = System.currentTimeMillis();
                 }
             }
         });
-
     }
 
     public static boolean isMouseLocked() {
@@ -214,21 +212,24 @@ public class Farming {
         int currentSlot = inv.getSelectedSlot();
         String currentItemName = mc.player.getMainHandStack().getName().getString();
 
-        if (isActive && lastXp >= 5000) {
+        if (isActive && System.currentTimeMillis() - lastXp > 5000) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail = "NO XP";
+            lastFailTime = System.currentTimeMillis();
             Utils.log("NO XP PACKET");
         }
 
         if (isActive && currentSlot != lockedSlot) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail = "Slot changed";
+            lastFailTime = System.currentTimeMillis();
             Utils.log("Slot changed");
         }
 
         if (isActive && !currentItemName.equals(lockedItemName)) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail = "Item changed";
+            lastFailTime = System.currentTimeMillis();
             Utils.log("Item changed from " + lockedItemName + " to " + currentItemName);
         }
 
@@ -236,6 +237,7 @@ public class Farming {
                 Math.abs(mc.player.getPitch() - lockedPitch) > yawPitchTolerance) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail ="Yaw/pitch changed";
+            lastFailTime = System.currentTimeMillis();
             Utils.log("Yaw/pitch changed");
         }
 
@@ -249,6 +251,7 @@ public class Farming {
                 if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
                     mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
                     currentFail ="BPS = 0";
+                    lastFailTime = System.currentTimeMillis();
                     Utils.log("BPS = 0 for " + (delay / 1000) + " seconds");
                 }
             }
@@ -259,6 +262,10 @@ public class Farming {
         if (mc.player.getY() < 63) {
             currentMode = "none";
             releaseAllKeys();
+        }
+
+        if (currentFail != null && System.currentTimeMillis() - lastFailTime > 2000) {
+            currentFail = null;
         }
     }
 

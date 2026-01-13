@@ -26,7 +26,7 @@ public class RenderUtils {
 
         matrices.translate(
                 waypointPos.x + 0.5 - playerPos.x,
-                waypointPos.y + 0.5 - playerPos.y,
+                waypointPos.y - playerPos.y,
                 waypointPos.z + 0.5 - playerPos.z
         );
 
@@ -41,111 +41,102 @@ public class RenderUtils {
 
         Tessellator tessellator = Tessellator.getInstance();
 
-        BufferBuilder buffer = tessellator.begin(
-                VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_COLOR
-        );
-
-        matrices.translate(-baseSize / 2, 0f, -baseSize / 2);
-        matrices.scale(beamWidth, beamHeight, beamWidth);
-
-        Matrix4f matrix = matrices.peek().getPositionMatrix();
-
-        float size = 0.5f;
-
-        // Top face (Y+)
-        buffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 1.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 1.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
-
-        // Bottom face (Y-)
-        buffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
-
-        // North face (Z-)
-        buffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 1.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
-
-        // South face (Z+)
-        buffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 1.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
-
-        // West face (X-)
-        buffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
-
-        // East face (X+)
-        buffer.vertex(matrix,  size, 1.0f,  size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 1.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f, -size).color(red, green, blue, alpha);
-        buffer.vertex(matrix,  size, 0.0f,  size).color(red, green, blue, alpha);
-
-        RenderLayer.getDebugQuads().draw(buffer.end());
-
-        matrices.scale(1 / beamWidth, 1 / beamHeight, 1 / beamWidth);
-        matrices.translate(baseSize / 2, 0f, baseSize / 2);
-
         float cubeAlpha = 0.8f;
-
         BufferBuilder cubeBuffer = tessellator.begin(
                 VertexFormat.DrawMode.QUADS,
                 VertexFormats.POSITION_COLOR
         );
-
         Matrix4f cubeMatrix = matrices.peek().getPositionMatrix();
 
-        // ─── Top face ───
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 1).color(red, green, blue, cubeAlpha);
+        float half = 0.5f;
 
-        // ─── Bottom face ───
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 0).color(red, green, blue, cubeAlpha);
-
-        // ─── North (Z-) ───
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 0).color(red, green, blue, cubeAlpha);
-
-        // ─── South (Z+) ───
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 1).color(red, green, blue, cubeAlpha);
-
-        // ─── West (X-) ───
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 0, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 0, 1, 1).color(red, green, blue, cubeAlpha);
-
-        // ─── East (X+) ───
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 1).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 1, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 0).color(red, green, blue, cubeAlpha);
-        cubeBuffer.vertex(cubeMatrix, 1, 0, 1).color(red, green, blue, cubeAlpha);
+        // Top
+        cubeBuffer.vertex(cubeMatrix, -half, 1, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 1, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 1,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 1,  half).color(red, green, blue, cubeAlpha);
+        // Bottom
+        cubeBuffer.vertex(cubeMatrix, -half, 0,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 0,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 0, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 0, -half).color(red, green, blue, cubeAlpha);
+        // North
+        cubeBuffer.vertex(cubeMatrix, -half, 0, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 0, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 1, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 1, -half).color(red, green, blue, cubeAlpha);
+        // South
+        cubeBuffer.vertex(cubeMatrix, -half, 1,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 1,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix,  half, 0,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 0,  half).color(red, green, blue, cubeAlpha);
+        // West
+        cubeBuffer.vertex(cubeMatrix, -half, 0,  half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 0, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 1, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, -half, 1,  half).color(red, green, blue, cubeAlpha);
+        // East
+        cubeBuffer.vertex(cubeMatrix, half, 1, half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, half, 1, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, half, 0, -half).color(red, green, blue, cubeAlpha);
+        cubeBuffer.vertex(cubeMatrix, half, 0, half).color(red, green, blue, cubeAlpha);
 
         RenderLayer.getDebugQuads().draw(cubeBuffer.end());
 
+        matrices.push();
+        matrices.translate(0, 0.5, 0);
+        matrices.scale(beamWidth, beamHeight, beamWidth);
+
+        BufferBuilder beamBuffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        Matrix4f matrix = matrices.peek().getPositionMatrix();
+        float size = 0.5f;
+
+        // Top
+        beamBuffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 1.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 1.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
+        // Bottom
+        beamBuffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 0.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 0.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
+        // North
+        beamBuffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 0.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 1.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
+        // South
+        beamBuffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 1.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix,  size, 0.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
+        // West
+        beamBuffer.vertex(matrix, -size, 0.0f,  size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 0.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 1.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, -size, 1.0f,  size).color(red, green, blue, alpha);
+        // East
+        beamBuffer.vertex(matrix, size, 1.0f, size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, size, 1.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, size, 0.0f, -size).color(red, green, blue, alpha);
+        beamBuffer.vertex(matrix, size, 0.0f, size).color(red, green, blue, alpha);
+
+        RenderLayer.getDebugQuads().draw(beamBuffer.end());
         matrices.pop();
 
         if (waypointName != null && !waypointName.isEmpty()) {
+            matrices.push();
+            matrices.translate(
+                    0.5,
+                    1.5,
+                    0.5
+            );
             renderWaypointName(matrices, waypointPos, playerPos, waypointName, color, distance);
+            matrices.pop();
         }
+
+        matrices.pop();
     }
 
     public static void renderWaypointMarker(
