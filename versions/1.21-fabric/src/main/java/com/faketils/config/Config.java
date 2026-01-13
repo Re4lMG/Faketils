@@ -41,6 +41,9 @@ public class Config {
     public int fishingHelperKillingAmount = 0; // 0=1, 1=2, 2=3
     public String fishingHelperKillingWeapon = "";
 
+    public int macroHudX = 60;
+    public int macroHudY = 200;
+
     public boolean noHurtCam = false;
     public boolean fullBlockPanes = false;
 
@@ -72,7 +75,8 @@ public class Config {
                 pestHelper,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, fullBlockPanes,
-                fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug
+                fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
+                macroHudX, macroHudY
         );
     }
 
@@ -100,6 +104,9 @@ public class Config {
 
         noHurtCam = data.noHurtCam;
         fullBlockPanes = data.fullBlockPanes;
+
+        macroHudX = data.macroHudX;
+        macroHudY = data.macroHudY;
 
         fishingHelperFireVeil = data.fishingHelperFireVeil;
         fishingHelperFireVeilGalatea = data.fishingHelperFireVeilGalatea;
@@ -185,6 +192,27 @@ public class Config {
         // Quality of Life Category
         ConfigCategory qol = builder.getOrCreateCategory(Text.literal("Quality of Life"));
 
+        qol.addEntry(entry.startIntSlider(
+                        Text.literal("Macro HUD X"),
+                        macroHudX,
+                        -500, 500
+                )
+                .setDefaultValue(0)
+                .setTooltip(Text.literal("Horizontal offset of the macro HUD"))
+                .setSaveConsumer(val -> macroHudX = val)
+                .build());
+
+        qol.addEntry(entry.startIntSlider(
+                        Text.literal("Macro HUD Y"),
+                        macroHudY,
+                        -300, 300
+                )
+                .setDefaultValue(0)
+                .setTooltip(Text.literal("Vertical offset of the macro HUD"))
+                .setSaveConsumer(val -> macroHudY = val)
+                .build());
+
+
         qol.addEntry(entry.startBooleanToggle(Text.literal("No Hurt Cam"), noHurtCam)
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Disable the hurt cam."))
@@ -258,6 +286,9 @@ public class Config {
         int fishingHelperKillingAmount;
         String fishingHelperKillingWeapon;
 
+        int macroHudX;
+        int macroHudY;
+
         boolean noHurtCam;
         boolean fullBlockPanes;
 
@@ -267,12 +298,16 @@ public class Config {
 
         ConfigData() {}
 
-        ConfigData(boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                   boolean pestHelper,
-                   boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling, int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
-                   boolean noHurtCam, boolean fullBlockPanes,
-                   boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea, boolean debug) {
-
+        ConfigData(
+                boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
+                boolean pestHelper,
+                boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
+                int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
+                boolean noHurtCam, boolean fullBlockPanes,
+                boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea,
+                boolean debug,
+                int macroHudX, int macroHudY
+        ) {
             this.funnyToggle = funnyToggle;
             this.farmType = farmType;
             this.funnyWaypoints = funnyWaypoints;
@@ -292,6 +327,9 @@ public class Config {
             this.fishingHelperFireVeil = fishingHelperFireVeil;
             this.fishingHelperFireVeilGalatea = fishingHelperFireVeilGalatea;
             this.debug = debug;
+
+            this.macroHudX = macroHudX;
+            this.macroHudY = macroHudY;
         }
     }
 }

@@ -25,9 +25,9 @@ public class RenderUtils {
         matrices.push();
 
         matrices.translate(
-                waypointPos.x - playerPos.x,
-                waypointPos.y - playerPos.y,
-                waypointPos.z - playerPos.z
+                waypointPos.x + 0.5 - playerPos.x,
+                waypointPos.y + 0.5 - playerPos.y,
+                waypointPos.z + 0.5 - playerPos.z
         );
 
         float red   = ((color >> 16) & 0xFF) / 255f;

@@ -11,11 +11,13 @@ import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -85,6 +87,9 @@ public class Farming {
         ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
         FtEventBus.onEvent(FtEvent.WorldRender.class, event -> {
             onRenderWorldLast(event.worldContext);
+        });
+        FtEventBus.onEvent(FtEvent.HudRender.class, hud -> {
+            render(hud.context);
         });
         PacketEvent.registerReceive((packet, connection) -> {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
@@ -255,6 +260,39 @@ public class Farming {
             currentMode = "none";
             releaseAllKeys();
         }
+    }
+
+    private static void render(DrawContext ctx) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null) return;
+        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
+            return;
+        }
+
+        String text;
+        int color;
+
+        if (!Farming.isActive) {
+            text = "Macro: OFF";
+            color = 0xFFFF4444; // red
+        } else if (Farming.isPaused) {
+            text = "Macro: PAUSED";
+            color = 0xFFFFFF44; // yellow
+        } else {
+            text = "Macro: ACTIVE";
+            color = 0xFF44FF44; // green
+        }
+
+        int x = Config.INSTANCE.macroHudX;
+        int y = Config.INSTANCE.macroHudY;
+
+        ctx.drawTextWithShadow(
+                mc.textRenderer,
+                Text.literal(text),
+                x,
+                y,
+                color
+        );
     }
 
     private static boolean isNearWaypoints(BlockPos pos, int range) {

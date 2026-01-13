@@ -46,7 +46,7 @@ public class PestHelper {
 
             float thickness = 4.0f;
 
-            RenderUtils.renderLine(matrices, eyePos, target, 0xFF00FFFF, thickness);
+            //RenderUtils.renderLine(matrices, eyePos, target, 0xFF00FFFF, thickness);
         }
     }
 }
