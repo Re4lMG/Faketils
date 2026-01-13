@@ -9,17 +9,16 @@ import com.faketils.utils.FarmingWaypoints;
 import com.faketils.utils.RenderUtils;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
-import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
@@ -93,6 +92,14 @@ public class Farming {
         FtEventBus.onEvent(FtEvent.HudRender.class, hud -> {
             render(hud.context);
         });
+        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((oldWorld, newWorld) -> {
+            if (isActive) {
+                handleToggle();
+                releaseAllKeys();
+                currentFail = null;
+                Utils.log("World unloaded – macro turned off");
+            }
+        });
         PacketEvent.registerReceive((packet, connection) -> {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
                 Utils.logSound(soundPacket);
@@ -122,6 +129,9 @@ public class Farming {
     }
 
     private static void onClientTick() {
+        if (currentFail != null && System.currentTimeMillis() - lastFailTime > 2000) {
+            currentFail = null;
+        }
         if (mc.currentScreen != null || !Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
             return;
         }
@@ -263,10 +273,6 @@ public class Farming {
             currentMode = "none";
             releaseAllKeys();
         }
-
-        if (currentFail != null && System.currentTimeMillis() - lastFailTime > 2000) {
-            currentFail = null;
-        }
     }
 
     private static void render(DrawContext ctx) {
@@ -279,10 +285,10 @@ public class Farming {
         String text;
         int color;
 
-        if (!Farming.isActive) {
+        if (!isActive) {
             text = "Macro: OFF";
             color = 0xFFFF4444; // red
-        } else if (Farming.isPaused) {
+        } else if (isPaused) {
             text = "Macro: PAUSED";
             color = 0xFFFFFF44; // yellow
         } else {

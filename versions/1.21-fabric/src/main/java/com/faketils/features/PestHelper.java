@@ -22,7 +22,7 @@ public class PestHelper {
 
     private static void onRenderWorldLast(WorldRenderContext context) {
         if (!Utils.isInSkyblock() || !Config.INSTANCE.pestHelper) return;
-        if (mc.currentScreen != null || mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.world == null) return;
 
         MatrixStack matrices = context.matrixStack();
         float tickDelta = context.tickCounter().getDynamicDeltaTicks();

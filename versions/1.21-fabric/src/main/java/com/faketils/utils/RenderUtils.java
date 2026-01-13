@@ -199,9 +199,9 @@ public class RenderUtils {
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yaw));
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pitch));
 
-        float baseScale = 0.05f;
-        float minScale = 0.05f;
-        float maxScale = 0.25f;
+        float baseScale = 0.1f;
+        float minScale = 0.1f;
+        float maxScale = 1f;
 
         double scaleFactor = Math.sqrt(distance / 3.0);
         scaleFactor = Math.max(1.0, Math.min(8.0, scaleFactor));
