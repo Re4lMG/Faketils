@@ -6,7 +6,7 @@ group = 'com.faketils'
 version = "${mod_version}"
 
 base {
-    archivesName = "${mod_name}-Fabric-1.21.5+"
+    archivesName = "${mod_name}-Fabric-1.21.8+"
 }
 
 java {

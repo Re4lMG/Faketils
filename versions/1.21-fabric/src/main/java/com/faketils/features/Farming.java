@@ -4,6 +4,7 @@ import com.faketils.config.Config;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
 import com.faketils.events.PacketEvent;
+import com.faketils.events.TabListParser;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.FarmingWaypoints;
 import com.faketils.utils.RenderUtils;
@@ -104,7 +105,7 @@ public class Farming {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
                 Utils.logSound(soundPacket);
                 SoundEvent id = soundPacket.getSound().value();
-                if (id != null && id.equals(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)) {
+                if (isActive && id != null && id.equals(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)) {
                     lastXp = System.currentTimeMillis();
                 }
             }
@@ -135,6 +136,7 @@ public class Farming {
         if (mc.currentScreen != null || !Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
             return;
         }
+        if (!Utils.isInGarden()) return;
 
         while (toggleKey.wasPressed()) handleToggle();
         while (pauseKey.wasPressed()) handlePause();
@@ -169,6 +171,7 @@ public class Farming {
             lockedSlot = inv.getSelectedSlot();
             lockedItemName = mc.player.getMainHandStack().getName().getString();
             lockMouse();
+            lastXp = System.currentTimeMillis();
             pauseWaypoint = null;
         }
         Utils.log("Macro toggled: " + isActive);
@@ -188,6 +191,7 @@ public class Farming {
         } else {
             lockMouse();
             pauseWaypoint = null;
+            lastXp = System.currentTimeMillis();
             Utils.log("Macro resumed");
         }
     }
@@ -200,6 +204,7 @@ public class Farming {
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
         lockedSlot = inv.getSelectedSlot();
         lockedItemName = mc.player.getMainHandStack().getName().getString();
+        lastXp = System.currentTimeMillis();
         Utils.log("Reset fake fails");
     }
 
@@ -276,11 +281,13 @@ public class Farming {
     }
 
     private static void render(DrawContext ctx) {
+
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
         if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
             return;
         }
+        if (!Utils.isInGarden()) return;
 
         String text;
         int color;
@@ -396,6 +403,7 @@ public class Farming {
     private static void onRenderWorldLast(WorldRenderContext context) {
         if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyWaypoints ||
                 mc.player == null || mc.world == null) return;
+        if (!Utils.isInGarden()) return;
 
         MatrixStack matrices = context.matrixStack();
         float tickDelta = context.tickCounter().getDynamicDeltaTicks();

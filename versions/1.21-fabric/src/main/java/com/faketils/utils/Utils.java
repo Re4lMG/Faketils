@@ -1,6 +1,7 @@
 package com.faketils.utils;
 
 import com.faketils.Faketils;
+import com.faketils.events.TabListParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -48,6 +49,7 @@ public class Utils {
             );
         }
     }
+
     public static void logSound(PlaySoundS2CPacket packet) {
         Identifier id = Registries.SOUND_EVENT.getId(packet.getSound().value());
 
@@ -112,6 +114,20 @@ public class Utils {
 
         String objectiveName = stripColorCodes(obj.getDisplayName().getString()).toLowerCase(Locale.ROOT);
         return objectiveName.contains("skyblock");
+    }
+
+    public static boolean isInGarden() {
+        if (!isInSkyblock()) return false;
+        return TabListParser.getTabLines().contains("Area: Garden");
+    }
+
+    public static String getCurrentArea() {
+        for (String line : TabListParser.getTabLines()) {
+            if (line.startsWith("Area:")) {
+                return line.substring(5).trim();
+            }
+        }
+        return "Unknown";
     }
 
     public static class FtVec {
