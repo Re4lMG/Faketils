@@ -35,6 +35,8 @@ public class Config {
 
     public boolean pestHelper = false;
 
+    public boolean rewarpOnPause = false;
+
     public boolean fishingHelper = false;
     public boolean slugFishing = false;
     public boolean fishingHelperKilling = false;
@@ -72,7 +74,7 @@ public class Config {
     public void markDirty() {
         data = new ConfigData(
                 funnyToggle, farmType, funnyWaypoints, instaSwitch,
-                pestHelper,
+                pestHelper, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
@@ -95,6 +97,7 @@ public class Config {
         instaSwitch = data.instaSwitch;
 
         pestHelper = data.pestHelper;
+        rewarpOnPause = data.rewarpOnPause;
 
         fishingHelper = data.fishingHelper;
         slugFishing = data.slugFishing;
@@ -147,6 +150,12 @@ public class Config {
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("150ms when switching from right to left, useful in farming contests."))
                 .setSaveConsumer(val -> instaSwitch = val)
+                .build());
+
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Rewarp on pause"), rewarpOnPause)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Sets a spawn point when you pause and warps you back when resumed."))
+                .setSaveConsumer(val -> rewarpOnPause = val)
                 .build());
 
         // Pests
@@ -279,7 +288,7 @@ public class Config {
         boolean instaSwitch;
 
         boolean pestHelper;
-
+        boolean rewarpOnPause;
         boolean fishingHelper;
         boolean slugFishing;
         boolean fishingHelperKilling;
@@ -300,7 +309,7 @@ public class Config {
 
         ConfigData(
                 boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                boolean pestHelper,
+                boolean pestHelper, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
                 boolean noHurtCam, boolean fullBlockPanes,
@@ -314,6 +323,7 @@ public class Config {
             this.instaSwitch = instaSwitch;
 
             this.pestHelper = pestHelper;
+            this.rewarpOnPause = rewarpOnPause;
 
             this.fishingHelper = fishingHelper;
             this.slugFishing = slugFishing;

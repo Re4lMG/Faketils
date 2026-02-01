@@ -51,6 +51,7 @@ public class Farming {
     private static long lastXp = 0L;
     private static int blocksBroken = 0;
     private static boolean isBreaking = false;
+    private static long pauseTimeMs = 0;
     private static long startTime = 0L;
     private static double bps = 0.0;
     private static float lockedYaw = 0f;
@@ -171,7 +172,7 @@ public class Farming {
             lockedSlot = inv.getSelectedSlot();
             lockedItemName = mc.player.getMainHandStack().getName().getString();
             lockMouse();
-            lastXp = System.currentTimeMillis();
+            lastXp = 5000;
             pauseWaypoint = null;
         }
         Utils.log("Macro toggled: " + isActive);
@@ -181,18 +182,53 @@ public class Farming {
         if (!isActive) return;
 
         isPaused = !isPaused;
+
         if (isPaused) {
             releaseAllKeys();
             unlockMouse();
+
+            pauseTimeMs = System.currentTimeMillis();
+
             if (mc.player != null) {
                 pauseWaypoint = BlockPos.ofFloored(mc.player.getPos());
+                if (Config.INSTANCE.rewarpOnPause) {
+                    mc.player.networkHandler.sendChatMessage("/setspawn");
+                    mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §eReWarp point set!"), false);
+                }
             }
+
             Utils.log("Macro paused");
         } else {
             lockMouse();
             pauseWaypoint = null;
-            lastXp = System.currentTimeMillis();
-            Utils.log("Macro resumed");
+            lastXp = 5000;
+
+            long pausedForMs = System.currentTimeMillis() - pauseTimeMs;
+            double pausedForSeconds = pausedForMs / 1000.0;
+
+            if (pausedForSeconds >= 9) {
+                if (Config.INSTANCE.rewarpOnPause) {
+                    mc.player.networkHandler.sendChatMessage("/warp garden");
+
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(150);
+                            mc.options.sneakKey.setPressed(true);
+
+                            Thread.sleep(150);
+                            mc.options.sneakKey.setPressed(false);
+                        } catch (InterruptedException ignored) {}
+                    }).start();
+
+                    mc.player.sendMessage(
+                            Text.literal("§7[§bFaketils§7] §eWarping back!"),
+                            false
+                    );
+                    Utils.log("Macro resumed (warp garden)");
+                }
+            } else {
+                Utils.log("Macro resumed");
+            }
         }
     }
 
@@ -204,7 +240,7 @@ public class Farming {
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
         lockedSlot = inv.getSelectedSlot();
         lockedItemName = mc.player.getMainHandStack().getName().getString();
-        lastXp = System.currentTimeMillis();
+        lastXp = 5000;
         Utils.log("Reset fake fails");
     }
 
