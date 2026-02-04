@@ -12,6 +12,7 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
@@ -29,9 +30,30 @@ public class Config {
     public boolean funnyWaypoints = false;
     public boolean instaSwitch = false;
 
-    public KeyBinding toggleMacro = new KeyBinding("Toggle macro", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F8, "Faketils");
-    public KeyBinding pauseMacro = new KeyBinding("Pause macro", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, "Faketils");
-    public KeyBinding resetFakeFails = new KeyBinding("Reset fails", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_BACKSPACE, "Faketils");
+    public static final KeyBinding.Category FAKETILS_CATEGORY = new KeyBinding.Category(
+            Identifier.of("faketils", "key_category_faketils")
+    );
+
+    public static final KeyBinding toggleMacro = new KeyBinding(
+            "key.faketils.toggle_macro",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_F8,
+            FAKETILS_CATEGORY
+    );
+
+    public static final KeyBinding pauseMacro = new KeyBinding(
+            "key.faketils.pause_macro",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_P,
+            FAKETILS_CATEGORY
+    );
+
+    public static final KeyBinding resetFakeFails = new KeyBinding(
+            "key.faketils.reset_fails",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_BACKSPACE,
+            FAKETILS_CATEGORY
+    );
 
     public boolean pestHelper = false;
 
@@ -238,17 +260,17 @@ public class Config {
         ConfigCategory keybinds = builder.getOrCreateCategory(Text.literal("Keybinds"));
 
         keybinds.addEntry(entry.startKeyCodeField(Text.literal("Farming Macro Keybind"), toggleMacro.getDefaultKey())
-                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_F8, 0))
+                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_F8))
                 .setKeySaveConsumer(toggleMacro::setBoundKey)
                 .build());
 
         keybinds.addEntry(entry.startKeyCodeField(Text.literal("Pause & Unpause Farming Macro"), pauseMacro.getDefaultKey())
-                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_P, 0))
+                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_P))
                 .setKeySaveConsumer(pauseMacro::setBoundKey)
                 .build());
 
         keybinds.addEntry(entry.startKeyCodeField(Text.literal("Reset Fake Fails"), resetFakeFails.getDefaultKey())
-                .setDefaultValue(InputUtil.fromKeyCode(GLFW.GLFW_KEY_BACKSPACE, 0))
+                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_BACKSPACE))
                 .setKeySaveConsumer(resetFakeFails::setBoundKey)
                 .build());
 

@@ -1,7 +1,7 @@
 import org.apache.commons.lang3.SystemUtils
 
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "2.0.21"
     idea
     id("gg.essential.loom") version "0.10.0.5"
     id("com.github.johnrengelman.shadow") version "7.1.2"

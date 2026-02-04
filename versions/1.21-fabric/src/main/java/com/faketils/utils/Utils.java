@@ -4,7 +4,7 @@ import com.faketils.Faketils;
 import com.faketils.events.TabListParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -14,6 +14,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.scoreboard.*;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
@@ -49,9 +50,9 @@ public class Utils {
             );
         }
     }
-
+    /*
     public static void logSound(PlaySoundS2CPacket packet) {
-        Identifier id = Registries.SOUND_EVENT.getId(packet.getSound().value());
+        String id = Registries.SOUND_EVENT.getId(packet.getSound().getIdAsString());
 
         double x = packet.getX();
         double y = packet.getY();
@@ -66,6 +67,10 @@ public class Utils {
                         " vol=" + volume +
                         " pitch=" + pitch
         );
+    }*/
+
+    public static void simulateUseItem(ClientPlayerInteractionManager interactionManager) {
+        interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
     }
 
     public static List<String> getSidebarLines() {

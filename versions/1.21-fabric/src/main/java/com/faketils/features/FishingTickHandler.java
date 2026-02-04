@@ -4,16 +4,13 @@ import com.faketils.config.Config;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
 
 import java.util.HashSet;
 import java.util.Random;
@@ -42,8 +39,10 @@ public class FishingTickHandler {
     private static final Set<Integer> handledArmorStands = new HashSet<>();
 
     public static void initialize() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> onRenderWorldLast());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            onClientTick();
+            onRenderWorldLast();
+        });
     }
 
     private static void onRenderWorldLast() {
@@ -113,7 +112,7 @@ public class FishingTickHandler {
             clickTimer = random.nextInt(6) + 5;
             hasClickedOnce = true;
 
-            simulateUseItem(interactionManager);
+            Utils.simulateUseItem(interactionManager);
 
             player.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
 
@@ -150,7 +149,7 @@ public class FishingTickHandler {
                 }
                 case 4 -> {
                     if (delayCounter-- <= 0) {
-                        simulateUseItem(interactionManager);
+                        Utils.simulateUseItem(interactionManager);
                         clickCount++;
                         delayCounter = random.nextInt(4) + 3;
 
@@ -179,14 +178,10 @@ public class FishingTickHandler {
         if (clickTimer > 0) {
             clickTimer--;
             if (clickTimer == 0 && hasClickedOnce) {
-                simulateUseItem(interactionManager);
+                Utils.simulateUseItem(interactionManager);
                 hasClickedOnce = false;
             }
         }
-    }
-
-    private static void simulateUseItem(ClientPlayerInteractionManager interactionManager) {
-        interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
     }
 
     public static class WeaponResult {

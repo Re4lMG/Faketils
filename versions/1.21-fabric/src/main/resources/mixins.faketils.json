@@ -10,7 +10,8 @@
     "BlockViewMixin",
     "AbstractBlockStateMixin",
     "MouseMixin",
-    "ClientPlayerInteractionManagerMixin"
+    "ClientPlayerInteractionManagerMixin",
+    "WorldRendererMixin"
   ],
   "client": [
   ],

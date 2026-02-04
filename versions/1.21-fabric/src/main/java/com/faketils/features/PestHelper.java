@@ -5,10 +5,7 @@ import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
 import com.faketils.utils.RenderUtils;
 import com.faketils.utils.Utils;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
@@ -17,15 +14,14 @@ public class PestHelper {
     private static final MinecraftClient mc = MinecraftClient.getInstance();
 
     public static void initialize() {
-        WorldRenderEvents.AFTER_ENTITIES.register(PestHelper::onRenderWorldLast);
+        FtEventBus.onEvent(FtEvent.WorldRender.class, PestHelper::onRenderWorldLast);
     }
 
-    private static void onRenderWorldLast(WorldRenderContext context) {
+    private static void onRenderWorldLast(FtEvent.WorldRender event) {
         if (!Utils.isInSkyblock() || !Config.INSTANCE.pestHelper) return;
         if (mc.player == null || mc.world == null) return;
 
-        MatrixStack matrices = context.matrixStack();
-        float tickDelta = context.tickCounter().getDynamicDeltaTicks();
+        Vec3d cameraPos = event.camera.getPos();
 
         for (ArmorStandEntity armorStand : mc.world.getEntitiesByClass(
                 ArmorStandEntity.class,
@@ -38,15 +34,15 @@ public class PestHelper {
             String name = customName.getString();
             if (!name.startsWith("ൠ")) continue;
 
-            Vec3d target = armorStand.getLerpedPos(tickDelta);
+            Vec3d target = armorStand.getLerpedPos(event.tickDelta);
 
-            Vec3d eyePos = mc.player.getLerpedPos(tickDelta).add(0.0, mc.player.getEyeHeight(mc.player.getPose()), 0.0);
-
-            RenderUtils.renderWaypointMarker(matrices, target, eyePos, 0xFF00FFFF, name);
-
-            float thickness = 4.0f;
-
-            //RenderUtils.renderLine(matrices, eyePos, target, 0xFF00FFFF, thickness);
+            RenderUtils.renderWaypointMarker(
+                    target,
+                    cameraPos,
+                    0xFF00FFFF,
+                    name,
+                    event
+            );
         }
     }
 }

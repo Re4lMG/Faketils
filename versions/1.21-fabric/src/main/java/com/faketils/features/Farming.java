@@ -4,27 +4,30 @@ import com.faketils.config.Config;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
 import com.faketils.events.PacketEvent;
-import com.faketils.events.TabListParser;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.FarmingWaypoints;
 import com.faketils.utils.RenderUtils;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.FishingRodItem;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Farming {
 
@@ -37,9 +40,18 @@ public class Farming {
 
     private static boolean keysAreHeld = false;
 
+    private static enum RodPhase { IDLE, SWAP_TO_ROD, WAIT_BEFORE_CLICK, CLICK_ROD, WAIT_BEFORE_RESTORE, RESTORE_SLOT, DONE }
+
+    private static RodPhase rodPhase = RodPhase.IDLE;
+    private static long rodPhaseStart = 0;
+    private static int originalHotbarSlot = -1;
+    private static int rodHotbarSlot = -1;
+
     public static boolean isActive = false;
     public static boolean isPaused = false;
     public static String currentMode = "none";
+
+    public static boolean pestsSpawned = false;
 
     private static BlockPos lastWaypoint = null;
     private static int ticksOnWaypoint = 0;
@@ -47,8 +59,15 @@ public class Farming {
 
     public static BlockPos pauseWaypoint = null;
 
+    private static boolean eqActive = false;
+    private static int lastSyncId = -1;
+    private static int lastClickTime = 0;
+
+    private static boolean handleRootedInsteadOfSqueaky = false;
+
     private static long lastBrokenBlock = 0L;
     private static long lastXp = 0L;
+    private static long lastPest = 0L;
     private static int blocksBroken = 0;
     private static boolean isBreaking = false;
     private static long pauseTimeMs = 0;
@@ -89,7 +108,7 @@ public class Farming {
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
         FtEventBus.onEvent(FtEvent.WorldRender.class, event -> {
-            onRenderWorldLast(event.worldContext);
+            onRenderWorldLast(event);
         });
         FtEventBus.onEvent(FtEvent.HudRender.class, hud -> {
             render(hud.context);
@@ -99,15 +118,42 @@ public class Farming {
                 handleToggle();
                 releaseAllKeys();
                 currentFail = null;
-                Utils.log("World unloaded – macro turned off");
+                Utils.log("World unloaded, macro turned off");
             }
         });
         PacketEvent.registerReceive((packet, connection) -> {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
-                Utils.logSound(soundPacket);
-                SoundEvent id = soundPacket.getSound().value();
-                if (isActive && id != null && id.equals(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)) {
+                //Utils.logSound(soundPacket);
+
+                String soundId = soundPacket.getSound().getIdAsString();
+
+                if (isActive && !isPaused && soundId.equals("minecraft:entity.experience_orb.pickup")) {
                     lastXp = System.currentTimeMillis();
+                }
+            }
+        });
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            String text = message.getString();
+            Pattern pattern = Pattern.compile("Plot\\s*-\\s*(\\d+)");
+            Matcher matcher = pattern.matcher(text);
+
+            if (matcher.find()) {
+                int plot = Integer.parseInt(matcher.group(1));
+                lastPest = System.currentTimeMillis();
+                pestsSpawned = true;
+                Utils.log("Pest spawned in plot " + plot);
+
+                if (mc.player != null && isActive) {
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(2000);
+                            mc.player.networkHandler.sendChatMessage("/eq");
+                        } catch (InterruptedException ignored) {}
+                    }).start();
+                    eqActive = true;
+                    lastSyncId = -1;
+                    lastClickTime = 0;
+                    handleRootedInsteadOfSqueaky = true;
                 }
             }
         });
@@ -148,9 +194,17 @@ public class Farming {
             return;
         }
 
+        if (eqActive) {
+            isPaused = true;
+            releaseAllKeys();
+            return;
+        }
+
         updateBPS();
         checkFailSafes();
         updateMode();
+        updatePests();
+        handleRodSequence();
         holdKeys();
     }
 
@@ -172,10 +226,167 @@ public class Farming {
             lockedSlot = inv.getSelectedSlot();
             lockedItemName = mc.player.getMainHandStack().getName().getString();
             lockMouse();
-            lastXp = 5000;
+            lastXp = 0;
             pauseWaypoint = null;
         }
         Utils.log("Macro toggled: " + isActive);
+    }
+
+    private static void updatePests() {
+        if (mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+
+        if (pestsSpawned && now - lastPest > 131000) {
+            pestsSpawned = false;
+            releaseAllKeys();
+            mc.player.networkHandler.sendChatMessage("/eq");
+            eqActive = true;
+            lastSyncId = -1;
+            lastClickTime = 0;
+            return;
+        }
+
+        if (!eqActive) return;
+        if (!isActive) return;
+
+        ScreenHandler handler = mc.player.currentScreenHandler;
+        if (handler == null) return;
+
+        if (handler.syncId == 0) return;
+
+        int minDelay = 250;
+        int maxDelay = 550;
+        int randomDelay = minDelay + random.nextInt(maxDelay - minDelay + 1);
+
+        if (now - lastClickTime < randomDelay) return;
+
+        if (handler.syncId == lastSyncId) return;
+        lastSyncId = handler.syncId;
+
+        int totalSlots = handler.slots.size();
+        int playerInvStart = totalSlots - 36;
+
+        for (int i = playerInvStart; i < totalSlots; i++) {
+            ItemStack stack = handler.getSlot(i).getStack();
+            if (stack.isEmpty()) continue;
+
+            String nameLower = stack.getName().getString().toLowerCase();
+
+            boolean shouldClick = false;
+
+            if (handleRootedInsteadOfSqueaky) {
+                shouldClick = nameLower.contains("rooted");
+            } else {
+                shouldClick = nameLower.contains("squeaky");
+            }
+
+            if (shouldClick) {
+                mc.interactionManager.clickSlot(
+                        handler.syncId,
+                        i,
+                        0,
+                        SlotActionType.PICKUP,
+                        mc.player
+                );
+
+                lastClickTime = (int) now;
+                return;
+            }
+        }
+
+        mc.player.closeHandledScreen();
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(180 + random.nextInt(120));
+            } catch (InterruptedException ignored) {}
+
+            mc.execute(() -> {
+                if (mc.player == null) return;
+
+                PlayerInventoryAccessor inventory = (PlayerInventoryAccessor) mc.player.getInventory();
+                int originalSlot = inventory.getSelectedSlot();
+                int rodSlot = -1;
+
+                for (int i = 0; i < 9; i++) {
+                    ItemStack stack = mc.player.getInventory().getStack(i);
+                    if (stack.isEmpty()) continue;
+                    if (stack.getItem() instanceof FishingRodItem) {
+                        rodSlot = i;
+                        break;
+                    }
+                }
+
+                if (rodSlot == -1) {
+                    eqActive = false;
+                    return;
+                }
+
+                originalHotbarSlot = inventory.getSelectedSlot();
+                rodHotbarSlot = rodSlot;
+
+                rodPhase = RodPhase.SWAP_TO_ROD;
+                rodPhaseStart = System.currentTimeMillis();
+                eqActive = true;
+            });
+        }).start();
+    }
+
+    private static void handleRodSequence() {
+        if (rodPhase == RodPhase.IDLE || mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+        PlayerInventory inventory = mc.player.getInventory();
+
+        switch (rodPhase) {
+            case SWAP_TO_ROD:
+                if (now - rodPhaseStart >= random.nextInt(101) + 50) {
+                    inventory.setSelectedSlot(rodHotbarSlot);
+                    rodPhase = RodPhase.WAIT_BEFORE_CLICK;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_CLICK:
+                if (now - rodPhaseStart >= random.nextInt(151) + 100) {
+                    Utils.simulateUseItem(mc.interactionManager);
+                    rodPhase = RodPhase.WAIT_BEFORE_RESTORE;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_RESTORE:
+                if (now - rodPhaseStart >= random.nextInt(101) + 50) {
+                    rodPhase = RodPhase.RESTORE_SLOT;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case RESTORE_SLOT:
+                inventory.setSelectedSlot(originalHotbarSlot);
+                rodPhase = RodPhase.DONE;
+                rodPhaseStart = now;
+                break;
+
+            case DONE:
+                if (now - rodPhaseStart >= 100) {
+                    rodPhase = RodPhase.IDLE;
+                    eqActive = false;
+                    originalHotbarSlot = -1;
+                    rodHotbarSlot = -1;
+
+                    if (handleRootedInsteadOfSqueaky) {
+                        Utils.log("Rooted pest handled");
+                        handleRootedInsteadOfSqueaky = false;
+                    }
+                }
+                break;
+
+            default:
+                rodPhase = RodPhase.IDLE;
+                break;
+        }
     }
 
     private static void handlePause() {
@@ -190,7 +401,7 @@ public class Farming {
             pauseTimeMs = System.currentTimeMillis();
 
             if (mc.player != null) {
-                pauseWaypoint = BlockPos.ofFloored(mc.player.getPos());
+                pauseWaypoint = BlockPos.ofFloored(mc.player.getEntityPos());
                 if (Config.INSTANCE.rewarpOnPause) {
                     mc.player.networkHandler.sendChatMessage("/setspawn");
                     mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §eReWarp point set!"), false);
@@ -201,7 +412,7 @@ public class Farming {
         } else {
             lockMouse();
             pauseWaypoint = null;
-            lastXp = 5000;
+            lastXp = 0;
 
             long pausedForMs = System.currentTimeMillis() - pauseTimeMs;
             double pausedForSeconds = pausedForMs / 1000.0;
@@ -213,10 +424,8 @@ public class Farming {
                     new Thread(() -> {
                         try {
                             Thread.sleep(150);
-                            mc.options.sneakKey.setPressed(true);
-
-                            Thread.sleep(150);
-                            mc.options.sneakKey.setPressed(false);
+                            mc.player.getAbilities().flying = false;
+                            mc.player.sendAbilitiesUpdate();
                         } catch (InterruptedException ignored) {}
                     }).start();
 
@@ -296,7 +505,7 @@ public class Farming {
             if (bpsZeroStartTime == 0L) {
                 bpsZeroStartTime = System.currentTimeMillis();
             } else {
-                BlockPos playerPos = BlockPos.ofFloored(mc.player.getPos().add(0, 0.5, 0));
+                BlockPos playerPos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
                 boolean isOnWaypoint = isNearWaypoints(playerPos, 2);
                 long delay = isOnWaypoint ? 5000L : 3000L;
                 if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
@@ -364,7 +573,7 @@ public class Farming {
     private static void updateMode() {
         if (mc.player == null) return;
 
-        BlockPos pos = BlockPos.ofFloored(mc.player.getPos().add(0, 0.5, 0));
+        BlockPos pos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
         List<BlockPos> right = FarmingWaypoints.WAYPOINTS.getOrDefault("right", List.of());
         List<BlockPos> left = FarmingWaypoints.WAYPOINTS.getOrDefault("left", List.of());
         List<BlockPos> warp = FarmingWaypoints.WAYPOINTS.getOrDefault("warp", List.of());
@@ -436,38 +645,50 @@ public class Farming {
         }
     }
 
-    private static void onRenderWorldLast(WorldRenderContext context) {
-        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyWaypoints ||
-                mc.player == null || mc.world == null) return;
-        if (!Utils.isInGarden()) return;
+    private static void onRenderWorldLast(FtEvent.WorldRender event) {
+        if (!Utils.isInSkyblock()
+                || !Config.INSTANCE.funnyWaypoints
+                || mc.player == null
+                || mc.world == null
+                || !Utils.isInGarden()) {
+            return;
+        }
 
-        MatrixStack matrices = context.matrixStack();
-        float tickDelta = context.tickCounter().getDynamicDeltaTicks();
-
-        Vec3d refPos = context.camera().getPos();
+        Vec3d cameraPos = event.camera.getPos();
 
         for (var entry : FarmingWaypoints.WAYPOINTS.entrySet()) {
             String type = entry.getKey();
             var list = entry.getValue();
 
             int color = switch (type.toLowerCase()) {
-                case "left"  -> 0xFFFF4444;   // red
-                case "right" -> 0xFF44FF44;   // green
-                case "warp"  -> 0xFFFFFF44;   // yellow
-                default      -> 0xFF4488FF;   // cyan
+                case "left"  -> 0xFFFF4444;
+                case "right" -> 0xFF44FF44;
+                case "warp"  -> 0xFFFFFF44;
+                default      -> 0xFF4488FF;
             };
 
             for (BlockPos blockPos : list) {
-                Vec3d waypointPos = new Vec3d(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-                RenderUtils.renderWaypointMarker(matrices, waypointPos, refPos, color, type);
+                Vec3d waypointPos = Vec3d.ofCenter(blockPos);
+
+                RenderUtils.renderWaypointMarker(
+                        waypointPos,
+                        cameraPos,
+                        color,
+                        type,
+                        event
+                );
             }
         }
 
         if (pauseWaypoint != null) {
-            Vec3d pausePos = new Vec3d(pauseWaypoint.getX(), pauseWaypoint.getY(), pauseWaypoint.getZ());
-            int pauseColor = 0xFF4488FF;
-
-            RenderUtils.renderWaypointMarker(matrices, pausePos, refPos, pauseColor, "Pause");
+            Vec3d pausePos = Vec3d.ofCenter(pauseWaypoint);
+            RenderUtils.renderWaypointMarker(
+                    pausePos,
+                    cameraPos,
+                    0xFF4488FF,
+                    "Pause",
+                    event
+            );
         }
     }
 }
