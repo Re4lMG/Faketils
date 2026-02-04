@@ -195,7 +195,6 @@ public class Farming {
         }
 
         if (eqActive) {
-            isPaused = true;
             releaseAllKeys();
             return;
         }
