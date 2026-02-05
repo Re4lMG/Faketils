@@ -400,14 +400,17 @@ public class Farming {
 
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
-                        currentPestPhase = PestPhase.SQUEAKY;
-                        mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
-                        new Thread(() -> {
-                            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                            mc.player.getAbilities().flying = true;
-                            mc.player.sendAbilitiesUpdate();
-                        }).start();
+                        releaseAllKeys();
                         handlePause();
+                        currentPestPhase = PestPhase.SQUEAKY;
+                        new Thread(() -> {
+                            try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                            mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
+                            try { Thread.sleep(80); } catch (InterruptedException ignored) {}
+                            mc.player.jump();
+                            try { Thread.sleep(30); } catch (InterruptedException ignored) {}
+                            mc.player.jump();
+                        }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
                     }
