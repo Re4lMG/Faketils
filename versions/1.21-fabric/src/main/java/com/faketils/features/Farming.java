@@ -200,6 +200,7 @@ public class Farming {
             return;
         }
 
+        if (mc.currentScreen != null) return;
         updateBPS();
         checkFailSafes();
         updateMode();
