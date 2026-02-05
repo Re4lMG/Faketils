@@ -147,14 +147,14 @@ public class Farming {
                         try {
                             Thread.sleep(2000);
                             mc.player.networkHandler.sendChatMessage("/eq");
+                            eqActive = true;
+                            eqState = EqState.OPENING;
+                            eqStateStart = System.currentTimeMillis();
+                            currentPestPhase = PestPhase.ROOTED;
+                            itemsUsedThisPhase = 0;
+                            lastProcessedSyncId = -1;
                         } catch (InterruptedException ignored) {}
                     }).start();
-                    eqActive = true;
-                    eqState = EqState.OPENING;
-                    eqStateStart = System.currentTimeMillis();
-                    currentPestPhase = PestPhase.ROOTED;
-                    itemsUsedThisPhase = 0;
-                    lastProcessedSyncId = -1;
                 }
             }
         });
