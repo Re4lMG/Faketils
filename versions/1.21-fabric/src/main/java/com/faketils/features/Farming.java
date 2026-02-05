@@ -380,7 +380,7 @@ public class Farming {
                     inventory.setSelectedSlot(originalHotbarSlot);
                     Utils.log("Restored original slot: " + originalHotbarSlot);
                 } else {
-                    Utils.log("Invalid original slot " + originalHotbarSlot + " - skipping restore (likely reset by server)");
+                    Utils.log("Invalid original slot " + originalHotbarSlot + " - skipping restore");
                 }
                 rodPhase = RodPhase.DONE;
                 rodPhaseStart = now;
@@ -407,9 +407,10 @@ public class Farming {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                             mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
                             try { Thread.sleep(80); } catch (InterruptedException ignored) {}
-                            mc.player.jump();
-                            try { Thread.sleep(30); } catch (InterruptedException ignored) {}
-                            mc.player.jump();
+                            if (mc.player != null && mc.player.getAbilities().allowFlying) {
+                                mc.player.getAbilities().flying = true;
+                                mc.player.sendAbilitiesUpdate();
+                            }
                         }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");

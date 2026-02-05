@@ -5,6 +5,7 @@ import com.faketils.config.Config;
 import com.faketils.features.Farming;
 import com.faketils.features.FishingTickHandler;
 import com.faketils.features.PestHelper;
+import com.faketils.features.SphinxSolver;
 import com.faketils.utils.FarmingTitleRenderer;
 import com.faketils.utils.Utils;
 import net.fabricmc.api.ClientModInitializer;
@@ -33,6 +34,7 @@ public class Faketils implements ClientModInitializer {
         FishingTickHandler.initialize();
         Farming.initialize();
         FarmingTitleRenderer.init();
+        SphinxSolver.init();
         PestHelper.initialize();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

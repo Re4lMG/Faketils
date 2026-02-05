@@ -70,6 +70,7 @@ public class Config {
     public int macroHudY = 200;
 
     public boolean noHurtCam = false;
+    public boolean sphinxSolver = false;
     public boolean fullBlockPanes = false;
 
     public boolean fishingHelperFireVeil = false;
@@ -99,7 +100,7 @@ public class Config {
                 funnyToggle, farmType, funnyWaypoints, instaSwitch,
                 pestHelper, pestFarming, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
-                noHurtCam, fullBlockPanes,
+                noHurtCam, sphinxSolver, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
                 macroHudX, macroHudY
         );
@@ -130,6 +131,7 @@ public class Config {
         fishingHelperKillingWeapon = data.fishingHelperKillingWeapon != null ? data.fishingHelperKillingWeapon : "";
 
         noHurtCam = data.noHurtCam;
+        sphinxSolver = data.sphinxSolver;
         fullBlockPanes = data.fullBlockPanes;
 
         macroHudX = data.macroHudX;
@@ -258,6 +260,12 @@ public class Config {
                 .setSaveConsumer(val -> noHurtCam = val)
                 .build());
 
+        qol.addEntry(entry.startBooleanToggle(Text.literal("Sphinx solver"), sphinxSolver)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Auto answer sphinx questions."))
+                .setSaveConsumer(val -> sphinxSolver = val)
+                .build());
+
         qol.addEntry(entry.startBooleanToggle(Text.literal("Bigger Glass Panes Box"), fullBlockPanes)
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Increases the size of Glass Panes bounding box."))
@@ -330,6 +338,7 @@ public class Config {
         int macroHudY;
 
         boolean noHurtCam;
+        boolean sphinxSolver;
         boolean fullBlockPanes;
 
         boolean fishingHelperFireVeil;
@@ -343,7 +352,7 @@ public class Config {
                 boolean pestHelper, boolean pestFarming, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
-                boolean noHurtCam, boolean fullBlockPanes,
+                boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
                 boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea,
                 boolean debug,
                 int macroHudX, int macroHudY
@@ -363,6 +372,7 @@ public class Config {
             this.fishingHelperKillingWeapon = fishingHelperKillingWeapon;
 
             this.noHurtCam = noHurtCam;
+            this.sphinxSolver = sphinxSolver;
             this.fullBlockPanes = fullBlockPanes;
 
             this.fishingHelperFireVeil = fishingHelperFireVeil;
