@@ -71,6 +71,7 @@ public class Farming {
 
     private static boolean eqActive = false;
 
+    private static int plot = 0;
     private static long lastBrokenBlock = 0L;
     private static long lastXp = 0L;
     private static long lastPest = 0L;
@@ -137,7 +138,7 @@ public class Farming {
             Matcher matcher = pattern.matcher(text);
 
             if (matcher.find() && Config.INSTANCE.pestFarming) {
-                int plot = Integer.parseInt(matcher.group(1));
+                plot = Integer.parseInt(matcher.group(1));
                 lastPest = System.currentTimeMillis();
                 pestsSpawned = true;
                 Utils.log("Pest spawned in plot " + plot);
@@ -223,7 +224,7 @@ public class Farming {
         int totalSlots = handler.slots.size();
         int playerInvStart = totalSlots - 36;
 
-        int delayMs = 400 + random.nextInt(600);
+        int delayMs = 250 + random.nextInt(250);
         if (now - lastClickTime < delayMs) {
             return;
         }
@@ -277,7 +278,7 @@ public class Farming {
             }
         }
         else if (eqState == EqState.PICKUP_CLICKED) {
-            if (now - eqStateStart >= 400 + random.nextInt(600)) {
+            if (now - eqStateStart >= 250 + random.nextInt(250)) {
                 int placeSlot = -1;
                 for (int i = 0; i < playerInvStart; i++) {
                     if (handler.getSlot(i).getStack().isEmpty()) {
@@ -309,7 +310,7 @@ public class Farming {
             }
         }
 
-        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 400 + random.nextInt(300)) {
+        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 250 + random.nextInt(250)) {
             mc.player.closeHandledScreen();
             Utils.log("Closing EQ after finishing items");
             startRodSequence(now);
@@ -400,6 +401,12 @@ public class Farming {
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
                         currentPestPhase = PestPhase.SQUEAKY;
+                        mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
+                        new Thread(() -> {
+                            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                            mc.player.getAbilities().flying = true;
+                            mc.player.sendAbilitiesUpdate();
+                        }).start();
                         handlePause();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
@@ -416,7 +423,7 @@ public class Farming {
     }
 
     private static void updatePestsTimer() {
-        if (mc.player == null) return;
+        if (mc.player == null && !isActive) return;
 
         long now = System.currentTimeMillis();
 
@@ -724,7 +731,7 @@ public class Farming {
 
         if (pauseWaypoint != null) {
             RenderUtils.renderWaypointMarker(
-                    new Vec3d(pauseWaypoint.getX()-0.5, pauseWaypoint.getY(), pauseWaypoint.getZ()-0.5),
+                    new Vec3d(pauseWaypoint.getX()+0.5, pauseWaypoint.getY(), pauseWaypoint.getZ()+0.5),
                     cameraPos,
                     0xFF4488FF,
                     "Pause",
