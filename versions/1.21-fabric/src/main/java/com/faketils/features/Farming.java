@@ -46,7 +46,7 @@ public class Farming {
     private static int originalHotbarSlot = -1;
     private static int rodHotbarSlot = -1;
 
-    private static enum EqState { IDLE, OPENING, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
+    private static enum EqState { IDLE, OPENING, WAIT_AFTER_OPEN, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
     private static EqState eqState = EqState.IDLE;
     private static long eqStateStart = 0L;
     private static int lastProcessedSyncId = -1;
@@ -231,9 +231,18 @@ public class Farming {
         boolean didAction = false;
 
         if (eqState == EqState.OPENING) {
-            eqState = EqState.SEARCHING_ITEMS;
+            eqState = EqState.WAIT_AFTER_OPEN;
             eqStateStart = now;
-            Utils.log("EQ opened - starting item search (delay-based)");
+            Utils.log("EQ menu detected open - waiting initial delay before scanning");
+            return;
+        }
+
+        if (eqState == EqState.WAIT_AFTER_OPEN) {
+            if (now - eqStateStart >= delayMs) {
+                eqState = EqState.SEARCHING_ITEMS;
+                eqStateStart = now;
+                Utils.log("Initial delay finished - now starting item search");
+            }
             return;
         }
 
