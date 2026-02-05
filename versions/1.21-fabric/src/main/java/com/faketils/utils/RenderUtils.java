@@ -79,14 +79,16 @@ public class RenderUtils {
         TextRenderer tr = mc.textRenderer;
 
         double distance = waypointPos.distanceTo(cameraPos);
-
         Vec3d rel = waypointPos.subtract(cameraPos).add(0, 2.0, 0);
 
-        float scale = (float) Math.max(0.02, Math.min(0.1, distance * 0.02));
+        float scale = (float) Math.max(0.02, Math.min(0.1, distance * 0.05));
+
+        float yaw = event.camera.getYaw();
+        float pitch = event.camera.getPitch();
 
         Quaternionf rotation = new Quaternionf()
-                .rotateY((float) Math.toRadians(180f + event.camera.getYaw()))
-                .rotateX((float) Math.toRadians(-event.camera.getPitch()));
+                .rotateY((float) Math.toRadians(-yaw))
+                .rotateX((float) Math.toRadians(pitch));
 
         Matrix4f textMatrix = new Matrix4f(event.positionMatrix)
                 .translate((float) rel.x, (float) rel.y, (float) rel.z)
@@ -96,8 +98,7 @@ public class RenderUtils {
         Text text = Text.literal(name);
         float x = -tr.getWidth(text) / 2f;
 
-        VertexConsumerProvider.Immediate provider =
-                mc.getBufferBuilders().getEntityVertexConsumers();
+        VertexConsumerProvider.Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
 
         tr.draw(
                 text,

@@ -667,10 +667,8 @@ public class Farming {
             };
 
             for (BlockPos blockPos : list) {
-                Vec3d waypointPos = Vec3d.ofCenter(blockPos);
-
                 RenderUtils.renderWaypointMarker(
-                        waypointPos,
+                        new Vec3d(blockPos.getX()+0.5, blockPos.getY(), blockPos.getZ()+0.5),
                         cameraPos,
                         color,
                         type,
@@ -680,9 +678,8 @@ public class Farming {
         }
 
         if (pauseWaypoint != null) {
-            Vec3d pausePos = Vec3d.ofCenter(pauseWaypoint);
             RenderUtils.renderWaypointMarker(
-                    pausePos,
+                    new Vec3d(pauseWaypoint.getX()-0.5, pauseWaypoint.getY(), pauseWaypoint.getZ()-0.5),
                     cameraPos,
                     0xFF4488FF,
                     "Pause",
