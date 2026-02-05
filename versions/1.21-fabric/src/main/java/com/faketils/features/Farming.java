@@ -406,11 +406,7 @@ public class Farming {
                         new Thread(() -> {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                             mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
-                            try { Thread.sleep(80); } catch (InterruptedException ignored) {}
-                            if (mc.player != null && mc.player.getAbilities().allowFlying) {
-                                mc.player.getAbilities().flying = true;
-                                mc.player.sendAbilitiesUpdate();
-                            }
+                            // find a way to mc.player.getAbilities().flying somehow
                         }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
