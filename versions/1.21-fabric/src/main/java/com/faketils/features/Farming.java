@@ -41,11 +41,21 @@ public class Farming {
     private static boolean keysAreHeld = false;
 
     private static enum RodPhase { IDLE, SWAP_TO_ROD, WAIT_BEFORE_CLICK, CLICK_ROD, WAIT_BEFORE_RESTORE, RESTORE_SLOT, DONE }
-
     private static RodPhase rodPhase = RodPhase.IDLE;
     private static long rodPhaseStart = 0;
     private static int originalHotbarSlot = -1;
     private static int rodHotbarSlot = -1;
+
+    private static enum EqState { IDLE, OPENING, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
+    private static EqState eqState = EqState.IDLE;
+    private static long eqStateStart = 0L;
+    private static int lastProcessedSyncId = -1;
+    private static int itemsUsedThisPhase = 0;
+    private static long lastClickTime = 0L;
+    private static final long MAX_WAIT_PER_ACTION_MS = 4000L;
+
+    private static enum PestPhase { ROOTED, SQUEAKY }
+    private static PestPhase currentPestPhase = PestPhase.ROOTED;
 
     public static boolean isActive = false;
     public static boolean isPaused = false;
@@ -60,10 +70,6 @@ public class Farming {
     public static BlockPos pauseWaypoint = null;
 
     private static boolean eqActive = false;
-    private static int lastSyncId = -1;
-    private static int lastClickTime = 0;
-
-    private static boolean handleRootedInsteadOfSqueaky = false;
 
     private static long lastBrokenBlock = 0L;
     private static long lastXp = 0L;
@@ -107,12 +113,8 @@ public class Farming {
 
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
-        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> {
-            onRenderWorldLast(event);
-        });
-        FtEventBus.onEvent(FtEvent.HudRender.class, hud -> {
-            render(hud.context);
-        });
+        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> onRenderWorldLast(event));
+        FtEventBus.onEvent(FtEvent.HudRender.class, hud -> render(hud.context));
         ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((oldWorld, newWorld) -> {
             if (isActive) {
                 handleToggle();
@@ -123,21 +125,18 @@ public class Farming {
         });
         PacketEvent.registerReceive((packet, connection) -> {
             if (packet instanceof PlaySoundS2CPacket soundPacket) {
-                //Utils.logSound(soundPacket);
-
                 String soundId = soundPacket.getSound().getIdAsString();
-
                 if (isActive && !isPaused && soundId.equals("minecraft:entity.experience_orb.pickup")) {
                     lastXp = System.currentTimeMillis();
                 }
             }
         });
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-            String text = message.getString();
-            Pattern pattern = Pattern.compile("Plot\\s*-\\s*(\\d+)");
+            String text = message.getString().replaceAll("§.", "");
+            Pattern pattern = Pattern.compile("ൠ Pest have spawned in Plot\\s*-\\s*(\\d+)");
             Matcher matcher = pattern.matcher(text);
 
-            if (matcher.find()) {
+            if (matcher.find() && Config.INSTANCE.pestFarming) {
                 int plot = Integer.parseInt(matcher.group(1));
                 lastPest = System.currentTimeMillis();
                 pestsSpawned = true;
@@ -151,9 +150,11 @@ public class Farming {
                         } catch (InterruptedException ignored) {}
                     }).start();
                     eqActive = true;
-                    lastSyncId = -1;
-                    lastClickTime = 0;
-                    handleRootedInsteadOfSqueaky = true;
+                    eqState = EqState.OPENING;
+                    eqStateStart = System.currentTimeMillis();
+                    currentPestPhase = PestPhase.ROOTED;
+                    itemsUsedThisPhase = 0;
+                    lastProcessedSyncId = -1;
                 }
             }
         });
@@ -165,9 +166,7 @@ public class Farming {
 
     public static void onBlockBroken(BlockPos pos) {
         if (!isActive || mc.world == null || mc.player == null) return;
-
         var block = mc.world.getBlockState(pos).getBlock();
-
         if (farmableBlocks.contains(block)) {
             if (startTime == 0L) startTime = System.currentTimeMillis();
             isBreaking = true;
@@ -180,10 +179,10 @@ public class Farming {
         if (currentFail != null && System.currentTimeMillis() - lastFailTime > 2000) {
             currentFail = null;
         }
-        if (mc.currentScreen != null || !Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
-            return;
-        }
+        if (!Config.INSTANCE.funnyToggle) return;
         if (!Utils.isInGarden()) return;
+
+        updatePestsTimer();
 
         while (toggleKey.wasPressed()) handleToggle();
         while (pauseKey.wasPressed()) handlePause();
@@ -194,17 +193,236 @@ public class Farming {
             return;
         }
 
+        handleRodSequence();
+
         if (eqActive) {
-            releaseAllKeys();
+            handleEqSequence();
             return;
         }
 
         updateBPS();
         checkFailSafes();
         updateMode();
-        updatePests();
-        handleRodSequence();
         holdKeys();
+    }
+
+    private static void handleEqSequence() {
+        if (mc.player == null || mc.player.currentScreenHandler == null || mc.player.currentScreenHandler.syncId == 0) {
+            if (eqState == EqState.OPENING && System.currentTimeMillis() - eqStateStart > 12000) {
+                Utils.log("EQ menu timeout - aborting");
+                eqActive = false;
+                eqState = EqState.IDLE;
+            }
+            return;
+        }
+
+        ScreenHandler handler = mc.player.currentScreenHandler;
+        long now = System.currentTimeMillis();
+
+        int totalSlots = handler.slots.size();
+        int playerInvStart = totalSlots - 36;
+
+        int delayMs = 400 + random.nextInt(600);
+        if (now - lastClickTime < delayMs) {
+            return;
+        }
+
+        boolean didAction = false;
+
+        if (eqState == EqState.OPENING) {
+            eqState = EqState.SEARCHING_ITEMS;
+            eqStateStart = now;
+            Utils.log("EQ opened - starting item search (delay-based)");
+            return;
+        }
+
+        if (eqState == EqState.SEARCHING_ITEMS) {
+            Utils.log("Scanning for next " + (currentPestPhase == PestPhase.ROOTED ? "Rooted" : "Squeaky") + " item...");
+
+            for (int slot = playerInvStart; slot < totalSlots; slot++) {
+                ItemStack stack = handler.getSlot(slot).getStack();
+                if (stack.isEmpty()) continue;
+
+                String name = stack.getName().getString().toLowerCase().replaceAll("§.", "").trim();
+                boolean isMatch = currentPestPhase == PestPhase.ROOTED
+                        ? name.contains("rooted")
+                        : name.contains("squeaky pest");
+
+                if (isMatch) {
+                    mc.interactionManager.clickSlot(handler.syncId, slot, 0, SlotActionType.PICKUP, mc.player);
+                    lastClickTime = now;
+                    eqState = EqState.PICKUP_CLICKED;
+                    eqStateStart = now;
+                    itemsUsedThisPhase++;
+                    Utils.log("Pickup clicked on " + (currentPestPhase == PestPhase.ROOTED ? "Rooted" : "Squeaky") + " item in slot " + slot);
+                    didAction = true;
+                    break;
+                }
+            }
+
+            if (!didAction) {
+                eqState = EqState.FINISHED_ITEMS;
+                eqStateStart = now;
+                Utils.log("No more matching items found - preparing to close");
+            }
+        }
+        else if (eqState == EqState.PICKUP_CLICKED) {
+            if (now - eqStateStart >= 400 + random.nextInt(600)) {
+                int placeSlot = -1;
+                for (int i = 0; i < playerInvStart; i++) {
+                    if (handler.getSlot(i).getStack().isEmpty()) {
+                        placeSlot = i;
+                        break;
+                    }
+                }
+                if (placeSlot == -1) {
+                    for (int i = playerInvStart; i < totalSlots; i++) {
+                        if (handler.getSlot(i).getStack().isEmpty()) {
+                            placeSlot = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (placeSlot != -1) {
+                    mc.interactionManager.clickSlot(handler.syncId, placeSlot, 0, SlotActionType.PICKUP, mc.player);
+                    lastClickTime = now;
+                    eqState = EqState.SEARCHING_ITEMS;
+                    eqStateStart = now;
+                    Utils.log("Place clicked in slot " + placeSlot + " - back to searching");
+                    didAction = true;
+                } else {
+                    Utils.log("No empty slot to place - closing early");
+                    mc.player.closeHandledScreen();
+                    eqState = EqState.FINISHED_ITEMS;
+                }
+            }
+        }
+
+        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 400 + random.nextInt(300)) {
+            mc.player.closeHandledScreen();
+            Utils.log("Closing EQ after finishing items");
+            startRodSequence(now);
+        }
+    }
+
+    private static void startRodSequence(long now) {
+        PlayerInventoryAccessor inventory = (PlayerInventoryAccessor) mc.player.getInventory();
+        int rodSlot = -1;
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = mc.player.getInventory().getStack(i);
+            if (!stack.isEmpty() && stack.getItem() instanceof FishingRodItem) {
+                rodSlot = i;
+                break;
+            }
+        }
+
+        if (rodSlot == -1) {
+            Utils.log("No fishing rod found in hotbar");
+            eqActive = false;
+            eqState = EqState.IDLE;
+            return;
+        }
+
+        originalHotbarSlot = inventory.getSelectedSlot();
+        rodHotbarSlot = rodSlot;
+
+        rodPhase = RodPhase.SWAP_TO_ROD;
+        rodPhaseStart = now;
+        eqActive = true;
+
+        Utils.log("EQ finished (" + itemsUsedThisPhase + " items used) → starting rod sequence");
+    }
+
+    private static void handleRodSequence() {
+        if (rodPhase == RodPhase.IDLE || mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+        PlayerInventory inventory = mc.player.getInventory();
+
+        switch (rodPhase) {
+            case SWAP_TO_ROD:
+                if (now - rodPhaseStart >= 50 + random.nextInt(101)) {
+                    inventory.setSelectedSlot(rodHotbarSlot);
+                    rodPhase = RodPhase.WAIT_BEFORE_CLICK;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_CLICK:
+                if (now - rodPhaseStart >= 100 + random.nextInt(151)) {
+                    Utils.simulateUseItem(mc.interactionManager);
+                    rodPhase = RodPhase.WAIT_BEFORE_RESTORE;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_RESTORE:
+                if (now - rodPhaseStart >= 50 + random.nextInt(101)) {
+                    rodPhase = RodPhase.RESTORE_SLOT;
+                    rodPhaseStart = now;
+                }
+                break;
+
+            case RESTORE_SLOT:
+                if (originalHotbarSlot >= 0 && originalHotbarSlot < 9) {
+                    inventory.setSelectedSlot(originalHotbarSlot);
+                    Utils.log("Restored original slot: " + originalHotbarSlot);
+                } else {
+                    Utils.log("Invalid original slot " + originalHotbarSlot + " - skipping restore (likely reset by server)");
+                }
+                rodPhase = RodPhase.DONE;
+                rodPhaseStart = now;
+                break;
+
+            case DONE:
+                if (now - rodPhaseStart >= 100) {
+                    rodPhase = RodPhase.IDLE;
+                    eqActive = false;
+                    eqState = EqState.IDLE;
+                    rodHotbarSlot = -1;
+
+                    if (mc.player != null && originalHotbarSlot >= 0 && originalHotbarSlot < 9) {
+                        mc.player.getInventory().setSelectedSlot(originalHotbarSlot);
+                        Utils.log("Final slot restore: " + originalHotbarSlot);
+                    }
+
+                    if (currentPestPhase == PestPhase.ROOTED) {
+                        Utils.log("Rooted pest items handled → pausing macro");
+                        currentPestPhase = PestPhase.SQUEAKY;
+                        handlePause();
+                    } else {
+                        Utils.log("Squeaky pest items handled → resuming normal farming");
+                    }
+
+                    originalHotbarSlot = -1;
+                }
+                break;
+
+            default:
+                rodPhase = RodPhase.IDLE;
+                break;
+        }
+    }
+
+    private static void updatePestsTimer() {
+        if (mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+
+        if (pestsSpawned && now - lastPest > 131000 && Config.INSTANCE.pestFarming) {
+            pestsSpawned = false;
+            releaseAllKeys();
+            mc.player.networkHandler.sendChatMessage("/eq");
+            eqActive = true;
+            eqState = EqState.OPENING;
+            eqStateStart = now;
+            currentPestPhase = PestPhase.SQUEAKY;
+            itemsUsedThisPhase = 0;
+            lastProcessedSyncId = -1;
+            mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §ePest Timer ran out!"), false);
+            Utils.log("135s timer reached → starting Squeaky phase");
+        }
     }
 
     private static void handleToggle() {
@@ -231,163 +449,6 @@ public class Farming {
         Utils.log("Macro toggled: " + isActive);
     }
 
-    private static void updatePests() {
-        if (mc.player == null) return;
-
-        long now = System.currentTimeMillis();
-
-        if (pestsSpawned && now - lastPest > 131000) {
-            pestsSpawned = false;
-            releaseAllKeys();
-            mc.player.networkHandler.sendChatMessage("/eq");
-            eqActive = true;
-            lastSyncId = -1;
-            lastClickTime = 0;
-            return;
-        }
-
-        if (!eqActive) return;
-        if (!isActive) return;
-
-        ScreenHandler handler = mc.player.currentScreenHandler;
-        if (handler == null) return;
-
-        if (handler.syncId == 0) return;
-
-        int minDelay = 250;
-        int maxDelay = 550;
-        int randomDelay = minDelay + random.nextInt(maxDelay - minDelay + 1);
-
-        if (now - lastClickTime < randomDelay) return;
-
-        if (handler.syncId == lastSyncId) return;
-        lastSyncId = handler.syncId;
-
-        int totalSlots = handler.slots.size();
-        int playerInvStart = totalSlots - 36;
-
-        for (int i = playerInvStart; i < totalSlots; i++) {
-            ItemStack stack = handler.getSlot(i).getStack();
-            if (stack.isEmpty()) continue;
-
-            String nameLower = stack.getName().getString().toLowerCase();
-
-            boolean shouldClick = false;
-
-            if (handleRootedInsteadOfSqueaky) {
-                shouldClick = nameLower.contains("rooted");
-            } else {
-                shouldClick = nameLower.contains("squeaky");
-            }
-
-            if (shouldClick) {
-                mc.interactionManager.clickSlot(
-                        handler.syncId,
-                        i,
-                        0,
-                        SlotActionType.PICKUP,
-                        mc.player
-                );
-
-                lastClickTime = (int) now;
-                return;
-            }
-        }
-
-        mc.player.closeHandledScreen();
-
-        new Thread(() -> {
-            try {
-                Thread.sleep(180 + random.nextInt(120));
-            } catch (InterruptedException ignored) {}
-
-            mc.execute(() -> {
-                if (mc.player == null) return;
-
-                PlayerInventoryAccessor inventory = (PlayerInventoryAccessor) mc.player.getInventory();
-                int originalSlot = inventory.getSelectedSlot();
-                int rodSlot = -1;
-
-                for (int i = 0; i < 9; i++) {
-                    ItemStack stack = mc.player.getInventory().getStack(i);
-                    if (stack.isEmpty()) continue;
-                    if (stack.getItem() instanceof FishingRodItem) {
-                        rodSlot = i;
-                        break;
-                    }
-                }
-
-                if (rodSlot == -1) {
-                    eqActive = false;
-                    return;
-                }
-
-                originalHotbarSlot = inventory.getSelectedSlot();
-                rodHotbarSlot = rodSlot;
-
-                rodPhase = RodPhase.SWAP_TO_ROD;
-                rodPhaseStart = System.currentTimeMillis();
-                eqActive = true;
-            });
-        }).start();
-    }
-
-    private static void handleRodSequence() {
-        if (rodPhase == RodPhase.IDLE || mc.player == null) return;
-
-        long now = System.currentTimeMillis();
-        PlayerInventory inventory = mc.player.getInventory();
-
-        switch (rodPhase) {
-            case SWAP_TO_ROD:
-                if (now - rodPhaseStart >= random.nextInt(101) + 50) {
-                    inventory.setSelectedSlot(rodHotbarSlot);
-                    rodPhase = RodPhase.WAIT_BEFORE_CLICK;
-                    rodPhaseStart = now;
-                }
-                break;
-
-            case WAIT_BEFORE_CLICK:
-                if (now - rodPhaseStart >= random.nextInt(151) + 100) {
-                    Utils.simulateUseItem(mc.interactionManager);
-                    rodPhase = RodPhase.WAIT_BEFORE_RESTORE;
-                    rodPhaseStart = now;
-                }
-                break;
-
-            case WAIT_BEFORE_RESTORE:
-                if (now - rodPhaseStart >= random.nextInt(101) + 50) {
-                    rodPhase = RodPhase.RESTORE_SLOT;
-                    rodPhaseStart = now;
-                }
-                break;
-
-            case RESTORE_SLOT:
-                inventory.setSelectedSlot(originalHotbarSlot);
-                rodPhase = RodPhase.DONE;
-                rodPhaseStart = now;
-                break;
-
-            case DONE:
-                if (now - rodPhaseStart >= 100) {
-                    rodPhase = RodPhase.IDLE;
-                    eqActive = false;
-                    originalHotbarSlot = -1;
-                    rodHotbarSlot = -1;
-
-                    if (handleRootedInsteadOfSqueaky) {
-                        Utils.log("Rooted pest handled");
-                        handleRootedInsteadOfSqueaky = false;
-                    }
-                }
-                break;
-
-            default:
-                rodPhase = RodPhase.IDLE;
-                break;
-        }
-    }
-
     private static void handlePause() {
         if (!isActive) return;
 
@@ -396,7 +457,6 @@ public class Farming {
         if (isPaused) {
             releaseAllKeys();
             unlockMouse();
-
             pauseTimeMs = System.currentTimeMillis();
 
             if (mc.player != null) {
@@ -406,7 +466,6 @@ public class Farming {
                     mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §eReWarp point set!"), false);
                 }
             }
-
             Utils.log("Macro paused");
         } else {
             lockMouse();
@@ -416,24 +475,15 @@ public class Farming {
             long pausedForMs = System.currentTimeMillis() - pauseTimeMs;
             double pausedForSeconds = pausedForMs / 1000.0;
 
-            if (pausedForSeconds >= 9) {
-                if (Config.INSTANCE.rewarpOnPause) {
-                    mc.player.networkHandler.sendChatMessage("/warp garden");
-
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(150);
-                            mc.player.getAbilities().flying = false;
-                            mc.player.sendAbilitiesUpdate();
-                        } catch (InterruptedException ignored) {}
-                    }).start();
-
-                    mc.player.sendMessage(
-                            Text.literal("§7[§bFaketils§7] §eWarping back!"),
-                            false
-                    );
-                    Utils.log("Macro resumed (warp garden)");
-                }
+            if (pausedForSeconds >= 9 && Config.INSTANCE.rewarpOnPause) {
+                mc.player.networkHandler.sendChatMessage("/warp garden");
+                new Thread(() -> {
+                    try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                    mc.player.getAbilities().flying = false;
+                    mc.player.sendAbilitiesUpdate();
+                }).start();
+                mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §eWarping back!"), false);
+                Utils.log("Macro resumed (warp garden)");
             } else {
                 Utils.log("Macro resumed");
             }
@@ -442,7 +492,6 @@ public class Farming {
 
     private static void handleReset() {
         if (!isActive || mc.player == null) return;
-
         lockedYaw = mc.player.getYaw();
         lockedPitch = mc.player.getPitch();
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
@@ -495,7 +544,7 @@ public class Farming {
         if (Math.abs(mc.player.getYaw() - lockedYaw) > yawPitchTolerance ||
                 Math.abs(mc.player.getPitch() - lockedPitch) > yawPitchTolerance) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-            currentFail ="Yaw/pitch changed";
+            currentFail = "Yaw/pitch changed";
             lastFailTime = System.currentTimeMillis();
             Utils.log("Yaw/pitch changed");
         }
@@ -509,7 +558,7 @@ public class Farming {
                 long delay = isOnWaypoint ? 5000L : 3000L;
                 if (System.currentTimeMillis() - bpsZeroStartTime >= delay) {
                     mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
-                    currentFail ="BPS = 0";
+                    currentFail = "BPS = 0";
                     lastFailTime = System.currentTimeMillis();
                     Utils.log("BPS = 0 for " + (delay / 1000) + " seconds");
                 }
@@ -525,12 +574,8 @@ public class Farming {
     }
 
     private static void render(DrawContext ctx) {
-
-        MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
-        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) {
-            return;
-        }
+        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyToggle) return;
         if (!Utils.isInGarden()) return;
 
         String text;
@@ -538,25 +583,19 @@ public class Farming {
 
         if (!isActive) {
             text = "Macro: OFF";
-            color = 0xFFFF4444; // red
+            color = 0xFFFF4444;
         } else if (isPaused) {
             text = "Macro: PAUSED";
-            color = 0xFFFFFF44; // yellow
+            color = 0xFFFFFF44;
         } else {
             text = "Macro: ACTIVE";
-            color = 0xFF44FF44; // green
+            color = 0xFF44FF44;
         }
 
         int x = Config.INSTANCE.macroHudX;
         int y = Config.INSTANCE.macroHudY;
 
-        ctx.drawTextWithShadow(
-                mc.textRenderer,
-                Text.literal(text),
-                x,
-                y,
-                color
-        );
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(text), x, y, color);
     }
 
     private static boolean isNearWaypoints(BlockPos pos, int range) {
@@ -645,11 +684,7 @@ public class Farming {
     }
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
-        if (!Utils.isInSkyblock()
-                || !Config.INSTANCE.funnyWaypoints
-                || mc.player == null
-                || mc.world == null
-                || !Utils.isInGarden()) {
+        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyWaypoints || mc.player == null || mc.world == null || !Utils.isInGarden()) {
             return;
         }
 
