@@ -231,7 +231,7 @@ public class Farming {
 
         boolean didAction = false;
 
-        if (eqState == EqState.OPENING) {
+        if (eqState == EqState.OPENING && isActive) {
             eqState = EqState.WAIT_AFTER_OPEN;
             eqStateStart = now;
             Utils.log("EQ menu detected open - waiting initial delay before scanning");
@@ -296,7 +296,7 @@ public class Farming {
                 }
 
                 if (placeSlot != -1) {
-                    mc.interactionManager.clickSlot(handler.syncId, placeSlot, 0, SlotActionType.PICKUP, mc.player);
+                    mc.interactionManager.clickSlot(handler.syncId, placeSlot, 0, SlotActionType.CLONE, mc.player);
                     lastClickTime = now;
                     eqState = EqState.SEARCHING_ITEMS;
                     eqStateStart = now;
@@ -376,7 +376,7 @@ public class Farming {
                 break;
 
             case RESTORE_SLOT:
-                if (originalHotbarSlot >= 0 && originalHotbarSlot < 9) {
+                if (originalHotbarSlot >= 0 && originalHotbarSlot < 9 && now - rodPhaseStart >= 50 + random.nextInt(101)) {
                     inventory.setSelectedSlot(originalHotbarSlot);
                     Utils.log("Restored original slot: " + originalHotbarSlot);
                 } else {
@@ -389,7 +389,6 @@ public class Farming {
             case DONE:
                 if (now - rodPhaseStart >= 100) {
                     rodPhase = RodPhase.IDLE;
-                    eqActive = false;
                     eqState = EqState.IDLE;
                     rodHotbarSlot = -1;
 
@@ -400,7 +399,6 @@ public class Farming {
 
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
-                        releaseAllKeys();
                         handlePause();
                         currentPestPhase = PestPhase.SQUEAKY;
                         new Thread(() -> {
@@ -413,6 +411,7 @@ public class Farming {
                     }
 
                     originalHotbarSlot = -1;
+                    eqActive = false;
                 }
                 break;
 
@@ -423,14 +422,16 @@ public class Farming {
     }
 
     private static void updatePestsTimer() {
-        if (mc.player == null && !isActive) return;
+        if (mc.player == null) return;
 
         long now = System.currentTimeMillis();
 
         if (pestsSpawned && now - lastPest > 131000 && Config.INSTANCE.pestFarming) {
             pestsSpawned = false;
-            releaseAllKeys();
-            mc.player.networkHandler.sendChatMessage("/eq");
+            if (isActive && !isPaused) {
+                releaseAllKeys();
+                mc.player.networkHandler.sendChatMessage("/eq");
+            }
             eqActive = true;
             eqState = EqState.OPENING;
             eqStateStart = now;
