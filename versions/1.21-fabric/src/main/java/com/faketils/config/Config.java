@@ -13,6 +13,7 @@ import net.minecraft.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
@@ -57,6 +58,8 @@ public class Config {
 
     public boolean pestHelper = false;
     public boolean pestFarming = false;
+    public int petSwapType = 0; // 0 rod, 1 wardrobe slot
+    public int wardrobeSlot = 1;
 
     public boolean rewarpOnPause = false;
 
@@ -98,7 +101,7 @@ public class Config {
     public void markDirty() {
         data = new ConfigData(
                 funnyToggle, farmType, funnyWaypoints, instaSwitch,
-                pestHelper, pestFarming, rewarpOnPause,
+                pestHelper, pestFarming, petSwapType, wardrobeSlot, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, sphinxSolver, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
@@ -122,6 +125,8 @@ public class Config {
 
         pestHelper = data.pestHelper;
         pestFarming = data.pestFarming;
+        petSwapType = data.petSwapType;
+        wardrobeSlot = data.wardrobeSlot;
         rewarpOnPause = data.rewarpOnPause;
 
         fishingHelper = data.fishingHelper;
@@ -196,6 +201,20 @@ public class Config {
                 .setTooltip(Text.literal("Swaps equipment and pet when cooldown is over."))
                 .setSaveConsumer(val -> pestFarming = val)
                 .build());
+
+        farming.addEntry(entry.startEnumSelector(Text.literal("Pet swap type"), PetSwapType.class, PetSwapType.values()[petSwapType])
+                .setDefaultValue(PetSwapType.ROD)
+                .setTooltip(Text.literal("Select a swapping method."))
+                .setSaveConsumer(val -> petSwapType = val.ordinal())
+                .build());
+
+        farming.addEntry(
+                entry.startIntField(Text.literal("Wardrobe slot"), 1)
+                        .setDefaultValue(1)
+                        .setTooltip(Text.literal("Type a number 1–9"))
+                        .setSaveConsumer(val -> wardrobeSlot = MathHelper.clamp(val,1,9))
+                        .build()
+        );
 
         // Fishing Category
         ConfigCategory fishing = builder.getOrCreateCategory(Text.literal("Fishing"));
@@ -301,15 +320,30 @@ public class Config {
         return builder.build();
     }
 
-    // Helper enum for dropdown
     public enum FarmType {
-        MELON_PUMPKIN("Melon&Pumpkin -> MelonKingDe/Carrot/Potato/Wheat/Netherwarts"),
+        MELON_PUMPKIN("Melon&Pumpkin -> MelonKingDe"),
         CANE_ROSE("Cane/Rose/Moon/Sun/Mushroom"),
         COCOA_BEANS("Cocoa Beans");
 
         private final String displayName;
 
         FarmType(String displayName) {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
+
+    public enum PetSwapType {
+        ROD("Fishing rod"),
+        ARMOR("Wardrobe slot");
+
+        private final String displayName;
+
+        PetSwapType(String displayName) {
             this.displayName = displayName;
         }
 
@@ -327,6 +361,8 @@ public class Config {
 
         boolean pestHelper;
         boolean pestFarming;
+        int petSwapType;
+        int wardrobeSlot;
         boolean rewarpOnPause;
         boolean fishingHelper;
         boolean slugFishing;
@@ -349,7 +385,7 @@ public class Config {
 
         ConfigData(
                 boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                boolean pestHelper, boolean pestFarming, boolean rewarpOnPause,
+                boolean pestHelper, boolean pestFarming, int petSwapType, int wardrobeSlot, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
                 boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
@@ -365,6 +401,8 @@ public class Config {
             this.pestHelper = pestHelper;
             this.rewarpOnPause = rewarpOnPause;
             this.pestFarming = pestFarming;
+            this.petSwapType = petSwapType;
+            this.wardrobeSlot = wardrobeSlot;
             this.fishingHelper = fishingHelper;
             this.slugFishing = slugFishing;
             this.fishingHelperKilling = fishingHelperKilling;

@@ -45,6 +45,11 @@ public class Farming {
     private static long rodPhaseStart = 0;
     private static int originalHotbarSlot = -1;
     private static int rodHotbarSlot = -1;
+    private static int pendingDoubleJumpTicks = 0;
+
+    private static enum WPhase { OPENING, CLICKING, DONE }
+
+    private static WPhase wPhase = WPhase.OPENING;
 
     private static enum EqState { IDLE, OPENING, WAIT_AFTER_OPEN, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
     private static EqState eqState = EqState.IDLE;
@@ -57,6 +62,10 @@ public class Farming {
     private static enum PestPhase { ROOTED, SQUEAKY }
     private static PestPhase currentPestPhase = PestPhase.ROOTED;
 
+    private static int lastSeenSyncId = -1;
+    private static long windowOpenedAt = 0L;
+    private static boolean windowReady = false;
+
     public static boolean isActive = false;
     public static boolean isPaused = false;
     public static String currentMode = "none";
@@ -68,6 +77,10 @@ public class Farming {
     private static int randomDelayTicks = random.nextInt(81) + 20;
 
     public static BlockPos pauseWaypoint = null;
+
+    private static long wPhaseStart = 0;
+    private static boolean wardrobeClicked = false;
+    private static int movementBlockTicks = 0;
 
     private static boolean eqActive = false;
 
@@ -183,6 +196,7 @@ public class Farming {
         if (!Config.INSTANCE.funnyToggle) return;
         if (!Utils.isInGarden()) return;
 
+        handleWindowId();
         updatePestsTimer();
 
         while (toggleKey.wasPressed()) handleToggle();
@@ -195,8 +209,10 @@ public class Farming {
         }
 
         handleRodSequence();
+        //handleWardrobe();
 
         if (eqActive) {
+            releaseAllKeys();
             handleEqSequence();
             return;
         }
@@ -208,6 +224,48 @@ public class Farming {
         holdKeys();
     }
 
+    private static void handleJump() {
+        if (pendingDoubleJumpTicks > 0 && mc.player != null) {
+            if (mc.player.isOnGround()) {
+                mc.options.jumpKey.setPressed(true);
+                mc.player.jump();
+                mc.options.jumpKey.setPressed(false);
+
+                pendingDoubleJumpTicks = -2;
+            } else {
+                pendingDoubleJumpTicks--;
+            }
+            return;
+        }
+
+        if (pendingDoubleJumpTicks < 0 && mc.player != null) {
+            mc.options.jumpKey.setPressed(true);
+            mc.player.jump();
+            mc.options.jumpKey.setPressed(false);
+
+            pendingDoubleJumpTicks = 0;
+        }
+    }
+
+    private static void handleWindowId() {
+        if (eqActive && mc.player != null && mc.player.currentScreenHandler != null) {
+            int syncId = mc.player.currentScreenHandler.syncId;
+
+            if (syncId != 0 && syncId != lastSeenSyncId) {
+                lastSeenSyncId = syncId;
+                windowOpenedAt = System.currentTimeMillis();
+                windowReady = false;
+
+                Utils.log("EQ window updated → syncId = " + syncId);
+            }
+
+            if (!windowReady && System.currentTimeMillis() - windowOpenedAt >= 100) {
+                windowReady = true;
+                Utils.log("EQ window ready for interaction");
+            }
+        }
+    }
+
     private static void handleEqSequence() {
         if (mc.player == null || mc.player.currentScreenHandler == null || mc.player.currentScreenHandler.syncId == 0) {
             if (eqState == EqState.OPENING && System.currentTimeMillis() - eqStateStart > 12000) {
@@ -215,6 +273,10 @@ public class Farming {
                 eqActive = false;
                 eqState = EqState.IDLE;
             }
+            return;
+        }
+
+        if (!windowReady) {
             return;
         }
 
@@ -312,8 +374,59 @@ public class Farming {
 
         if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 250 + random.nextInt(250)) {
             mc.player.closeHandledScreen();
+            windowReady = false;
+            lastSeenSyncId = -1;
             Utils.log("Closing EQ after finishing items");
-            startRodSequence(now);
+            if (Config.INSTANCE.petSwapType == 0) startRodSequence(now);
+            if (Config.INSTANCE.petSwapType == 1) {
+                mc.player.networkHandler.sendChatMessage("/wardrobe");
+                wPhase = WPhase.CLICKING;
+            }
+        }
+    }
+
+    private static void handleWardrobe() {
+        if (mc.player == null) return;
+        if (mc.player.currentScreenHandler == null) return;
+
+        long now = System.currentTimeMillis();
+        int targetSlot = Config.INSTANCE.wardrobeSlot;
+
+        if (wPhase == WPhase.CLICKING && now - wPhaseStart > 1000) {
+
+            for (int slot = 0; slot < mc.player.currentScreenHandler.slots.size(); slot++) {
+                ItemStack stack = mc.player.currentScreenHandler.getSlot(slot).getStack();
+                if (stack.isEmpty()) continue;
+
+                String name = stack.getName().getString().toLowerCase()
+                        .replaceAll("§.", "").trim();
+
+                if (name.contains("slot " + targetSlot)) {
+                    mc.interactionManager.clickSlot(
+                            mc.player.currentScreenHandler.syncId,
+                            slot,
+                            0,
+                            SlotActionType.CLONE,
+                            mc.player
+                    );
+
+                    Utils.log("Wardrobe slot clicked: " + slot);
+                    wardrobeClicked = true;
+
+                    wPhase = WPhase.DONE;
+                    wPhaseStart = System.currentTimeMillis();
+                    break;
+                }
+            }
+        }
+
+        if (wPhase == WPhase.DONE && now - wPhaseStart > 200) {
+            if (wardrobeClicked) {
+                mc.player.closeHandledScreen();
+                rodPhaseStart = now;
+                rodPhase = RodPhase.DONE;
+                Utils.log("Wardrobe menu closed");
+            }
         }
     }
 
@@ -400,11 +513,13 @@ public class Farming {
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
                         handlePause();
+                        movementBlockTicks = 2;
+                        releaseAllKeys();
                         currentPestPhase = PestPhase.SQUEAKY;
                         new Thread(() -> {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                             mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
-                            // find a way to mc.player.getAbilities().flying somehow
+                            pendingDoubleJumpTicks = 10;
                         }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
@@ -487,13 +602,24 @@ public class Farming {
             Utils.log("Macro paused");
         } else {
             lockMouse();
-            pauseWaypoint = null;
             lastXp = 0;
 
-            long pausedForMs = System.currentTimeMillis() - pauseTimeMs;
-            double pausedForSeconds = pausedForMs / 1000.0;
+            boolean shouldWarp = false;
 
-            if (pausedForSeconds >= 9 && Config.INSTANCE.rewarpOnPause) {
+            if (Config.INSTANCE.rewarpOnPause && pauseWaypoint != null && mc.player != null) {
+                BlockPos playerPos = BlockPos.ofFloored(mc.player.getEntityPos());
+
+                int dx = Math.abs(playerPos.getX() - pauseWaypoint.getX());
+                int dz = Math.abs(playerPos.getZ() - pauseWaypoint.getZ());
+
+                if (dx > 1 || dz > 1) {
+                    shouldWarp = true;
+                }
+            }
+
+            pauseWaypoint = null;
+
+            if (shouldWarp) {
                 mc.player.networkHandler.sendChatMessage("/warp garden");
                 new Thread(() -> {
                     try { Thread.sleep(150); } catch (InterruptedException ignored) {}
@@ -684,6 +810,8 @@ public class Farming {
         mc.options.leftKey.setPressed(false);
         mc.options.rightKey.setPressed(false);
         mc.options.attackKey.setPressed(false);
+        mc.player.setVelocity(Vec3d.ZERO);
+        mc.player.velocityDirty = true;
         keysAreHeld = false;
     }
 
