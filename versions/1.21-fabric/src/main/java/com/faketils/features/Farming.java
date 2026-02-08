@@ -51,6 +51,11 @@ public class Farming {
 
     private static WPhase wPhase = WPhase.OPENING;
 
+    private static enum WardrobePhase { IDLE, OPEN_SENT, WAIT_FOR_OPEN, CLICKING_SLOT, WAIT_AFTER_CLICK, CLOSING, DONE }
+    private static WardrobePhase wardrobePhase = WardrobePhase.IDLE;
+    private static long wardrobePhaseStart = 0L;
+    private static boolean wardrobeSuccess = false;
+
     private static enum EqState { IDLE, OPENING, WAIT_AFTER_OPEN, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
     private static EqState eqState = EqState.IDLE;
     private static long eqStateStart = 0L;
@@ -209,7 +214,7 @@ public class Farming {
         }
 
         handleRodSequence();
-        //handleWardrobe();
+        handleWardrobeSequence();
 
         if (eqActive) {
             releaseAllKeys();
@@ -218,10 +223,17 @@ public class Farming {
         }
 
         if (mc.currentScreen != null) return;
+
+        if (movementBlockTicks > 0) {
+            movementBlockTicks--;
+            releaseAllKeys();
+        }
         updateBPS();
         checkFailSafes();
         updateMode();
-        holdKeys();
+        if (movementBlockTicks == 0) {
+            holdKeys();
+        }
     }
 
     private static void handleJump() {
@@ -380,54 +392,113 @@ public class Farming {
             if (Config.INSTANCE.petSwapType == 0) startRodSequence(now);
             if (Config.INSTANCE.petSwapType == 1) {
                 mc.player.networkHandler.sendChatMessage("/wardrobe");
-                wPhase = WPhase.CLICKING;
+                wardrobePhase = WardrobePhase.OPEN_SENT;
+                wardrobePhaseStart = now;
+                wardrobeSuccess = false;
+                Utils.log("Sent /wardrobe command → starting wardrobe phase");
             }
         }
     }
 
-    private static void handleWardrobe() {
-        if (mc.player == null) return;
-        if (mc.player.currentScreenHandler == null) return;
+    private static void handleWardrobeSequence() {
+        if (wardrobePhase == WardrobePhase.IDLE) return;
+        if (mc.player == null || mc.player.currentScreenHandler == null) return;
 
         long now = System.currentTimeMillis();
-        int targetSlot = Config.INSTANCE.wardrobeSlot;
+        int syncId = mc.player.currentScreenHandler.syncId;
 
-        if (wPhase == WPhase.CLICKING && now - wPhaseStart > 1000) {
+        if (now - wardrobePhaseStart > 12000) {
+            Utils.log("Wardrobe sequence timeout → aborting");
+            mc.player.closeHandledScreen();
+            resetWardrobeState();
+            return;
+        }
 
-            for (int slot = 0; slot < mc.player.currentScreenHandler.slots.size(); slot++) {
-                ItemStack stack = mc.player.currentScreenHandler.getSlot(slot).getStack();
-                if (stack.isEmpty()) continue;
-
-                String name = stack.getName().getString().toLowerCase()
-                        .replaceAll("§.", "").trim();
-
-                if (name.contains("slot " + targetSlot)) {
-                    mc.interactionManager.clickSlot(
-                            mc.player.currentScreenHandler.syncId,
-                            slot,
-                            0,
-                            SlotActionType.CLONE,
-                            mc.player
-                    );
-
-                    Utils.log("Wardrobe slot clicked: " + slot);
-                    wardrobeClicked = true;
-
-                    wPhase = WPhase.DONE;
-                    wPhaseStart = System.currentTimeMillis();
-                    break;
+        switch (wardrobePhase) {
+            case OPEN_SENT:
+                if (now - wardrobePhaseStart > 400 + random.nextInt(300)) {
+                    wardrobePhase = WardrobePhase.WAIT_FOR_OPEN;
+                    wardrobePhaseStart = now;
                 }
-            }
-        }
+                break;
 
-        if (wPhase == WPhase.DONE && now - wPhaseStart > 200) {
-            if (wardrobeClicked) {
+            case WAIT_FOR_OPEN:
+                if (syncId != 0 && syncId != lastSeenSyncId) {
+                    lastSeenSyncId = syncId;
+                    wardrobePhase = WardrobePhase.CLICKING_SLOT;
+                    wardrobePhaseStart = now;
+                    Utils.log("Wardrobe window detected (syncId=" + syncId + ")");
+                } else if (now - wardrobePhaseStart > 5000) {
+                    Utils.log("Wardrobe did not open in time → aborting");
+                    resetWardrobeState();
+                }
+                break;
+
+            case CLICKING_SLOT:
+                if (now - wardrobePhaseStart < 300 + random.nextInt(400)) return;
+
+                int targetPreset = Config.INSTANCE.wardrobeSlot;
+
+                for (int i = 0; i < mc.player.currentScreenHandler.slots.size(); i++) {
+                    ItemStack stack = mc.player.currentScreenHandler.getSlot(i).getStack();
+                    if (stack.isEmpty()) continue;
+
+                    String name = stack.getName().getString()
+                            .replaceAll("§.", "")
+                            .toLowerCase()
+                            .trim();
+
+                    if (name.contains("slot") && name.contains(String.valueOf(targetPreset))) {
+                        mc.interactionManager.clickSlot(syncId, i, 0, SlotActionType.PICKUP, mc.player);
+                        Utils.log("Clicked wardrobe preset '" + targetPreset + "' at slot index " + i);
+                        wardrobeSuccess = true;
+                        wardrobePhase = WardrobePhase.WAIT_AFTER_CLICK;
+                        wardrobePhaseStart = now;
+                        return;
+                    }
+                }
+
+                if (now - wardrobePhaseStart > 4000) {
+                    Utils.log("Could not find wardrobe slot " + targetPreset + " → aborting");
+                    resetWardrobeState();
+                }
+                break;
+
+            case WAIT_AFTER_CLICK:
+                if (now - wardrobePhaseStart > 350 + random.nextInt(250)) {
+                    wardrobePhase = WardrobePhase.CLOSING;
+                    wardrobePhaseStart = now;
+                }
+                break;
+
+            case CLOSING:
                 mc.player.closeHandledScreen();
-                rodPhaseStart = now;
-                rodPhase = RodPhase.DONE;
-                Utils.log("Wardrobe menu closed");
-            }
+                Utils.log("Closing wardrobe");
+
+                wardrobePhase = WardrobePhase.DONE;
+                wardrobePhaseStart = now;
+                break;
+
+            case DONE:
+                if (now - wardrobePhaseStart > 150 + random.nextInt(200)) {
+                    if (wardrobeSuccess) {
+                        rodPhase = RodPhase.DONE;
+                        rodPhaseStart = now;
+                        Utils.log("Wardrobe → rod sequence started");
+                    } else {
+                        Utils.log("Wardrobe failed → rod sequence skipped");
+                    }
+                    resetWardrobeState();
+                }
+                break;
         }
+    }
+
+    private static void resetWardrobeState() {
+        wardrobePhase = WardrobePhase.IDLE;
+        wardrobePhaseStart = 0L;
+        wardrobeSuccess = false;
+        lastSeenSyncId = -1;
     }
 
     private static void startRodSequence(long now) {
@@ -513,7 +584,7 @@ public class Farming {
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
                         handlePause();
-                        movementBlockTicks = 2;
+                        movementBlockTicks = 6;
                         releaseAllKeys();
                         currentPestPhase = PestPhase.SQUEAKY;
                         new Thread(() -> {
@@ -526,7 +597,10 @@ public class Farming {
                     }
 
                     originalHotbarSlot = -1;
-                    eqActive = false;
+                    new Thread(() -> {
+                        try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                        eqActive = false;
+                    }).start();
                 }
                 break;
 
@@ -810,8 +884,6 @@ public class Farming {
         mc.options.leftKey.setPressed(false);
         mc.options.rightKey.setPressed(false);
         mc.options.attackKey.setPressed(false);
-        mc.player.setVelocity(Vec3d.ZERO);
-        mc.player.velocityDirty = true;
         keysAreHeld = false;
     }
 
