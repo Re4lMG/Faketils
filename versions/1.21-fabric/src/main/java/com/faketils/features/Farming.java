@@ -295,6 +295,10 @@ public class Farming {
         ScreenHandler handler = mc.player.currentScreenHandler;
         long now = System.currentTimeMillis();
 
+        if (!handler.getCursorStack().isEmpty()) {
+            return;
+        }
+
         int totalSlots = handler.slots.size();
         int playerInvStart = totalSlots - 36;
 
@@ -391,11 +395,13 @@ public class Farming {
             Utils.log("Closing EQ after finishing items");
             if (Config.INSTANCE.petSwapType == 0) startRodSequence(now);
             if (Config.INSTANCE.petSwapType == 1) {
-                mc.player.networkHandler.sendChatMessage("/wardrobe");
-                wardrobePhase = WardrobePhase.OPEN_SENT;
-                wardrobePhaseStart = now;
-                wardrobeSuccess = false;
-                Utils.log("Sent /wardrobe command → starting wardrobe phase");
+                if (currentPestPhase == PestPhase.SQUEAKY) {
+                    mc.player.networkHandler.sendChatMessage("/wardrobe");
+                    wardrobePhase = WardrobePhase.OPEN_SENT;
+                    wardrobePhaseStart = now;
+                    wardrobeSuccess = false;
+                    Utils.log("Sent /wardrobe command → starting wardrobe phase");
+                }
             }
         }
     }
@@ -411,6 +417,10 @@ public class Farming {
             Utils.log("Wardrobe sequence timeout → aborting");
             mc.player.closeHandledScreen();
             resetWardrobeState();
+            return;
+        }
+
+        if (!mc.player.currentScreenHandler.getCursorStack().isEmpty()) {
             return;
         }
 
@@ -902,31 +912,32 @@ public class Farming {
     }
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
-        if (!Utils.isInSkyblock() || !Config.INSTANCE.funnyWaypoints || mc.player == null || mc.world == null || !Utils.isInGarden()) {
+        if (!Utils.isInSkyblock() || mc.player == null || mc.world == null || !Utils.isInGarden()) {
             return;
         }
 
         Vec3d cameraPos = event.camera.getPos();
+        if (Config.INSTANCE.funnyWaypoints) {
+            for (var entry : FarmingWaypoints.WAYPOINTS.entrySet()) {
+                String type = entry.getKey();
+                var list = entry.getValue();
 
-        for (var entry : FarmingWaypoints.WAYPOINTS.entrySet()) {
-            String type = entry.getKey();
-            var list = entry.getValue();
+                int color = switch (type.toLowerCase()) {
+                    case "left" -> 0xFFFF4444;
+                    case "right" -> 0xFF44FF44;
+                    case "warp" -> 0xFFFFFF44;
+                    default -> 0xFF4488FF;
+                };
 
-            int color = switch (type.toLowerCase()) {
-                case "left"  -> 0xFFFF4444;
-                case "right" -> 0xFF44FF44;
-                case "warp"  -> 0xFFFFFF44;
-                default      -> 0xFF4488FF;
-            };
-
-            for (BlockPos blockPos : list) {
-                RenderUtils.renderWaypointMarker(
-                        new Vec3d(blockPos.getX()+0.5, blockPos.getY(), blockPos.getZ()+0.5),
-                        cameraPos,
-                        color,
-                        type,
-                        event
-                );
+                for (BlockPos blockPos : list) {
+                    RenderUtils.renderWaypointMarker(
+                            new Vec3d(blockPos.getX() + 0.5, blockPos.getY(), blockPos.getZ() + 0.5),
+                            cameraPos,
+                            color,
+                            type,
+                            event
+                    );
+                }
             }
         }
 

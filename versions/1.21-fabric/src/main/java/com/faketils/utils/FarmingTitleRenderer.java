@@ -25,7 +25,7 @@ public class FarmingTitleRenderer {
         int sw = mc.getWindow().getScaledWidth();
         int sh = mc.getWindow().getScaledHeight();
 
-        float scale = 3.0f;
+        float scale = 9.0f;
         int x = sw / 2;
         int y = sh / 5;
 
