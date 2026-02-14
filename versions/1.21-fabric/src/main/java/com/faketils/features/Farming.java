@@ -293,11 +293,12 @@ public class Farming {
         }
 
         ScreenHandler handler = mc.player.currentScreenHandler;
-        long now = System.currentTimeMillis();
 
         if (!handler.getCursorStack().isEmpty()) {
             return;
         }
+
+        long now = System.currentTimeMillis();
 
         int totalSlots = handler.slots.size();
         int playerInvStart = totalSlots - 36;
@@ -395,12 +396,15 @@ public class Farming {
             Utils.log("Closing EQ after finishing items");
             if (Config.INSTANCE.petSwapType == 0) startRodSequence(now);
             if (Config.INSTANCE.petSwapType == 1) {
-                if (currentPestPhase == PestPhase.SQUEAKY) {
+                if (currentPestPhase == PestPhase.ROOTED) {
                     mc.player.networkHandler.sendChatMessage("/wardrobe");
                     wardrobePhase = WardrobePhase.OPEN_SENT;
                     wardrobePhaseStart = now;
                     wardrobeSuccess = false;
                     Utils.log("Sent /wardrobe command → starting wardrobe phase");
+                }
+                if (currentPestPhase == PestPhase.SQUEAKY) {
+                    startRodSequence(now);
                 }
             }
         }
@@ -417,10 +421,6 @@ public class Farming {
             Utils.log("Wardrobe sequence timeout → aborting");
             mc.player.closeHandledScreen();
             resetWardrobeState();
-            return;
-        }
-
-        if (!mc.player.currentScreenHandler.getCursorStack().isEmpty()) {
             return;
         }
 
