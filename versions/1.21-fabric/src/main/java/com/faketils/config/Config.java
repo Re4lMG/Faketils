@@ -60,6 +60,9 @@ public class Config {
     public boolean pestFarming = false;
     public int petSwapType = 0; // 0 rod, 1 wardrobe slot
     public int wardrobeSlot = 1;
+    public int wardrobeSlotOld = 1;
+
+    public int pestTime = 135;
 
     public boolean rewarpOnPause = false;
 
@@ -101,7 +104,7 @@ public class Config {
     public void markDirty() {
         data = new ConfigData(
                 funnyToggle, farmType, funnyWaypoints, instaSwitch,
-                pestHelper, pestFarming, petSwapType, wardrobeSlot, rewarpOnPause,
+                pestHelper, pestFarming, pestTime, petSwapType, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, sphinxSolver, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
@@ -125,8 +128,10 @@ public class Config {
 
         pestHelper = data.pestHelper;
         pestFarming = data.pestFarming;
+        pestTime = data.pestTime;
         petSwapType = data.petSwapType;
         wardrobeSlot = data.wardrobeSlot;
+        wardrobeSlotOld = data.wardrobeSlotOld;
         rewarpOnPause = data.rewarpOnPause;
 
         fishingHelper = data.fishingHelper;
@@ -202,6 +207,14 @@ public class Config {
                 .setSaveConsumer(val -> pestFarming = val)
                 .build());
 
+        farming.addEntry(
+                entry.startIntField(Text.literal("Pest Cooldown time"), pestTime)
+                        .setDefaultValue(135)
+                        .setTooltip(Text.literal("Type a number 75–300"))
+                        .setSaveConsumer(val -> pestTime = MathHelper.clamp(val,75,300))
+                        .build()
+        );
+
         farming.addEntry(entry.startEnumSelector(Text.literal("Pet swap type"), PetSwapType.class, PetSwapType.values()[petSwapType])
                 .setDefaultValue(PetSwapType.ROD)
                 .setTooltip(Text.literal("Select a swapping method."))
@@ -209,10 +222,18 @@ public class Config {
                 .build());
 
         farming.addEntry(
-                entry.startIntField(Text.literal("Wardrobe slot"), 1)
+                entry.startIntField(Text.literal("Mossy Wardrobe slot"), wardrobeSlot)
                         .setDefaultValue(1)
                         .setTooltip(Text.literal("Type a number 1–9"))
                         .setSaveConsumer(val -> wardrobeSlot = MathHelper.clamp(val,1,9))
+                        .build()
+        );
+
+        farming.addEntry(
+                entry.startIntField(Text.literal("Mantid Wardrobe slot"), wardrobeSlotOld)
+                        .setDefaultValue(1)
+                        .setTooltip(Text.literal("Type a number 1–9"))
+                        .setSaveConsumer(val -> wardrobeSlotOld = MathHelper.clamp(val,1,9))
                         .build()
         );
 
@@ -361,8 +382,10 @@ public class Config {
 
         boolean pestHelper;
         boolean pestFarming;
+        int pestTime;
         int petSwapType;
         int wardrobeSlot;
+        int wardrobeSlotOld;
         boolean rewarpOnPause;
         boolean fishingHelper;
         boolean slugFishing;
@@ -385,7 +408,7 @@ public class Config {
 
         ConfigData(
                 boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                boolean pestHelper, boolean pestFarming, int petSwapType, int wardrobeSlot, boolean rewarpOnPause,
+                boolean pestHelper, boolean pestFarming,int pestTime, int petSwapType, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
                 boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
@@ -401,8 +424,10 @@ public class Config {
             this.pestHelper = pestHelper;
             this.rewarpOnPause = rewarpOnPause;
             this.pestFarming = pestFarming;
+            this.pestTime = pestTime;
             this.petSwapType = petSwapType;
             this.wardrobeSlot = wardrobeSlot;
+            this.wardrobeSlotOld = wardrobeSlotOld;
             this.fishingHelper = fishingHelper;
             this.slugFishing = slugFishing;
             this.fishingHelperKilling = fishingHelperKilling;

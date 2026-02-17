@@ -19,6 +19,7 @@ import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -84,6 +85,8 @@ public class Farming {
     public static BlockPos pauseWaypoint = null;
 
     private static long wPhaseStart = 0;
+
+    private static int wardrobeSlot = 0;
     private static boolean wardrobeClicked = false;
     private static int movementBlockTicks = 0;
 
@@ -300,8 +303,8 @@ public class Farming {
 
         long now = System.currentTimeMillis();
 
-        int totalSlots = handler.slots.size();
-        int playerInvStart = totalSlots - 36;
+        //int totalSlots = handler.slots.size();
+        //int playerInvStart = totalSlots - 36;
 
         int delayMs = 250 + random.nextInt(250);
         if (now - lastClickTime < delayMs) {
@@ -329,8 +332,12 @@ public class Farming {
         if (eqState == EqState.SEARCHING_ITEMS) {
             Utils.log("Scanning for next " + (currentPestPhase == PestPhase.ROOTED ? "Rooted" : "Squeaky") + " item...");
 
-            for (int slot = playerInvStart; slot < totalSlots; slot++) {
-                ItemStack stack = handler.getSlot(slot).getStack();
+            for (int i = 0; i < handler.slots.size(); i++) {
+                Slot slot = handler.slots.get(i);
+
+                if (!(slot.inventory instanceof PlayerInventory)) continue;
+
+                ItemStack stack = slot.getStack();
                 if (stack.isEmpty()) continue;
 
                 String name = stack.getName().getString().toLowerCase().replaceAll("§.", "").trim();
@@ -339,7 +346,7 @@ public class Farming {
                         : name.contains("squeaky pest");
 
                 if (isMatch) {
-                    mc.interactionManager.clickSlot(handler.syncId, slot, 0, SlotActionType.PICKUP, mc.player);
+                    mc.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, mc.player);
                     lastClickTime = now;
                     eqState = EqState.PICKUP_CLICKED;
                     eqStateStart = now;
@@ -359,18 +366,16 @@ public class Farming {
         else if (eqState == EqState.PICKUP_CLICKED) {
             if (now - eqStateStart >= 250 + random.nextInt(250)) {
                 int placeSlot = -1;
-                for (int i = 0; i < playerInvStart; i++) {
-                    if (handler.getSlot(i).getStack().isEmpty()) {
+                for (int i = 0; i < handler.slots.size(); i++) {
+                    Slot slot = handler.slots.get(i);
+
+                    if (!(slot.inventory instanceof PlayerInventory)) {
+                        continue;
+                    }
+
+                    if (slot.getStack().isEmpty()) {
                         placeSlot = i;
                         break;
-                    }
-                }
-                if (placeSlot == -1) {
-                    for (int i = playerInvStart; i < totalSlots; i++) {
-                        if (handler.getSlot(i).getStack().isEmpty()) {
-                            placeSlot = i;
-                            break;
-                        }
                     }
                 }
 
@@ -397,15 +402,16 @@ public class Farming {
             if (Config.INSTANCE.petSwapType == 0) startRodSequence(now);
             if (Config.INSTANCE.petSwapType == 1) {
                 if (currentPestPhase == PestPhase.ROOTED) {
-                    mc.player.networkHandler.sendChatMessage("/wardrobe");
-                    wardrobePhase = WardrobePhase.OPEN_SENT;
-                    wardrobePhaseStart = now;
-                    wardrobeSuccess = false;
-                    Utils.log("Sent /wardrobe command → starting wardrobe phase");
+                    wardrobeSlot = Config.INSTANCE.wardrobeSlot;
                 }
                 if (currentPestPhase == PestPhase.SQUEAKY) {
-                    startRodSequence(now);
+                    wardrobeSlot = Config.INSTANCE.wardrobeSlotOld;
                 }
+                mc.player.networkHandler.sendChatMessage("/wardrobe");
+                wardrobePhase = WardrobePhase.OPEN_SENT;
+                wardrobePhaseStart = now;
+                wardrobeSuccess = false;
+                Utils.log("Sent /wardrobe command → starting wardrobe phase");
             }
         }
     }
@@ -447,7 +453,7 @@ public class Farming {
             case CLICKING_SLOT:
                 if (now - wardrobePhaseStart < 300 + random.nextInt(400)) return;
 
-                int targetPreset = Config.INSTANCE.wardrobeSlot;
+                int targetPreset = wardrobeSlot;
 
                 for (int i = 0; i < mc.player.currentScreenHandler.slots.size(); i++) {
                     ItemStack stack = mc.player.currentScreenHandler.getSlot(i).getStack();
@@ -594,7 +600,7 @@ public class Farming {
                     if (currentPestPhase == PestPhase.ROOTED) {
                         Utils.log("Rooted pest items handled → pausing macro");
                         handlePause();
-                        movementBlockTicks = 6;
+                        movementBlockTicks = 10;
                         releaseAllKeys();
                         currentPestPhase = PestPhase.SQUEAKY;
                         new Thread(() -> {
@@ -625,7 +631,7 @@ public class Farming {
 
         long now = System.currentTimeMillis();
 
-        if (pestsSpawned && now - lastPest > 131000 && Config.INSTANCE.pestFarming) {
+        if (pestsSpawned && now - lastPest > Config.INSTANCE.pestTime * 1000L && Config.INSTANCE.pestFarming) {
             pestsSpawned = false;
             if (isActive && !isPaused) {
                 releaseAllKeys();
@@ -638,7 +644,7 @@ public class Farming {
             itemsUsedThisPhase = 0;
             lastProcessedSyncId = -1;
             mc.player.sendMessage(Text.literal("§7[§bFaketils§7] §ePest Timer ran out!"), false);
-            Utils.log("135s timer reached → starting Squeaky phase");
+            Utils.log(Config.INSTANCE.pestTime + "s timer reached → starting Squeaky phase");
         }
     }
 
@@ -673,6 +679,7 @@ public class Farming {
 
         if (isPaused) {
             releaseAllKeys();
+            movementBlockTicks = 10;
             unlockMouse();
             pauseTimeMs = System.currentTimeMillis();
 
