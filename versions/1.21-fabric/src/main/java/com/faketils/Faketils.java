@@ -2,10 +2,7 @@ package com.faketils;
 
 import com.faketils.commands.Command;
 import com.faketils.config.Config;
-import com.faketils.features.Farming;
-import com.faketils.features.FishingTickHandler;
-import com.faketils.features.PestHelper;
-import com.faketils.features.SphinxSolver;
+import com.faketils.features.*;
 import com.faketils.utils.FarmingTitleRenderer;
 import com.faketils.utils.Utils;
 import net.fabricmc.api.ClientModInitializer;
@@ -31,6 +28,7 @@ public class Faketils implements ClientModInitializer {
 
         Command.register();
 
+        //DanceRoomSolver.initialize();
         FishingTickHandler.initialize();
         Farming.initialize();
         FarmingTitleRenderer.init();

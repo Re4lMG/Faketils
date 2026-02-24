@@ -59,6 +59,7 @@ public class Config {
     public boolean pestHelper = false;
     public boolean pestFarming = false;
     public int petSwapType = 0; // 0 rod, 1 wardrobe slot
+    public int swapDelay = 150;
     public int wardrobeSlot = 1;
     public int wardrobeSlotOld = 1;
 
@@ -104,7 +105,7 @@ public class Config {
     public void markDirty() {
         data = new ConfigData(
                 funnyToggle, farmType, funnyWaypoints, instaSwitch,
-                pestHelper, pestFarming, pestTime, petSwapType, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
+                pestHelper, pestFarming, pestTime, petSwapType, swapDelay, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, sphinxSolver, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
@@ -130,6 +131,7 @@ public class Config {
         pestFarming = data.pestFarming;
         pestTime = data.pestTime;
         petSwapType = data.petSwapType;
+        swapDelay = data.swapDelay;
         wardrobeSlot = data.wardrobeSlot;
         wardrobeSlotOld = data.wardrobeSlotOld;
         rewarpOnPause = data.rewarpOnPause;
@@ -220,6 +222,14 @@ public class Config {
                 .setTooltip(Text.literal("Select a swapping method."))
                 .setSaveConsumer(val -> petSwapType = val.ordinal())
                 .build());
+
+        farming.addEntry(
+                entry.startIntField(Text.literal("Eq clicking delay"), swapDelay)
+                        .setDefaultValue(150)
+                        .setTooltip(Text.literal("Type a number in ms 20-1500"))
+                        .setSaveConsumer(val -> swapDelay = MathHelper.clamp(val,20,1500))
+                        .build()
+        );
 
         farming.addEntry(
                 entry.startIntField(Text.literal("Mossy Wardrobe slot"), wardrobeSlot)
@@ -384,6 +394,7 @@ public class Config {
         boolean pestFarming;
         int pestTime;
         int petSwapType;
+        int swapDelay;
         int wardrobeSlot;
         int wardrobeSlotOld;
         boolean rewarpOnPause;
@@ -408,7 +419,7 @@ public class Config {
 
         ConfigData(
                 boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                boolean pestHelper, boolean pestFarming,int pestTime, int petSwapType, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
+                boolean pestHelper, boolean pestFarming,int pestTime, int petSwapType, int swapDelay, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
                 boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
@@ -426,6 +437,7 @@ public class Config {
             this.pestFarming = pestFarming;
             this.pestTime = pestTime;
             this.petSwapType = petSwapType;
+            this.swapDelay = swapDelay;
             this.wardrobeSlot = wardrobeSlot;
             this.wardrobeSlotOld = wardrobeSlotOld;
             this.fishingHelper = fishingHelper;

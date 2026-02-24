@@ -303,10 +303,7 @@ public class Farming {
 
         long now = System.currentTimeMillis();
 
-        //int totalSlots = handler.slots.size();
-        //int playerInvStart = totalSlots - 36;
-
-        int delayMs = 250 + random.nextInt(250);
+        int delayMs = Config.INSTANCE.swapDelay + random.nextInt(100);
         if (now - lastClickTime < delayMs) {
             return;
         }
@@ -364,7 +361,7 @@ public class Farming {
             }
         }
         else if (eqState == EqState.PICKUP_CLICKED) {
-            if (now - eqStateStart >= 250 + random.nextInt(250)) {
+            if (now - eqStateStart >= Config.INSTANCE.swapDelay + random.nextInt(100)) {
                 int placeSlot = -1;
                 for (int i = 0; i < handler.slots.size(); i++) {
                     Slot slot = handler.slots.get(i);
@@ -394,7 +391,7 @@ public class Farming {
             }
         }
 
-        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 250 + random.nextInt(250)) {
+        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > Config.INSTANCE.swapDelay + random.nextInt(100)) {
             mc.player.closeHandledScreen();
             windowReady = false;
             lastSeenSyncId = -1;
@@ -408,6 +405,7 @@ public class Farming {
                     wardrobeSlot = Config.INSTANCE.wardrobeSlotOld;
                 }
                 mc.player.networkHandler.sendChatMessage("/wardrobe");
+                eqState = EqState.IDLE;
                 wardrobePhase = WardrobePhase.OPEN_SENT;
                 wardrobePhaseStart = now;
                 wardrobeSuccess = false;
@@ -433,7 +431,7 @@ public class Farming {
         switch (wardrobePhase) {
             case OPEN_SENT:
                 if (now - wardrobePhaseStart > 400 + random.nextInt(300)) {
-                    wardrobePhase = WardrobePhase.WAIT_FOR_OPEN;
+                    wardrobePhase = WardrobePhase.CLICKING_SLOT;
                     wardrobePhaseStart = now;
                 }
                 break;
