@@ -385,13 +385,12 @@ public class Farming {
                     didAction = true;
                 } else {
                     Utils.log("No empty slot to place - closing early");
-                    mc.player.closeHandledScreen();
                     eqState = EqState.FINISHED_ITEMS;
                 }
             }
         }
 
-        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > Config.INSTANCE.swapDelay + random.nextInt(100)) {
+        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > Config.INSTANCE.swapDelay + random.nextInt(500)) {
             mc.player.closeHandledScreen();
             windowReady = false;
             lastSeenSyncId = -1;
@@ -746,6 +745,13 @@ public class Farming {
         }
     }
 
+    private static float getAngleDifference(float a, float b) {
+        float diff = (a - b) % 360.0F;
+        if (diff > 180.0F) diff -= 360.0F;
+        if (diff < -180.0F) diff += 360.0F;
+        return Math.abs(diff);
+    }
+
     private static void checkFailSafes() {
         if (mc.player == null) return;
 
@@ -774,7 +780,7 @@ public class Farming {
             Utils.log("Item changed from " + lockedItemName + " to " + currentItemName);
         }
 
-        if (Math.abs(mc.player.getYaw() - lockedYaw) > yawPitchTolerance ||
+        if (getAngleDifference(mc.player.getYaw(), lockedYaw) > yawPitchTolerance ||
                 Math.abs(mc.player.getPitch() - lockedPitch) > yawPitchTolerance) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail = "Yaw/pitch changed";
