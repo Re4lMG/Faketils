@@ -1,13 +1,18 @@
 package com.faketils.commands;
 
 import com.faketils.Faketils;
+import com.faketils.events.FlyHandler;
+import com.faketils.events.RotationHandler;
 import com.faketils.utils.FarmingWaypoints;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.*;
 
@@ -36,6 +41,55 @@ public class Command {
 
             dispatcher.register(literal("faketils").executes(context -> openGui(context.getSource())));
             dispatcher.register(literal("faketil").executes(context -> openGui(context.getSource())));
+
+            dispatcher.register(literal("setrotation")
+                    .then(argument("yaw", FloatArgumentType.floatArg())
+                            .then(argument("pitch", FloatArgumentType.floatArg(-90.0f, 90.0f))
+                                    .executes(context -> {
+                                        float yaw = FloatArgumentType.getFloat(context, "yaw");
+                                        float pitch = FloatArgumentType.getFloat(context, "pitch");
+
+                                        RotationHandler.setTarget(yaw, pitch);
+
+                                        context.getSource().sendFeedback(
+                                                Text.literal("§7[§bFaketils§7] §aRotation target: yaw=§e" + yaw + "§a, pitch=§e" + pitch)
+                                        );
+                                        return 1;
+                                    })
+                            )
+                    )
+            );
+
+            dispatcher.register(literal("flyto")
+                    .then(argument("x", IntegerArgumentType.integer())
+                            .then(argument("y", IntegerArgumentType.integer())
+                                    .then(argument("z", IntegerArgumentType.integer())
+                                    .executes(context -> {
+                                        int x = IntegerArgumentType.getInteger(context, "x");
+                                        int y = IntegerArgumentType.getInteger(context, "y");
+                                        int z = IntegerArgumentType.getInteger(context, "z");
+
+                                        FlyHandler.setTarget(new Vec3d(x, y, z));
+
+                                        context.getSource().sendFeedback(
+                                                Text.literal("§7[§bFaketils§7] §aTarget set")
+                                        );
+                                        return 1;
+                                    })
+                            )
+                    )
+            ));
+
+            dispatcher.register(literal("resetrotation")
+                    .executes(context -> {
+                        RotationHandler.reset();
+                        FlyHandler.stop();
+                        context.getSource().sendFeedback(
+                                Text.literal("§7[§bFaketils§7] §eRotation reset")
+                        );
+                        return 1;
+                    })
+            );
         });
 
         FarmingWaypoints.load();

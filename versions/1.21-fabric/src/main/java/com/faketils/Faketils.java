@@ -2,6 +2,7 @@ package com.faketils;
 
 import com.faketils.commands.Command;
 import com.faketils.config.Config;
+import com.faketils.events.FlyHandler;
 import com.faketils.events.RotationHandler;
 import com.faketils.features.*;
 import com.faketils.utils.FarmingTitleRenderer;
@@ -30,7 +31,8 @@ public class Faketils implements ClientModInitializer {
         Command.register();
 
         //DanceRoomSolver.initialize();
-        RotationHandler.onInit();
+        RotationHandler.init();
+        FlyHandler.init();
         FishingTickHandler.initialize();
         Farming.initialize();
         FarmingTitleRenderer.init();

@@ -11,16 +11,16 @@ public class RotationHandler {
     private static float targetPitch = 0;
     private static boolean active = false;
 
-    private static final float MAX_SPEED = 30.0f;
+    private static final float MAX_SPEED = 18.0f;
     private static final float FULL_SPEED_DISTANCE = 90.0f;
-    private static final float JITTER_AMPLITUDE = 0.2f;
+    private static final float JITTER_AMPLITUDE = 0.4f;
     private static final float CURVE_INTENSITY = 0.15f;
     private static final float CURVE_FREQUENCY = 0.15f;
 
     private static final Random RANDOM = new Random();
     private static float time = 0;
 
-    public static void onInit() {
+    public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
     }
 

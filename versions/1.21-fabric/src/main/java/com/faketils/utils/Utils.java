@@ -2,6 +2,8 @@ package com.faketils.utils;
 
 import com.faketils.Faketils;
 import com.faketils.events.TabListParser;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
@@ -9,6 +11,10 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.*;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.scoreboard.*;
@@ -68,6 +74,24 @@ public class Utils {
                         " pitch=" + pitch
         );
     }*/
+
+    public static String getHeadTexture(ItemStack stack) {
+        if (!stack.isOf(Items.PLAYER_HEAD) || !stack.contains(DataComponentTypes.PROFILE)) {
+            return "";
+        }
+
+        ProfileComponent profileComponent = stack.get(DataComponentTypes.PROFILE);
+        if (profileComponent == null) return "";
+
+        GameProfile profile = profileComponent.getGameProfile();
+        if (profile == null) return "";
+
+        return profile.properties().get("textures").stream()
+                .filter(Objects::nonNull)
+                .map(Property::value)
+                .findFirst()
+                .orElse("");
+    }
 
     public static void simulateUseItem(ClientPlayerInteractionManager interactionManager) {
         interactionManager.interactItem(mc.player, Hand.MAIN_HAND);

@@ -1,9 +1,7 @@
 package com.faketils.features;
 
 import com.faketils.config.Config;
-import com.faketils.events.FtEvent;
-import com.faketils.events.FtEventBus;
-import com.faketils.events.PacketEvent;
+import com.faketils.events.*;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.FarmingWaypoints;
 import com.faketils.utils.RenderUtils;
@@ -14,6 +12,8 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
@@ -25,8 +25,10 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -65,6 +67,22 @@ public class Farming {
     private static long lastClickTime = 0L;
     private static final long MAX_WAIT_PER_ACTION_MS = 4000L;
 
+    private enum SprayPhase {
+        IDLE,
+        SWAP_TO_SPRAY,
+        WAIT_BEFORE_USE,
+        USE,
+        WAIT_BEFORE_RESTORE,
+        RESTORE_SLOT,
+        DONE
+    }
+    private static boolean isSpraying = false;
+    private static long sprayNoneDetectedTime = -1L;
+    private static SprayPhase sprayPhase = SprayPhase.IDLE;
+    private static long sprayPhaseStart = 0L;
+    private static int sprayHotbarSlot = -1;
+    private static int originalSpraySlot = -1;
+
     private static enum PestPhase { ROOTED, SQUEAKY }
     private static PestPhase currentPestPhase = PestPhase.ROOTED;
 
@@ -76,6 +94,8 @@ public class Farming {
     public static boolean isPaused = false;
     public static String currentMode = "none";
 
+    private static boolean killingPests = false;
+    private static Vec3d currentPestTarget = null;
     public static boolean pestsSpawned = false;
 
     private static BlockPos lastWaypoint = null;
@@ -88,9 +108,16 @@ public class Farming {
 
     private static int wardrobeSlot = 0;
     private static boolean wardrobeClicked = false;
+    private static int originalPestKillSlot = -1;
     private static int movementBlockTicks = 0;
 
     private static boolean eqActive = false;
+
+    private static Vec3d pestOffset = Vec3d.ZERO;
+    private static long lastOffsetChange = 0L;
+    private static final long OFFSET_CHANGE_INTERVAL_MS = 900L + random.nextInt(600);
+    private static final float OFFSET_MAX_HORIZONTAL = 0.5f;
+    private static final float OFFSET_MAX_VERTICAL   = 0.5f;
 
     private static int plot = 0;
     private static long lastBrokenBlock = 0L;
@@ -101,6 +128,8 @@ public class Farming {
     private static long pauseTimeMs = 0;
     private static long startTime = 0L;
     private static double bps = 0.0;
+    private static boolean waitingForTrades = false;
+    private static long lastTradesCommand = 0;
     private static float lockedYaw = 0f;
     private static float lockedPitch = 0f;
     private static long lastFailTime = 0L;
@@ -108,6 +137,8 @@ public class Farming {
     private static long bpsZeroStartTime = 0L;
     private static final float yawPitchTolerance = 0.5f;
     private static String lockedItemName = null;
+    private static final Set<ArmorStandEntity> ignoredPests = new HashSet<>();
+    private static long ignoredResetTime = 0;
 
     private static boolean isMouseLocked = false;
 
@@ -150,6 +181,23 @@ public class Farming {
                 String soundId = soundPacket.getSound().getIdAsString();
                 if (isActive && !isPaused && soundId.equals("minecraft:entity.experience_orb.pickup")) {
                     lastXp = System.currentTimeMillis();
+                }
+                if (killingPests && soundId.equals("minecraft:entity.silverfish.death")) {
+                    if (currentPestTarget != null && mc.world != null) {
+                        for (Entity entity : mc.world.getEntities()) {
+                            if (entity instanceof ArmorStandEntity armorStand) {
+                                Vec3d pos = armorStand.getEntityPos().add(0, 1.15, 0);
+                                if (pos.distanceTo(currentPestTarget) < 2.5) {
+                                    ignoredPests.add(armorStand);
+                                    ignoredResetTime = System.currentTimeMillis();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    //currentPestTarget = null;
+                    Utils.log("§cSilverfish death sound detected → skipping pest");
                 }
             }
         });
@@ -211,7 +259,17 @@ public class Farming {
         while (pauseKey.wasPressed()) handlePause();
         while (resetKey.wasPressed()) handleReset();
 
-        if (!isActive || isPaused) {
+        if (killingPests && isPaused) {
+            handleKilling();
+            if (currentPestTarget != null && mc.player != null) {
+                double distance = mc.player.getEntityPos().distanceTo(currentPestTarget);
+                boolean inSweetSpot = distance <= 14.0;
+                //swapToInfiniVacuum();
+                mc.options.useKey.setPressed(inSweetSpot);
+            }
+        }
+
+        if (!isActive || (isPaused && !killingPests)) {
             releaseAllKeys();
             return;
         }
@@ -219,22 +277,33 @@ public class Farming {
         handleRodSequence();
         handleWardrobeSequence();
 
-        if (eqActive) {
+        if (eqActive && !isSpraying) {
             releaseAllKeys();
             handleEqSequence();
             return;
         }
 
+        handleTradesScreen();
+
         if (mc.currentScreen != null) return;
+
+        handleSpray();
+        handleSpraySequence();
+
+        if (isSpraying) {
+            return;
+        }
 
         if (movementBlockTicks > 0) {
             movementBlockTicks--;
             releaseAllKeys();
         }
+
         updateBPS();
         checkFailSafes();
+        checkInventoryForSell();
         updateMode();
-        if (movementBlockTicks == 0) {
+        if (movementBlockTicks == 0 && !killingPests) {
             holdKeys();
         }
     }
@@ -390,7 +459,7 @@ public class Farming {
             }
         }
 
-        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > Config.INSTANCE.swapDelay + random.nextInt(500)) {
+        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 500) {
             mc.player.closeHandledScreen();
             windowReady = false;
             lastSeenSyncId = -1;
@@ -603,7 +672,11 @@ public class Farming {
                         new Thread(() -> {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                             mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
+                            if (Config.INSTANCE.pestKilling) swapToInfiniVacuum();
                             pendingDoubleJumpTicks = 10;
+                            try { Thread.sleep(350); } catch (InterruptedException ignored) {}
+                            if (Config.INSTANCE.pestKilling) handleKilling();
+                            if (Config.INSTANCE.pestKilling) killingPests = true;
                         }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
@@ -620,6 +693,117 @@ public class Farming {
             default:
                 rodPhase = RodPhase.IDLE;
                 break;
+        }
+    }
+
+    private static boolean swapToInfiniVacuum() {
+        if (mc.player == null) return false;
+        if (!Config.INSTANCE.pestKilling) return false;
+
+        PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
+        int vacuumSlot = -1;
+
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = mc.player.getInventory().getStack(i);
+            if (stack.isEmpty()) continue;
+
+            String name = stack.getName().getString()
+                    .replaceAll("§.", "")
+                    .replaceAll("[™®©]", "")
+                    .toLowerCase()
+                    .trim();
+
+            if (name.contains("infinivacuum")) {
+                vacuumSlot = i;
+                break;
+            }
+        }
+
+        if (vacuumSlot == -1) {
+            Utils.log("§cNo InfiniVacuum™ found in hotbar → using current item");
+            return false;
+        }
+
+        originalPestKillSlot = inv.getSelectedSlot();
+        inv.setSelectedSlot(vacuumSlot);
+        Utils.log("Swapped to InfiniVacuum™ (slot " + (vacuumSlot + 1) + ")");
+        return true;
+    }
+
+    private static void updatePestOffset() {
+        long now = System.currentTimeMillis();
+        if (now - lastOffsetChange < OFFSET_CHANGE_INTERVAL_MS) {
+            return;
+        }
+
+        float dx = (random.nextFloat() * 2 - 1) * OFFSET_MAX_HORIZONTAL;
+        float dy = (random.nextFloat() * 2 - 1) * OFFSET_MAX_VERTICAL;
+        float dz = (random.nextFloat() * 2 - 1) * OFFSET_MAX_HORIZONTAL;
+
+        pestOffset = new Vec3d(dx, dy, dz);
+        lastOffsetChange = now;
+
+        if (random.nextInt(20) == 0) {
+            Utils.log("New pest offset: " + String.format("%.2f, %.2f, %.2f", dx, dy, dz));
+        }
+    }
+
+    public static void handleKilling() {
+        if (mc.player == null || mc.world == null || !Utils.isInGarden()) return;
+        if (!Config.INSTANCE.pestKilling) return;
+
+        if (System.currentTimeMillis() - ignoredResetTime > 5000) {
+            ignoredPests.clear();
+        }
+
+        if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Alive: 0"))) {
+            if (killingPests) {
+                killingPests = false;
+                if (originalPestKillSlot >= 0 && originalPestKillSlot < 9) {
+                    mc.player.getInventory().setSelectedSlot(originalPestKillSlot);
+                    Utils.log("Restored original hotbar slot after pest killing: " + (originalPestKillSlot + 1));
+                }
+                originalPestKillSlot = -1;
+                FlyHandler.stop();
+                RotationHandler.reset();
+                handlePause();
+                currentPestTarget = null;
+                pestOffset = Vec3d.ZERO;
+                lastOffsetChange = 0L;
+                Utils.log("All pests killed → resuming normal farming");
+            }
+            return;
+        }
+
+        if (!killingPests) return;
+
+        Vec3d playerPos = mc.player.getEntityPos();
+        Vec3d closest = null;
+        double closestDistSq = Double.MAX_VALUE;
+
+        for (Entity entity : mc.world.getEntities()) {
+            if (entity instanceof ArmorStandEntity armorStand) {
+                //if (ignoredPests.contains(armorStand)) continue;
+                PestHelper.Pest pest = PestHelper.getPestFromHead(armorStand);
+                if (pest != null) {
+                    Vec3d baseTarget = armorStand.getEntityPos().add(0, 1.15, 0);
+                    //updatePestOffset();
+                    Vec3d finalTarget = baseTarget.add(pestOffset);
+                    double distSq = playerPos.squaredDistanceTo(finalTarget);
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq;
+                        closest = finalTarget;
+                    }
+                }
+            }
+        }
+
+        if (closest != null) {
+            currentPestTarget = closest;
+            FlyHandler.setTarget(closest);
+        } else {
+            FlyHandler.stop();
+            currentPestTarget = null;
         }
     }
 
@@ -754,6 +938,12 @@ public class Farming {
 
     private static void checkFailSafes() {
         if (mc.player == null) return;
+
+        if (killingPests) {
+            lastXp = System.currentTimeMillis();
+            bpsZeroStartTime = 0L;
+            return;
+        }
 
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
         int currentSlot = inv.getSelectedSlot();
@@ -960,6 +1150,200 @@ public class Farming {
                     "Pause",
                     event
             );
+        }
+    }
+
+    private static void checkInventoryForSell() {
+        if (!Config.INSTANCE.autoSellJunk) return;
+        if (mc.player == null) return;
+        if (!isActive || isPaused) return;
+        if (eqActive) return;
+        if (killingPests) return;
+        if (waitingForTrades) return;
+
+        PlayerInventory inv = mc.player.getInventory();
+
+        for (int i = 0; i < inv.size(); i++) {
+            ItemStack stack = inv.getStack(i);
+            if (stack.isEmpty()) continue;
+
+            String name = stack.getName().getString()
+                    .replaceAll("§.", "")
+                    .toLowerCase()
+                    .trim();
+
+            if (name.endsWith("vinyl")
+                    || name.equals("overclocker 3000")
+                    || name.equals("chirping stereo")
+                    || name.equals("beady eyes")
+                    || name.equals("atmospheric filter")
+                    || name.equals("clipped wings")
+                    || name.equals("wriggling larva")
+                    || name.startsWith("bookworm")
+                    || name.equals("squeaky toy")
+                    || name.equals("mantid claw")) {
+
+                mc.player.networkHandler.sendChatMessage("/trades");
+                waitingForTrades = true;
+
+                return;
+            }
+        }
+    }
+
+    private static void handleTradesScreen() {
+        if (!waitingForTrades) return;
+        if (mc.player == null) return;
+
+        ScreenHandler handler = mc.player.currentScreenHandler;
+        if (handler == null) return;
+
+        boolean soldItem = false;
+
+        for (int i = 0; i < handler.slots.size(); i++) {
+            Slot slot = handler.slots.get(i);
+            ItemStack stack = slot.getStack();
+
+            if (stack.isEmpty()) continue;
+
+            String name = stack.getName().getString()
+                    .replaceAll("§.", "")
+                    .toLowerCase()
+                    .trim();
+
+            if (name.endsWith("vinyl")
+                    || name.equals("overclocker 3000")
+                    || name.equals("chirping stereo")
+                    || name.equals("beady eyes")
+                    || name.equals("atmospheric filter")
+                    || name.equals("clipped wings")
+                    || name.equals("wriggling larva")
+                    || name.startsWith("bookworm")
+                    || name.equals("squeaky toy")
+                    || name.equals("mantid claw")) {
+
+                mc.interactionManager.clickSlot(
+                        handler.syncId,
+                        i,
+                        0,
+                        SlotActionType.PICKUP,
+                        mc.player
+                );
+
+                Utils.log("Sold: " + name);
+                soldItem = true;
+            }
+        }
+
+        if (!soldItem) {
+            mc.player.closeHandledScreen();
+            waitingForTrades = false;
+        }
+    }
+
+    private static void handleSpray() {
+        if (!Config.INSTANCE.autoSpray) return;
+        if (mc.player == null) return;
+        if (sprayPhase != SprayPhase.IDLE) return;
+        if (killingPests) return;
+        if (!isActive || isPaused) return;
+
+        boolean sprayNone = TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Spray: None"));
+        long now = System.currentTimeMillis();
+
+        if (sprayNone) {
+            if (sprayNoneDetectedTime == -1L) {
+                sprayNoneDetectedTime = now;
+            }
+
+            if (now - sprayNoneDetectedTime < 5000) {
+                return;
+            }
+
+        } else {
+            sprayNoneDetectedTime = -1L;
+            return;
+        }
+
+        PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
+
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = mc.player.getInventory().getStack(i);
+            if (stack.isEmpty()) continue;
+
+            String name = stack.getName().getString()
+                    .replaceAll("§.", "")
+                    .toLowerCase()
+                    .trim();
+
+            if (name.equals("sprayonator")) {
+                originalSpraySlot = inv.getSelectedSlot();
+                sprayHotbarSlot = i;
+
+                sprayPhase = SprayPhase.SWAP_TO_SPRAY;
+                sprayPhaseStart = System.currentTimeMillis();
+                releaseAllKeys();
+                isSpraying = true;
+                sprayNoneDetectedTime = -1L;
+
+                Utils.log("Starting auto spray");
+                break;
+            }
+        }
+    }
+
+    private static void handleSpraySequence() {
+        if (sprayPhase == SprayPhase.IDLE || mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+        PlayerInventory inv = mc.player.getInventory();
+
+        switch (sprayPhase) {
+
+            case SWAP_TO_SPRAY:
+                if (now - sprayPhaseStart >= 50) {
+                    inv.setSelectedSlot(sprayHotbarSlot);
+                    sprayPhase = SprayPhase.WAIT_BEFORE_USE;
+                    sprayPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_USE:
+                if (now - sprayPhaseStart >= 100) {
+                    Utils.simulateUseItem(mc.interactionManager);
+                    sprayPhase = SprayPhase.WAIT_BEFORE_RESTORE;
+                    sprayPhaseStart = now;
+                }
+                break;
+
+            case WAIT_BEFORE_RESTORE:
+                if (now - sprayPhaseStart >= 150) {
+                    sprayPhase = SprayPhase.RESTORE_SLOT;
+                    sprayPhaseStart = now;
+                }
+                break;
+
+            case RESTORE_SLOT:
+                if (now - sprayPhaseStart >= 50) {
+                    if (originalSpraySlot >= 0 && originalSpraySlot < 9) {
+                        inv.setSelectedSlot(originalSpraySlot);
+                        Utils.log("Final slot restore: " + originalHotbarSlot);
+                    }
+                    sprayPhase = SprayPhase.DONE;
+                    sprayPhaseStart = now;
+                }
+                break;
+
+            case DONE:
+                if (now - sprayPhaseStart >= 50) {
+                    sprayPhase = SprayPhase.IDLE;
+                    sprayHotbarSlot = -1;
+                    originalSpraySlot = -1;
+                    isSpraying = false;
+                    holdKeys();
+                    Utils.log("Auto spray finished");
+                }
+                break;
         }
     }
 }

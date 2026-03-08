@@ -31,6 +31,9 @@ public class Config {
     public boolean funnyWaypoints = false;
     public boolean instaSwitch = false;
 
+    public boolean autoSpray = false;
+    public boolean autoSellJunk = false;
+
     public static final KeyBinding.Category FAKETILS_CATEGORY = new KeyBinding.Category(
             Identifier.of("faketils", "key_category_faketils")
     );
@@ -58,6 +61,7 @@ public class Config {
 
     public boolean pestHelper = false;
     public boolean pestFarming = false;
+    public boolean pestKilling = false;
     public int petSwapType = 0; // 0 rod, 1 wardrobe slot
     public int swapDelay = 150;
     public int wardrobeSlot = 1;
@@ -104,8 +108,8 @@ public class Config {
 
     public void markDirty() {
         data = new ConfigData(
-                funnyToggle, farmType, funnyWaypoints, instaSwitch,
-                pestHelper, pestFarming, pestTime, petSwapType, swapDelay, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
+                funnyToggle, farmType, funnyWaypoints, instaSwitch, autoSpray, autoSellJunk,
+                pestHelper, pestFarming, pestKilling, pestTime, petSwapType, swapDelay, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
                 fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
                 noHurtCam, sphinxSolver, fullBlockPanes,
                 fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
@@ -126,8 +130,11 @@ public class Config {
         farmType = data.farmType;
         funnyWaypoints = data.funnyWaypoints;
         instaSwitch = data.instaSwitch;
+        autoSpray = data.autoSpray;
+        autoSellJunk = data.autoSellJunk;
 
         pestHelper = data.pestHelper;
+        pestKilling = data.pestKilling;
         pestFarming = data.pestFarming;
         pestTime = data.pestTime;
         petSwapType = data.petSwapType;
@@ -190,6 +197,18 @@ public class Config {
                 .setSaveConsumer(val -> instaSwitch = val)
                 .build());
 
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto Spraynator"), autoSpray)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Auto sprays the plot you are in."))
+                .setSaveConsumer(val -> autoSpray = val)
+                .build());
+
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto sell farming junk"), autoSellJunk)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Sells the vinyls and overclockers, you need a booster cookie active."))
+                .setSaveConsumer(val -> autoSellJunk = val)
+                .build());
+
         farming.addEntry(entry.startBooleanToggle(Text.literal("Rewarp on pause"), rewarpOnPause)
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Sets a spawn point when you pause and warps you back when resumed."))
@@ -207,6 +226,12 @@ public class Config {
                 .setDefaultValue(false)
                 .setTooltip(Text.literal("Swaps equipment and pet when cooldown is over."))
                 .setSaveConsumer(val -> pestFarming = val)
+                .build());
+
+        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto pest killing"), pestKilling)
+                .setDefaultValue(false)
+                .setTooltip(Text.literal("Automatically kills the pests (risky)."))
+                .setSaveConsumer(val -> pestKilling = val)
                 .build());
 
         farming.addEntry(
@@ -389,9 +414,12 @@ public class Config {
         int farmType;
         boolean funnyWaypoints;
         boolean instaSwitch;
+        boolean autoSpray;
+        boolean autoSellJunk;
 
         boolean pestHelper;
         boolean pestFarming;
+        boolean pestKilling;
         int pestTime;
         int petSwapType;
         int swapDelay;
@@ -418,8 +446,8 @@ public class Config {
         ConfigData() {}
 
         ConfigData(
-                boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch,
-                boolean pestHelper, boolean pestFarming,int pestTime, int petSwapType, int swapDelay, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
+                boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch, boolean autoSpray, boolean autoSellJunk,
+                boolean pestHelper, boolean pestFarming, boolean pestKilling, int pestTime, int petSwapType, int swapDelay, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
                 boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
                 int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
                 boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
@@ -431,10 +459,13 @@ public class Config {
             this.farmType = farmType;
             this.funnyWaypoints = funnyWaypoints;
             this.instaSwitch = instaSwitch;
+            this.autoSpray = autoSpray;
+            this.autoSellJunk = autoSellJunk;
 
             this.pestHelper = pestHelper;
             this.rewarpOnPause = rewarpOnPause;
             this.pestFarming = pestFarming;
+            this.pestKilling = pestKilling;
             this.pestTime = pestTime;
             this.petSwapType = petSwapType;
             this.swapDelay = swapDelay;
