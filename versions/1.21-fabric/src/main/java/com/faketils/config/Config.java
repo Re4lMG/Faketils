@@ -99,9 +99,16 @@ public class Config {
             try {
                 String content = Files.readString(configFile.toPath());
                 data = gson.fromJson(content, ConfigData.class);
-                if (data != null) applyData();
+                if (data == null) {
+                    System.out.println("[Faketils] Config JSON parsed to null - using defaults");
+                    data = new ConfigData();
+                }
+                applyData();
             } catch (Exception e) {
+                System.err.println("[Faketils] Failed to load config - using defaults");
                 e.printStackTrace();
+                data = new ConfigData();
+                applyData();
             }
         }
     }

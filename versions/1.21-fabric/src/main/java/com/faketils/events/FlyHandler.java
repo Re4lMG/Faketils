@@ -1,5 +1,6 @@
 package com.faketils.events;
 
+import com.faketils.features.Farming;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -31,7 +32,7 @@ public class FlyHandler {
     private static final float SLOW_STOP_DISTANCE    = 1.2f;
     private static final float AOTV_MIN_DISTANCE     = 24.0f;
     private static final float AOTV_MAX_DISTANCE     = 100.0f;
-    private static final int   AOTV_COOLDOWN_TICKS   = 45;
+    private static final int   AOTV_COOLDOWN_TICKS   = 20;
     private static final int   SLOT_SWITCH_DELAY     = 2 + new Random().nextInt(3);
 
     private static final float STRAFE_CHANCE_FAR     = 0.015f;
@@ -106,40 +107,60 @@ public class FlyHandler {
             if (slotSwitchTimer == 0 && awaitingRightClick) {
                 doAotvRightClick();
                 awaitingRightClick = false;
-                new Thread(() -> {
-                    try { Thread.sleep(80); } catch (InterruptedException ignored) {}
-                    ClientPlayerEntity p = MinecraftClient.getInstance().player;
-                    if (p != null && originalSlot != -1 && inv.getSelectedSlot() != originalSlot) {
-                        p.getInventory().setSelectedSlot(originalSlot);
-                    }
-                }).start();
+//                new Thread(() -> {
+//                    try { Thread.sleep(80); } catch (InterruptedException ignored) {}
+//                    ClientPlayerEntity p = MinecraftClient.getInstance().player;
+//                    if (p != null && originalSlot != -1 && inv.getSelectedSlot() != originalSlot) {
+//                        p.getInventory().setSelectedSlot(originalSlot);
+//                    }
+//                }).start();
             }
         }
 
-        boolean fallingFast = player.getVelocity().y < -0.1;
-        if (fallingFast && !wasFallingFast) {
-            if (System.currentTimeMillis() - lastJumpTime > JUMP_BOOST_DELAY) {
-                //setFlying(true);
+        if (fullDist < APPROACH_DISTANCE && Farming.vacuumSlot != -1) {
+            if (inv.getSelectedSlot() != Farming.vacuumSlot) {
+                player.getInventory().setSelectedSlot(Farming.vacuumSlot);
             }
         }
-        //fallingFast &&
+
+        if (player.isOnGround()) {
+            player.jump();
+        }
+
+        boolean fallingFast = player.getVelocity().y < -0.1;
+         //&& !wasFallingFast
+        if (fallingFast) {
+            if (System.currentTimeMillis() - lastJumpTime > JUMP_BOOST_DELAY) {
+                setFlying(true);
+            }
+        }
+        //
         wasFallingFast = fallingFast;
-        if (!player.getAbilities().flying) {
+        if (!fallingFast && player.getAbilities().flying) {
             //player.jump();
             //new Thread(() -> {
             //    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                setFlying(true);
+                //setFlying(true);
             //}).start();
         }
 
         float targetYaw = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
         float targetPitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizDist));
-        RotationHandler.setTarget(targetYaw, targetPitch);
+
+        float yawDiff = Math.abs(wrapDegrees(player.getYaw() - targetYaw));
+        float pitchDiff = Math.abs(player.getPitch() - targetPitch);
+
+        if (yawDiff < 10f && pitchDiff < 10f) {
+            RotationHandler.reset();
+        } else {
+            RotationHandler.setTarget(targetYaw, targetPitch);
+        }
 
         if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()) {
+                && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking() && yawDiff <= 40f
+                && pitchDiff <= 40f) {
 
-            //aotvSlot = findAotvSlot(player);
+            aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
                 slotSwitchTimer = SLOT_SWITCH_DELAY;
@@ -213,6 +234,13 @@ public class FlyHandler {
     private static void doAotvRightClick() {
         MinecraftClient mc = MinecraftClient.getInstance();
         Utils.simulateUseItem(mc.interactionManager);
+    }
+
+    private static float wrapDegrees(float degrees) {
+        degrees = degrees % 360.0F;
+        if (degrees >= 180.0F) degrees -= 360.0F;
+        if (degrees < -180.0F) degrees += 360.0F;
+        return degrees;
     }
 
     private static boolean isFrontClear(ClientPlayerEntity player, double distance) {

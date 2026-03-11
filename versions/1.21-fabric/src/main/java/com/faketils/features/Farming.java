@@ -13,6 +13,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
@@ -83,6 +84,8 @@ public class Farming {
     private static int sprayHotbarSlot = -1;
     private static int originalSpraySlot = -1;
 
+    private static int emptyScans = 0;
+
     private static enum PestPhase { ROOTED, SQUEAKY }
     private static PestPhase currentPestPhase = PestPhase.ROOTED;
 
@@ -108,7 +111,8 @@ public class Farming {
 
     private static int wardrobeSlot = 0;
     private static boolean wardrobeClicked = false;
-    private static int originalPestKillSlot = -1;
+    public static int originalPestKillSlot = -1;
+    public static int vacuumSlot = -1;
     private static int movementBlockTicks = 0;
 
     private static boolean eqActive = false;
@@ -118,6 +122,7 @@ public class Farming {
     private static final long OFFSET_CHANGE_INTERVAL_MS = 900L + random.nextInt(600);
     private static final float OFFSET_MAX_HORIZONTAL = 0.5f;
     private static final float OFFSET_MAX_VERTICAL   = 0.5f;
+    private static long nextClickTime = 0;
 
     private static int plot = 0;
     private static long lastBrokenBlock = 0L;
@@ -188,7 +193,7 @@ public class Farming {
                             if (entity instanceof ArmorStandEntity armorStand) {
                                 Vec3d pos = armorStand.getEntityPos().add(0, 1.15, 0);
                                 if (pos.distanceTo(currentPestTarget) < 2.5) {
-                                    ignoredPests.add(armorStand);
+                                    //ignoredPests.add(armorStand);
                                     ignoredResetTime = System.currentTimeMillis();
                                     break;
                                 }
@@ -263,14 +268,14 @@ public class Farming {
             handleKilling();
             if (currentPestTarget != null && mc.player != null) {
                 double distance = mc.player.getEntityPos().distanceTo(currentPestTarget);
-                boolean inSweetSpot = distance <= 14.0;
+                boolean inSweetSpot = distance < 12.0;
                 //swapToInfiniVacuum();
                 mc.options.useKey.setPressed(inSweetSpot);
             }
         }
 
         if (!isActive || (isPaused && !killingPests)) {
-            releaseAllKeys();
+            //releaseAllKeys();
             return;
         }
 
@@ -278,7 +283,7 @@ public class Farming {
         handleWardrobeSequence();
 
         if (eqActive && !isSpraying) {
-            releaseAllKeys();
+            //releaseAllKeys();
             handleEqSequence();
             return;
         }
@@ -676,6 +681,12 @@ public class Farming {
                             pendingDoubleJumpTicks = 10;
                             try { Thread.sleep(350); } catch (InterruptedException ignored) {}
                             if (Config.INSTANCE.pestKilling) handleKilling();
+                            if (Config.INSTANCE.pestKilling) {
+                                Vec3d pos = mc.player.getEntityPos();
+                                Vec3d look = mc.player.getRotationVec(1.0F).normalize();
+                                Vec3d target = pos.add(look.multiply(32)).add(0, 4, 0);
+                                //FlyHandler.setTarget(target);
+                            }
                             if (Config.INSTANCE.pestKilling) killingPests = true;
                         }).start();
                     } else {
@@ -701,7 +712,6 @@ public class Farming {
         if (!Config.INSTANCE.pestKilling) return false;
 
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
-        int vacuumSlot = -1;
 
         for (int i = 0; i < 9; i++) {
             ItemStack stack = mc.player.getInventory().getStack(i);
@@ -752,7 +762,7 @@ public class Farming {
         if (mc.player == null || mc.world == null || !Utils.isInGarden()) return;
         if (!Config.INSTANCE.pestKilling) return;
 
-        if (System.currentTimeMillis() - ignoredResetTime > 5000) {
+        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
             ignoredPests.clear();
         }
 
@@ -782,8 +792,33 @@ public class Farming {
         double closestDistSq = Double.MAX_VALUE;
 
         for (Entity entity : mc.world.getEntities()) {
+            if (entity instanceof LivingEntity living && living.isDead()) {
+
+                ArmorStandEntity closestStand = null;
+                double closestDist = Double.MAX_VALUE;
+
+                for (Entity e : mc.world.getEntities()) {
+                    if (e instanceof ArmorStandEntity stand) {
+
+                        PestHelper.Pest pest = PestHelper.getPestFromHead(stand);
+                        if (pest == null) continue;
+
+                        double dist = stand.squaredDistanceTo(entity);
+
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            closestStand = stand;
+                        }
+                    }
+                }
+
+                if (closestStand != null && closestDist < 2) {
+                    ignoredPests.add(closestStand);
+                    ignoredResetTime = System.currentTimeMillis();
+                }
+            }
             if (entity instanceof ArmorStandEntity armorStand) {
-                //if (ignoredPests.contains(armorStand)) continue;
+                if (ignoredPests.contains(armorStand)) continue;
                 PestHelper.Pest pest = PestHelper.getPestFromHead(armorStand);
                 if (pest != null) {
                     Vec3d baseTarget = armorStand.getEntityPos().add(0, 1.15, 0);
@@ -835,6 +870,8 @@ public class Farming {
 
         if (!isActive) {
             releaseAllKeys();
+            FlyHandler.stop();
+            RotationHandler.reset();
             currentMode = "none";
             lastWaypoint = null;
             pauseWaypoint = null;
@@ -1198,13 +1235,16 @@ public class Farming {
         ScreenHandler handler = mc.player.currentScreenHandler;
         if (handler == null) return;
 
-        boolean soldItem = false;
+        long now = System.currentTimeMillis();
+        if (now < nextClickTime) return;
+
+        boolean foundAnySellable = false;
 
         for (int i = 0; i < handler.slots.size(); i++) {
             Slot slot = handler.slots.get(i);
             ItemStack stack = slot.getStack();
-
             if (stack.isEmpty()) continue;
+            if (!(slot.inventory instanceof PlayerInventory)) continue;
 
             String name = stack.getName().getString()
                     .replaceAll("§.", "")
@@ -1231,14 +1271,22 @@ public class Farming {
                 );
 
                 Utils.log("Sold: " + name);
-                soldItem = true;
+                foundAnySellable = true;
+                nextClickTime = now + 100;
+                emptyScans = 0;
+                return;
             }
         }
 
-        if (!soldItem) {
+        emptyScans++;
+
+        if (!foundAnySellable && emptyScans >= 20) {
             mc.player.closeHandledScreen();
             waitingForTrades = false;
+            emptyScans = 0;
         }
+
+        nextClickTime = now + 100;
     }
 
     private static void handleSpray() {
