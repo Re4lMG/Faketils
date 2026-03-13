@@ -1,6 +1,7 @@
 package com.faketils.commands;
 
 import com.faketils.Faketils;
+import com.faketils.config.Config;
 import com.faketils.events.FlyHandler;
 import com.faketils.events.RotationHandler;
 import com.faketils.utils.FarmingWaypoints;
@@ -96,7 +97,7 @@ public class Command {
     }
 
     private static int openGui(FabricClientCommandSource source) {
-        Faketils.currentGui = Faketils.config.gui();
+        net.minecraft.client.MinecraftClient.getInstance().setScreen(Config.createScreen(MinecraftClient.getInstance().currentScreen));
         return 1;
     }
 

@@ -1,5 +1,6 @@
 package com.faketils.mixin;
 
+import com.faketils.Faketils;
 import com.faketils.config.Config;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
@@ -17,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class GameRendererMixin {
     @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
     private void disableHurtCam(MatrixStack matrices, float tickDelta, CallbackInfo ci) {
-        if (Config.INSTANCE.noHurtCam) {
+        if (Faketils.config.noHurtCam) {
             ci.cancel();
         }
     }

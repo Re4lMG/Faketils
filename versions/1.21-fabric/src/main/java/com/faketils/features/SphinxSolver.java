@@ -1,5 +1,6 @@
 package com.faketils.features;
 
+import com.faketils.Faketils;
 import com.faketils.config.Config;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -30,7 +31,7 @@ public final class SphinxSolver {
 
     private static void onChat(Text message) {
         if (!Utils.isInSkyblock()) return;
-        if (!Config.INSTANCE.sphinxSolver) return;
+        if (!Faketils.config.sphinxSolver) return;
 
         String raw = removeFormatting(message.getString()).trim();
 

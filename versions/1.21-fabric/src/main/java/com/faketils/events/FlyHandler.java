@@ -28,7 +28,7 @@ public class FlyHandler {
     private static boolean active = false;
 
     private static final float VERTICAL_TOLERANCE    = 0.6f;
-    private static final float APPROACH_DISTANCE     = 12.0f;
+    private static final float APPROACH_DISTANCE     = 10.0f;
     private static final float SLOW_STOP_DISTANCE    = 1.2f;
     private static final float AOTV_MIN_DISTANCE     = 24.0f;
     private static final float AOTV_MAX_DISTANCE     = 100.0f;

@@ -1,499 +1,254 @@
 package com.faketils.config;
 
-import com.faketils.Faketils;
-import me.shedaniel.clothconfig2.api.ConfigBuilder;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
+import dev.isxander.yacl3.config.v2.api.*;
+import dev.isxander.yacl3.config.v2.api.autogen.*;
+import dev.isxander.yacl3.config.v2.api.autogen.Boolean;
+import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
+
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+
 import org.lwjgl.glfw.GLFW;
 
-import java.io.File;
-import java.nio.file.Files;
-
 public class Config {
-    public static final Config INSTANCE = new Config();
 
-    private File configFile;
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private ConfigData data = new ConfigData();
+    public static final ConfigClassHandler<Config> HANDLER =
+            ConfigClassHandler.createBuilder(Config.class)
+                    .id(Identifier.of("faketils", "config"))
+                    .serializer(config -> GsonConfigSerializerBuilder.create(config)
+                            .setPath(FabricLoader.getInstance().getConfigDir().resolve("faketils.json5"))
+                            .setJson5(true)
+                            .build())
+                    .build();
 
+    public static Config INSTANCE = HANDLER.instance();
+
+    public static final KeyBinding.Category FAKETILS_CATEGORY =
+            new KeyBinding.Category(Identifier.of("faketils", "key_category"));
+
+    public static final KeyBinding toggleMacro =
+            KeyBindingHelper.registerKeyBinding(
+                    new KeyBinding("key.faketils.toggle_macro",
+                            InputUtil.Type.KEYSYM,
+                            GLFW.GLFW_KEY_F8,
+                            FAKETILS_CATEGORY)
+            );
+
+    public static final KeyBinding pauseMacro =
+            KeyBindingHelper.registerKeyBinding(
+                    new KeyBinding("key.faketils.pause_macro",
+                            InputUtil.Type.KEYSYM,
+                            GLFW.GLFW_KEY_P,
+                            FAKETILS_CATEGORY)
+            );
+
+    public static final KeyBinding resetFakeFails =
+            KeyBindingHelper.registerKeyBinding(
+                    new KeyBinding("key.faketils.reset_fails",
+                            InputUtil.Type.KEYSYM,
+                            GLFW.GLFW_KEY_BACKSPACE,
+                            FAKETILS_CATEGORY)
+            );
+
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Funny Toggle")
+    @CustomDescription("Display if the funny is active or not. Disable if you aren't farming.")
     public boolean funnyToggle = false;
-    public int farmType = 0; // 0 = Melon&Pumpkin..., 1 = Cane/Rose..., 2 = Cocoa Beans
+
+    @AutoGen(category = "farming", group = "general")
+    @EnumCycler
+    @SerialEntry
+    @CustomName("Farm Type")
+    @CustomDescription("Select a farm.")
+    public FarmType farmType = FarmType.MELON_PUMPKIN;
+
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Show Waypoints")
+    @CustomDescription("Display the lane switching waypoints. Disable if you aren't farming.")
     public boolean funnyWaypoints = false;
+
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Insta-Lane Switching")
+    @CustomDescription("150ms when switching from right to left, useful in farming contests.")
     public boolean instaSwitch = false;
 
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Auto Spraynator")
+    @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
+
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Auto Sell Farming Junk")
+    @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
 
-    public static final KeyBinding.Category FAKETILS_CATEGORY = new KeyBinding.Category(
-            Identifier.of("faketils", "key_category_faketils")
-    );
-
-    public static final KeyBinding toggleMacro = new KeyBinding(
-            "key.faketils.toggle_macro",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_F8,
-            FAKETILS_CATEGORY
-    );
-
-    public static final KeyBinding pauseMacro = new KeyBinding(
-            "key.faketils.pause_macro",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_P,
-            FAKETILS_CATEGORY
-    );
-
-    public static final KeyBinding resetFakeFails = new KeyBinding(
-            "key.faketils.reset_fails",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_BACKSPACE,
-            FAKETILS_CATEGORY
-    );
-
-    public boolean pestHelper = false;
-    public boolean pestFarming = false;
-    public boolean pestKilling = false;
-    public int petSwapType = 0; // 0 rod, 1 wardrobe slot
-    public int swapDelay = 150;
-    public int wardrobeSlot = 1;
-    public int wardrobeSlotOld = 1;
-
-    public int pestTime = 135;
-
+    @AutoGen(category = "farming", group = "general")
+    @Boolean
+    @SerialEntry
+    @CustomName("Rewarp On Pause")
+    @CustomDescription("Sets a spawn point when the macro is paused and warps back when resumed.")
     public boolean rewarpOnPause = false;
 
+    @AutoGen(category = "farming", group = "pests")
+    @Boolean
+    @SerialEntry
+    @CustomName("Pest Helper")
+    @CustomDescription("Draws a line and box to the nearest pest.")
+    public boolean pestHelper = false;
+
+    @AutoGen(category = "farming", group = "pests")
+    @Boolean
+    @SerialEntry
+    @CustomName("Pest Farming Mode")
+    @CustomDescription("Automatically swaps equipment and pet when the pest cooldown is over.")
+    public boolean pestFarming = false;
+
+    @AutoGen(category = "farming", group = "pests")
+    @Boolean
+    @SerialEntry
+    @CustomName("Auto Pest Killing")
+    @CustomDescription("Automatically kills pests (risky).")
+    public boolean pestKilling = false;
+
+    @AutoGen(category = "farming", group = "pests")
+    @IntSlider(min = 75, max = 300, step = 1)
+    @SerialEntry
+    @CustomName("Pest Cooldown Time")
+    @CustomDescription("Cooldown time for pests in seconds.")
+    public int pestTime = 135;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @EnumCycler
+    @SerialEntry
+    @CustomName("Pet Swap Type")
+    @CustomDescription("Select the method used to swap pets.")
+    public PetSwapType petSwapType = PetSwapType.ROD;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @IntField(min = 20, max = 1500)
+    @SerialEntry
+    @CustomName("Equipment Click Delay")
+    @CustomDescription("Delay between equipment clicks in milliseconds.")
+    public int swapDelay = 150;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @IntField(min = 1, max = 9)
+    @SerialEntry
+    @CustomName("Mossy Wardrobe Slot")
+    @CustomDescription("Wardrobe slot used for Mossy equipment.")
+    public int wardrobeSlot = 1;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @IntField(min = 1, max = 9)
+    @SerialEntry
+    @CustomName("Mantid Wardrobe Slot")
+    @CustomDescription("Wardrobe slot used for Mantid equipment.")
+    public int wardrobeSlotOld = 1;
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @Boolean
+    @SerialEntry
+    @CustomName("Fishing Helper")
+    @CustomDescription("Enables the fishing helper.")
     public boolean fishingHelper = false;
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @Boolean
+    @SerialEntry
+    @CustomName("Slug Trophy Fishing")
+    @CustomDescription("Enables the slug trophy fishing helper.")
     public boolean slugFishing = false;
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @Boolean
+    @SerialEntry
+    @CustomName("Sea Creature Killing")
+    @CustomDescription("Automatically helps kill sea creatures (useful for lava fishing).")
     public boolean fishingHelperKilling = false;
-    public int fishingHelperKillingAmount = 0; // 0=1, 1=2, 2=3
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @IntSlider(min = 1, max = 3, step = 1)
+    @SerialEntry
+    @CustomName("Right Click Amount")
+    @CustomDescription("Number of right clicks used to kill sea creatures.")
+    public int fishingHelperKillingAmount = 1;
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @StringField
+    @SerialEntry
+    @CustomName("Weapon Name")
+    @CustomDescription("Name of the weapon used for killing sea creatures (Hyperion, Flay, Veil, etc).")
     public String fishingHelperKillingWeapon = "";
 
+    @AutoGen(category = "qol", group = "hud")
+    @IntSlider(min = -500, max = 500, step = 1)
+    @SerialEntry
+    @CustomName("Macro HUD X")
+    @CustomDescription("Horizontal position offset of the macro HUD.")
     public int macroHudX = 60;
+
+    @AutoGen(category = "qol", group = "hud")
+    @IntSlider(min = -300, max = 300, step = 1)
+    @SerialEntry
+    @CustomName("Macro HUD Y")
+    @CustomDescription("Vertical position offset of the macro HUD.")
     public int macroHudY = 200;
 
+    @AutoGen(category = "qol", group = "other")
+    @Boolean
+    @SerialEntry
+    @CustomName("No Hurt Cam")
+    @CustomDescription("Disables the hurt camera shake effect.")
     public boolean noHurtCam = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean
+    @SerialEntry
+    @CustomName("Sphinx Solver")
+    @CustomDescription("Automatically answers Sphinx riddles.")
     public boolean sphinxSolver = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean
+    @SerialEntry
+    @CustomName("Full Block Panes")
+    @CustomDescription("Increases the bounding box size of glass panes.")
     public boolean fullBlockPanes = false;
 
-    public boolean fishingHelperFireVeil = false;
-    public boolean fishingHelperFireVeilGalatea = false;
+    @AutoGen(category = "debug", group = "dev")
+    @Boolean
+    @SerialEntry
+    @CustomName("Debug Mode")
+    @CustomDescription("Enables developer debug features.")
     public boolean debug = false;
 
-    public void initialize() {
-        configFile = new File(Faketils.configDirectory, "config.json");
-
-        KeyBindingHelper.registerKeyBinding(toggleMacro);
-        KeyBindingHelper.registerKeyBinding(pauseMacro);
-        KeyBindingHelper.registerKeyBinding(resetFakeFails);
-
-        if (configFile.exists()) {
-            try {
-                String content = Files.readString(configFile.toPath());
-                data = gson.fromJson(content, ConfigData.class);
-                if (data == null) {
-                    System.out.println("[Faketils] Config JSON parsed to null - using defaults");
-                    data = new ConfigData();
-                }
-                applyData();
-            } catch (Exception e) {
-                System.err.println("[Faketils] Failed to load config - using defaults");
-                e.printStackTrace();
-                data = new ConfigData();
-                applyData();
-            }
-        }
-    }
-
-    public void markDirty() {
-        data = new ConfigData(
-                funnyToggle, farmType, funnyWaypoints, instaSwitch, autoSpray, autoSellJunk,
-                pestHelper, pestFarming, pestKilling, pestTime, petSwapType, swapDelay, wardrobeSlot, wardrobeSlotOld, rewarpOnPause,
-                fishingHelper, slugFishing, fishingHelperKilling, fishingHelperKillingAmount, fishingHelperKillingWeapon,
-                noHurtCam, sphinxSolver, fullBlockPanes,
-                fishingHelperFireVeil, fishingHelperFireVeilGalatea, debug,
-                macroHudX, macroHudY
-        );
-    }
-
-    public void writeData() {
-        try {
-            Files.writeString(configFile.toPath(), gson.toJson(data));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void applyData() {
-        funnyToggle = data.funnyToggle;
-        farmType = data.farmType;
-        funnyWaypoints = data.funnyWaypoints;
-        instaSwitch = data.instaSwitch;
-        autoSpray = data.autoSpray;
-        autoSellJunk = data.autoSellJunk;
-
-        pestHelper = data.pestHelper;
-        pestKilling = data.pestKilling;
-        pestFarming = data.pestFarming;
-        pestTime = data.pestTime;
-        petSwapType = data.petSwapType;
-        swapDelay = data.swapDelay;
-        wardrobeSlot = data.wardrobeSlot;
-        wardrobeSlotOld = data.wardrobeSlotOld;
-        rewarpOnPause = data.rewarpOnPause;
-
-        fishingHelper = data.fishingHelper;
-        slugFishing = data.slugFishing;
-        fishingHelperKilling = data.fishingHelperKilling;
-        fishingHelperKillingAmount = data.fishingHelperKillingAmount;
-        fishingHelperKillingWeapon = data.fishingHelperKillingWeapon != null ? data.fishingHelperKillingWeapon : "";
-
-        noHurtCam = data.noHurtCam;
-        sphinxSolver = data.sphinxSolver;
-        fullBlockPanes = data.fullBlockPanes;
-
-        macroHudX = data.macroHudX;
-        macroHudY = data.macroHudY;
-
-        fishingHelperFireVeil = data.fishingHelperFireVeil;
-        fishingHelperFireVeilGalatea = data.fishingHelperFireVeilGalatea;
-        debug = data.debug;
-    }
-
-    public Screen gui() {
-        ConfigBuilder builder = ConfigBuilder.create()
-                .setParentScreen(MinecraftClient.getInstance().currentScreen)
-                .setTitle(Text.literal("Faketils Config"))
-                .setSavingRunnable(() -> {Faketils.saveAll();});
-
-        ConfigEntryBuilder entry = builder.entryBuilder();
-
-        // Farming Category
-        ConfigCategory farming = builder.getOrCreateCategory(Text.literal("Farming"));
-
-        // Funny Subcategory
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Funny Toggle"), funnyToggle)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Display if the funny is active or not. Disable if you aren't farming."))
-                .setSaveConsumer(val -> funnyToggle = val)
-                .build());
-
-        farming.addEntry(entry.startEnumSelector(Text.literal("Farm Type"), FarmType.class, FarmType.values()[farmType])
-                .setDefaultValue(FarmType.MELON_PUMPKIN)
-                .setTooltip(Text.literal("Select a farm."))
-                .setSaveConsumer(val -> farmType = val.ordinal())
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Show Waypoints"), funnyWaypoints)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Display the lane switching waypoints. Disable if you aren't farming."))
-                .setSaveConsumer(val -> funnyWaypoints = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Insta-Lane Switching"), instaSwitch)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("150ms when switching from right to left, useful in farming contests."))
-                .setSaveConsumer(val -> instaSwitch = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto Spraynator"), autoSpray)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Auto sprays the plot you are in."))
-                .setSaveConsumer(val -> autoSpray = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto sell farming junk"), autoSellJunk)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Sells the vinyls and overclockers, you need a booster cookie active."))
-                .setSaveConsumer(val -> autoSellJunk = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Rewarp on pause"), rewarpOnPause)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Sets a spawn point when you pause and warps you back when resumed."))
-                .setSaveConsumer(val -> rewarpOnPause = val)
-                .build());
-
-        // Pests
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Pest Helper"), pestHelper)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Draws a line and a box to the nearest pests."))
-                .setSaveConsumer(val -> pestHelper = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Pest Farming mode"), pestFarming)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Swaps equipment and pet when cooldown is over."))
-                .setSaveConsumer(val -> pestFarming = val)
-                .build());
-
-        farming.addEntry(entry.startBooleanToggle(Text.literal("Auto pest killing"), pestKilling)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Automatically kills the pests (risky)."))
-                .setSaveConsumer(val -> pestKilling = val)
-                .build());
-
-        farming.addEntry(
-                entry.startIntField(Text.literal("Pest Cooldown time"), pestTime)
-                        .setDefaultValue(135)
-                        .setTooltip(Text.literal("Type a number 75–300"))
-                        .setSaveConsumer(val -> pestTime = MathHelper.clamp(val,75,300))
-                        .build()
-        );
-
-        farming.addEntry(entry.startEnumSelector(Text.literal("Pet swap type"), PetSwapType.class, PetSwapType.values()[petSwapType])
-                .setDefaultValue(PetSwapType.ROD)
-                .setTooltip(Text.literal("Select a swapping method."))
-                .setSaveConsumer(val -> petSwapType = val.ordinal())
-                .build());
-
-        farming.addEntry(
-                entry.startIntField(Text.literal("Eq clicking delay"), swapDelay)
-                        .setDefaultValue(150)
-                        .setTooltip(Text.literal("Type a number in ms 20-1500"))
-                        .setSaveConsumer(val -> swapDelay = MathHelper.clamp(val,20,1500))
-                        .build()
-        );
-
-        farming.addEntry(
-                entry.startIntField(Text.literal("Mossy Wardrobe slot"), wardrobeSlot)
-                        .setDefaultValue(1)
-                        .setTooltip(Text.literal("Type a number 1–9"))
-                        .setSaveConsumer(val -> wardrobeSlot = MathHelper.clamp(val,1,9))
-                        .build()
-        );
-
-        farming.addEntry(
-                entry.startIntField(Text.literal("Mantid Wardrobe slot"), wardrobeSlotOld)
-                        .setDefaultValue(1)
-                        .setTooltip(Text.literal("Type a number 1–9"))
-                        .setSaveConsumer(val -> wardrobeSlotOld = MathHelper.clamp(val,1,9))
-                        .build()
-        );
-
-        // Fishing Category
-        ConfigCategory fishing = builder.getOrCreateCategory(Text.literal("Fishing"));
-
-        fishing.addEntry(entry.startBooleanToggle(Text.literal("Fishing Helper"), fishingHelper)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Enables the fishing helper."))
-                .setSaveConsumer(val -> fishingHelper = val)
-                .build());
-
-        fishing.addEntry(entry.startBooleanToggle(Text.literal("Slug Trophy Fishing Helper"), slugFishing)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Enables slug trophy fishing helper."))
-                .setSaveConsumer(val -> slugFishing = val)
-                .build());
-
-        fishing.addEntry(entry.startBooleanToggle(Text.literal("Sea Creatures Killing Helper"), fishingHelperKilling)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Enables sea creature killing, useful for lava fishing."))
-                .setSaveConsumer(val -> fishingHelperKilling = val)
-                .build());
-
-        fishing.addEntry(entry.startIntSlider(Text.literal("Right Clicks Amount"), fishingHelperKillingAmount + 1, 1, 3)
-                .setDefaultValue(1)
-                .setTooltip(Text.literal("2 for hyp, 1 for veil, 1 or 2 for flay."))
-                .setSaveConsumer(val -> fishingHelperKillingAmount = val - 1)
-                .build());
-
-        fishing.addEntry(entry.startStrField(Text.literal("Weapon"), fishingHelperKillingWeapon)
-                .setDefaultValue("")
-                .setTooltip(Text.literal("Write the weapon name to use for killing (hyperion, flay & veil all work)."))
-                .setSaveConsumer(val -> fishingHelperKillingWeapon = val)
-                .build());
-
-        // Quality of Life Category
-        ConfigCategory qol = builder.getOrCreateCategory(Text.literal("Quality of Life"));
-
-        qol.addEntry(entry.startIntSlider(
-                        Text.literal("Macro HUD X"),
-                        macroHudX,
-                        -500, 500
-                )
-                .setDefaultValue(0)
-                .setTooltip(Text.literal("Horizontal offset of the macro HUD"))
-                .setSaveConsumer(val -> macroHudX = val)
-                .build());
-
-        qol.addEntry(entry.startIntSlider(
-                        Text.literal("Macro HUD Y"),
-                        macroHudY,
-                        -300, 300
-                )
-                .setDefaultValue(0)
-                .setTooltip(Text.literal("Vertical offset of the macro HUD"))
-                .setSaveConsumer(val -> macroHudY = val)
-                .build());
-
-
-        qol.addEntry(entry.startBooleanToggle(Text.literal("No Hurt Cam"), noHurtCam)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Disable the hurt cam."))
-                .setSaveConsumer(val -> noHurtCam = val)
-                .build());
-
-        qol.addEntry(entry.startBooleanToggle(Text.literal("Sphinx solver"), sphinxSolver)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Auto answer sphinx questions."))
-                .setSaveConsumer(val -> sphinxSolver = val)
-                .build());
-
-        qol.addEntry(entry.startBooleanToggle(Text.literal("Bigger Glass Panes Box"), fullBlockPanes)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Increases the size of Glass Panes bounding box."))
-                .setSaveConsumer(val -> fullBlockPanes = val)
-                .build());
-
-        // Keybinds Category
-        ConfigCategory keybinds = builder.getOrCreateCategory(Text.literal("Keybinds"));
-
-        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Farming Macro Keybind"), toggleMacro.getDefaultKey())
-                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_F8))
-                .setKeySaveConsumer(toggleMacro::setBoundKey)
-                .build());
-
-        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Pause & Unpause Farming Macro"), pauseMacro.getDefaultKey())
-                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_P))
-                .setKeySaveConsumer(pauseMacro::setBoundKey)
-                .build());
-
-        keybinds.addEntry(entry.startKeyCodeField(Text.literal("Reset Fake Fails"), resetFakeFails.getDefaultKey())
-                .setDefaultValue(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_BACKSPACE))
-                .setKeySaveConsumer(resetFakeFails::setBoundKey)
-                .build());
-
-        // Debug
-        ConfigCategory debugCat = builder.getOrCreateCategory(Text.literal("Debug"));
-        debugCat.addEntry(entry.startBooleanToggle(Text.literal("Debug"), debug)
-                .setDefaultValue(false)
-                .setTooltip(Text.literal("Dev stuff."))
-                .setSaveConsumer(val -> debug = val)
-                .build());
-
-        return builder.build();
+    public static Screen createScreen(Screen parent) {
+        return HANDLER.generateGui().generateScreen(parent);
     }
 
     public enum FarmType {
-        MELON_PUMPKIN("Melon&Pumpkin -> MelonKingDe"),
-        CANE_ROSE("Cane/Rose/Moon/Sun/Mushroom"),
-        COCOA_BEANS("Cocoa Beans");
-
-        private final String displayName;
-
-        FarmType(String displayName) {
-            this.displayName = displayName;
-        }
-
-        @Override
-        public String toString() {
-            return displayName;
-        }
+        MELON_PUMPKIN,
+        CANE_ROSE,
+        COCOA_BEANS
     }
 
     public enum PetSwapType {
-        ROD("Fishing rod"),
-        ARMOR("Wardrobe slot");
-
-        private final String displayName;
-
-        PetSwapType(String displayName) {
-            this.displayName = displayName;
-        }
-
-        @Override
-        public String toString() {
-            return displayName;
-        }
-    }
-
-    private static class ConfigData {
-        boolean funnyToggle;
-        int farmType;
-        boolean funnyWaypoints;
-        boolean instaSwitch;
-        boolean autoSpray;
-        boolean autoSellJunk;
-
-        boolean pestHelper;
-        boolean pestFarming;
-        boolean pestKilling;
-        int pestTime;
-        int petSwapType;
-        int swapDelay;
-        int wardrobeSlot;
-        int wardrobeSlotOld;
-        boolean rewarpOnPause;
-        boolean fishingHelper;
-        boolean slugFishing;
-        boolean fishingHelperKilling;
-        int fishingHelperKillingAmount;
-        String fishingHelperKillingWeapon;
-
-        int macroHudX;
-        int macroHudY;
-
-        boolean noHurtCam;
-        boolean sphinxSolver;
-        boolean fullBlockPanes;
-
-        boolean fishingHelperFireVeil;
-        boolean fishingHelperFireVeilGalatea;
-        boolean debug;
-
-        ConfigData() {}
-
-        ConfigData(
-                boolean funnyToggle, int farmType, boolean funnyWaypoints, boolean instaSwitch, boolean autoSpray, boolean autoSellJunk,
-                boolean pestHelper, boolean pestFarming, boolean pestKilling, int pestTime, int petSwapType, int swapDelay, int wardrobeSlot,int wardrobeSlotOld, boolean rewarpOnPause,
-                boolean fishingHelper, boolean slugFishing, boolean fishingHelperKilling,
-                int fishingHelperKillingAmount, String fishingHelperKillingWeapon,
-                boolean noHurtCam, boolean sphinxSolver, boolean fullBlockPanes,
-                boolean fishingHelperFireVeil, boolean fishingHelperFireVeilGalatea,
-                boolean debug,
-                int macroHudX, int macroHudY
-        ) {
-            this.funnyToggle = funnyToggle;
-            this.farmType = farmType;
-            this.funnyWaypoints = funnyWaypoints;
-            this.instaSwitch = instaSwitch;
-            this.autoSpray = autoSpray;
-            this.autoSellJunk = autoSellJunk;
-
-            this.pestHelper = pestHelper;
-            this.rewarpOnPause = rewarpOnPause;
-            this.pestFarming = pestFarming;
-            this.pestKilling = pestKilling;
-            this.pestTime = pestTime;
-            this.petSwapType = petSwapType;
-            this.swapDelay = swapDelay;
-            this.wardrobeSlot = wardrobeSlot;
-            this.wardrobeSlotOld = wardrobeSlotOld;
-            this.fishingHelper = fishingHelper;
-            this.slugFishing = slugFishing;
-            this.fishingHelperKilling = fishingHelperKilling;
-            this.fishingHelperKillingAmount = fishingHelperKillingAmount;
-            this.fishingHelperKillingWeapon = fishingHelperKillingWeapon;
-
-            this.noHurtCam = noHurtCam;
-            this.sphinxSolver = sphinxSolver;
-            this.fullBlockPanes = fullBlockPanes;
-
-            this.fishingHelperFireVeil = fishingHelperFireVeil;
-            this.fishingHelperFireVeilGalatea = fishingHelperFireVeilGalatea;
-            this.debug = debug;
-
-            this.macroHudX = macroHudX;
-            this.macroHudY = macroHudY;
-        }
+        ROD,
+        ARMOR
     }
 }

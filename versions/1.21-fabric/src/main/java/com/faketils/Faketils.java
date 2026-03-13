@@ -24,9 +24,8 @@ public class Faketils implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        configDirectory = new File(mc.runDirectory, MOD_ID);
+        Config.HANDLER.load();
         config = Config.INSTANCE;
-        config.initialize();
 
         Command.register();
 
@@ -50,10 +49,5 @@ public class Faketils implements ClientModInitializer {
                 }
             }
         });
-    }
-
-    public static void saveAll() {
-        config.markDirty();
-        config.writeData();
     }
 }

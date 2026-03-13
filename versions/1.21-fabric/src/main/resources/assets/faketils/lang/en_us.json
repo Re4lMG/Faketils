@@ -1,6 +1,34 @@
 {
-  "key_category_faketils": "Faketils",
+  "key.category.faketils.key_category": "Faketils",
   "key.faketils.toggle_macro": "Toggle macro",
   "key.faketils.pause_macro":  "Pause macro",
-  "key.faketils.reset_fails":  "Reset fake fails"
+  "key.faketils.reset_fails":  "Reset fake fails",
+
+
+
+  "yacl3.config.faketils:config.title": "Faketils",
+
+  "yacl3.config.faketils:config.category.farming": "Farming",
+  "yacl3.config.faketils:config.category.farming.group.general": "General",
+  "yacl3.config.faketils:config.category.farming.group.pests": "Pests",
+  "yacl3.config.faketils:config.category.farming.group.pet_swapping": "Pet Swapping",
+
+  "yacl3.config.faketils:config.category.fishing": "Fishing",
+  "yacl3.config.faketils:config.category.fishing.group.helpers": "Helpers",
+
+  "yacl3.config.faketils:config.category.qol": "Quality of Life",
+  "yacl3.config.faketils:config.category.qol.group.hud": "HUD",
+  "yacl3.config.faketils:config.category.qol.group.other": "Other",
+
+  "yacl3.config.faketils:config.category.debug": "Debug",
+  "yacl3.config.faketils:config.category.debug.group.dev": "Developer",
+
+
+
+  "yacl3.config.enum.FarmType.melon_pumpkin": "Melon & Pumpkin",
+  "yacl3.config.enum.FarmType.cane_rose": "Cane / Rose / Mushroom",
+  "yacl3.config.enum.FarmType.cocoa_beans": "Cocoa Beans",
+
+  "yacl3.config.enum.PetSwapType.rod": "Fishing Rod",
+  "yacl3.config.enum.PetSwapType.armor": "Wardrobe Slot"
 }

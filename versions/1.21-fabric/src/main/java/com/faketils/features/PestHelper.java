@@ -1,5 +1,6 @@
 package com.faketils.features;
 
+import com.faketils.Faketils;
 import com.faketils.config.Config;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
@@ -68,7 +69,7 @@ public class PestHelper {
     }
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
-        if (!Utils.isInGarden() || !Config.INSTANCE.pestHelper) return;
+        if (!Utils.isInGarden() || !Faketils.config.pestHelper) return;
         if (mc.player == null || mc.world == null) return;
 
         Vec3d cameraPos = event.camera.getPos();
