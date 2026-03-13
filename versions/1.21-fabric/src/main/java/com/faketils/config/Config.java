@@ -29,7 +29,7 @@ public class Config {
     public static Config INSTANCE = HANDLER.instance();
 
     public static final KeyBinding.Category FAKETILS_CATEGORY =
-            new KeyBinding.Category(Identifier.of("faketils", "key_category"));
+            new KeyBinding.Category(Identifier.of("faketils"));
 
     public static final KeyBinding toggleMacro =
             KeyBindingHelper.registerKeyBinding(
