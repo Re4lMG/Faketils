@@ -1,6 +1,8 @@
 package com.faketils.utils;
 
+import com.faketils.events.FlyHandler;
 import com.faketils.events.FtEvent;
+import com.faketils.events.WalkingHandler;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.MinecraftClient;
@@ -11,6 +13,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+
+import java.util.List;
 
 public class RenderUtils {
 
@@ -65,6 +69,30 @@ public class RenderUtils {
                     color,
                     event
             );
+        }
+    }
+
+    public static void renderCurrentPath(Vec3d cameraPos, FtEvent.WorldRender event) {
+        List<Vec3d> currentPath = null;
+
+        if (FlyHandler.path != null && !FlyHandler.path.isEmpty()) {
+            currentPath = FlyHandler.path;
+        } else if (WalkingHandler.path != null && !WalkingHandler.path.isEmpty()) {
+            currentPath = WalkingHandler.path;
+        }
+
+        if (currentPath == null) return;
+
+        for (int i = 0; i < currentPath.size(); i++) {
+            Vec3d node = currentPath.get(i).add(0, -0.5, 0);
+
+            int color = (i == 0) ? 0x00FF00 :
+                    (i == currentPath.size() - 1) ? 0xFF0000 : 0xFFFF00;
+
+            String name = (i == 0) ? "START" :
+                    (i == currentPath.size() - 1) ? "GOAL" : "";
+
+            renderWaypointMarker(node, cameraPos, color, name, event);
         }
     }
 

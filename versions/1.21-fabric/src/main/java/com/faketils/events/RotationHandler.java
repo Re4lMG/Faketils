@@ -13,7 +13,7 @@ public class RotationHandler {
 
     private static final float MAX_SPEED = 18.0f;
     private static final float FULL_SPEED_DISTANCE = 90.0f;
-    private static final float JITTER_AMPLITUDE = 0.4f;
+    private static final float JITTER_AMPLITUDE = 0.2f;
     private static final float CURVE_INTENSITY = 0.15f;
     private static final float CURVE_FREQUENCY = 0.15f;
 

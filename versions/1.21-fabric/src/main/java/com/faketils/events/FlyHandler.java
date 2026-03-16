@@ -2,6 +2,8 @@ package com.faketils.events;
 
 import com.faketils.features.Farming;
 import com.faketils.mixin.PlayerInventoryAccessor;
+import com.faketils.pathing.AStarPathfinder;
+import com.faketils.pathing.PathSmoother;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
@@ -10,7 +12,6 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.player.PlayerAbilities;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.UpdatePlayerAbilitiesC2SPacket;
-import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
@@ -18,9 +19,8 @@ import net.minecraft.world.RaycastContext;
 import net.minecraft.world.RaycastContext.FluidHandling;
 import net.minecraft.world.RaycastContext.ShapeType;
 
+import java.util.List;
 import java.util.Random;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class FlyHandler {
 
@@ -32,7 +32,7 @@ public class FlyHandler {
     private static final float SLOW_STOP_DISTANCE    = 1.2f;
     private static final float AOTV_MIN_DISTANCE     = 24.0f;
     private static final float AOTV_MAX_DISTANCE     = 100.0f;
-    private static final int   AOTV_COOLDOWN_TICKS   = 20;
+    private static final int   AOTV_COOLDOWN_TICKS   = 7;
     private static final int   SLOT_SWITCH_DELAY     = 2 + new Random().nextInt(3);
 
     private static final float STRAFE_CHANCE_FAR     = 0.015f;
@@ -42,16 +42,14 @@ public class FlyHandler {
 
     private static final Random RANDOM = new Random();
 
-    private static final ScheduledExecutorService SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "AOTV-SwitchBack-Delay");
-        t.setDaemon(true);
-        return t;
-    });
-
     private static int strafeTimer      = 0;
     private static boolean strafeLeft   = false;
     private static long lastJumpTime    = 0;
     private static boolean wasFallingFast = false;
+
+    // Path for flying
+    public static java.util.List<Vec3d> path;
+    private static int pathIndex = 0;
 
     private static int originalSlot     = -1;
     private static int aotvSlot         = -1;
@@ -89,6 +87,28 @@ public class FlyHandler {
         awaitingRightClick = false;
     }
 
+    public static void setPath(java.util.List<Vec3d> newPath) {
+        path = newPath;
+        pathIndex = 0;
+        active = true;
+    }
+
+    public static void flyTo(Vec3d goal) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || mc.world == null) return;
+
+        Vec3d start = mc.player.getEntityPos();
+
+        AStarPathfinder pathfinder = new AStarPathfinder(mc.world, true); // flyMode = true
+        List<Vec3d> raw = pathfinder.find(start, goal);
+
+        if (raw.isEmpty()) return;
+
+        List<Vec3d> smooth = PathSmoother.smooth(mc.world, raw);
+        targetPos = goal;
+        setPath(smooth);
+    }
+
     private static void onTick(MinecraftClient client) {
         ClientPlayerEntity player = client.player;
         if (player == null || !active || targetPos == null) return;
@@ -96,8 +116,123 @@ public class FlyHandler {
         Vec3d pos = player.getEntityPos();
         Vec3d delta = targetPos.subtract(pos);
         Vec3d delta2 = targetPos.add(0, 4.5, 0).subtract(pos);
+
         double horizDist = delta2.horizontalLength();
         double fullDist = delta2.length();
+
+        if (path != null && !path.isEmpty()) {
+            Vec3d node = path.get(pathIndex);
+            Vec3d deltaPath = node.subtract(pos);
+            float horizDistPath = (float) deltaPath.horizontalLength();
+            float fullDistPath = (float) deltaPath.length();
+
+            float targetYawPath = (float) Math.toDegrees(Math.atan2(deltaPath.z, deltaPath.x)) - 90f;
+            float targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaPath.y, horizDistPath));
+
+            RotationHandler.setTarget(targetYawPath, targetPitchPath);
+
+            KeyBinding forward = client.options.forwardKey;
+            KeyBinding jump    = client.options.jumpKey;
+            KeyBinding sneak   = client.options.sneakKey;
+
+            forward.setPressed(fullDistPath > 0.5);
+            jump.setPressed(deltaPath.y > 0.3);
+            sneak.setPressed(deltaPath.y < -0.3);
+
+            double yawDiffPath = Math.abs(wrapDegrees(player.getYaw() - targetYawPath));
+            double pitchDiffPath = Math.abs(player.getPitch() - targetPitchPath);
+
+            if (fullDistPath > AOTV_MIN_DISTANCE && fullDistPath < AOTV_MAX_DISTANCE
+                    && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
+                    && yawDiffPath <= 40f && pitchDiffPath <= 40f) {
+
+                aotvSlot = findAotvSlot(player);
+                if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
+                    player.getInventory().setSelectedSlot(aotvSlot);
+                    slotSwitchTimer = SLOT_SWITCH_DELAY;
+                    awaitingRightClick = true;
+                    aotvCooldown = AOTV_COOLDOWN_TICKS + RANDOM.nextInt(15);
+                }
+            }
+
+            if (fullDistPath < 1) {
+                pathIndex++;
+                if (pathIndex >= path.size()) {
+                    path = null;
+                }
+            }
+        } else if (path == null || path.isEmpty()) {
+            float targetYaw = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
+            float targetPitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizDist));
+
+            float yawDiff = Math.abs(wrapDegrees(player.getYaw() - targetYaw));
+            float pitchDiff = Math.abs(player.getPitch() - targetPitch);
+
+            if (yawDiff < 10f && pitchDiff < 10f) {
+                RotationHandler.reset();
+            } else {
+                RotationHandler.setTarget(targetYaw, targetPitch);
+            }
+
+            if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
+                    && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
+                    && yawDiff <= 40f && pitchDiff <= 40f) {
+
+                aotvSlot = findAotvSlot(player);
+                if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
+                    player.getInventory().setSelectedSlot(aotvSlot);
+                    slotSwitchTimer = SLOT_SWITCH_DELAY;
+                    awaitingRightClick = true;
+                    aotvCooldown = AOTV_COOLDOWN_TICKS + RANDOM.nextInt(15);
+                }
+            }
+
+            boolean wantUp = delta2.y > VERTICAL_TOLERANCE;
+            boolean wantDown = delta2.y < -VERTICAL_TOLERANCE;
+
+            boolean blockedUp   = isDirectionBlocked(player, 0.0f, +1.2f);
+            boolean blockedDown = isDirectionBlocked(player, 0.0f, -0.8f);
+
+            if (blockedUp)   wantUp   = false;
+            if (blockedDown) wantDown = false;
+
+            KeyBinding forward = client.options.forwardKey;
+            KeyBinding jump    = client.options.jumpKey;
+            KeyBinding sneak   = client.options.sneakKey;
+            KeyBinding left    = client.options.leftKey;
+            KeyBinding right   = client.options.rightKey;
+
+            if (strafeTimer > 0) {
+                strafeTimer--;
+                left.setPressed(strafeLeft);
+                right.setPressed(!strafeLeft);
+            } else {
+                left.setPressed(false);
+                right.setPressed(false);
+                float chance = (fullDist > APPROACH_DISTANCE * 1.5) ? STRAFE_CHANCE_FAR : STRAFE_CHANCE_NEAR;
+                if (RANDOM.nextFloat() < chance) {
+                    strafeLeft = RANDOM.nextBoolean();
+                    strafeTimer = STRAFE_TICKS;
+                }
+            }
+
+            forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
+            jump.setPressed(wantUp || (player.isOnGround() && wantUp && fullDist > 2.0));
+            sneak.setPressed(wantDown);
+
+            if (player.isOnGround() && wantUp && delta2.y > 0.6) {
+                player.jump();
+                lastJumpTime = System.currentTimeMillis();
+            }
+
+            if (fullDist < APPROACH_DISTANCE) {
+                resetKeys();
+            }
+
+            if (fullDist < 0.9 && Math.abs(delta2.y) < 0.4) {
+                //stop();
+            }
+        }
 
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) player.getInventory();
 
@@ -107,13 +242,6 @@ public class FlyHandler {
             if (slotSwitchTimer == 0 && awaitingRightClick) {
                 doAotvRightClick();
                 awaitingRightClick = false;
-//                new Thread(() -> {
-//                    try { Thread.sleep(80); } catch (InterruptedException ignored) {}
-//                    ClientPlayerEntity p = MinecraftClient.getInstance().player;
-//                    if (p != null && originalSlot != -1 && inv.getSelectedSlot() != originalSlot) {
-//                        p.getInventory().setSelectedSlot(originalSlot);
-//                    }
-//                }).start();
             }
         }
 
@@ -128,93 +256,14 @@ public class FlyHandler {
         }
 
         boolean fallingFast = player.getVelocity().y < -0.1;
-         //&& !wasFallingFast
         if (fallingFast) {
             if (System.currentTimeMillis() - lastJumpTime > JUMP_BOOST_DELAY) {
                 setFlying(true);
             }
         }
-        //
         wasFallingFast = fallingFast;
         if (!fallingFast && player.getAbilities().flying) {
-            //player.jump();
-            //new Thread(() -> {
-            //    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                //setFlying(true);
-            //}).start();
-        }
-
-        float targetYaw = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
-        float targetPitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizDist));
-
-        float yawDiff = Math.abs(wrapDegrees(player.getYaw() - targetYaw));
-        float pitchDiff = Math.abs(player.getPitch() - targetPitch);
-
-        if (yawDiff < 10f && pitchDiff < 10f) {
-            RotationHandler.reset();
-        } else {
-            RotationHandler.setTarget(targetYaw, targetPitch);
-        }
-
-        if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking() && yawDiff <= 40f
-                && pitchDiff <= 40f) {
-
-            aotvSlot = findAotvSlot(player);
-            if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
-                player.getInventory().setSelectedSlot(aotvSlot);
-                slotSwitchTimer = SLOT_SWITCH_DELAY;
-                awaitingRightClick = true;
-                aotvCooldown = AOTV_COOLDOWN_TICKS + RANDOM.nextInt(15);
-            }
-        }
-
-        boolean wantUp = delta2.y > VERTICAL_TOLERANCE;
-        boolean wantDown = delta2.y < -VERTICAL_TOLERANCE;
-
-        boolean blockedUp   = isDirectionBlocked(player, 0.0f, +1.2f);
-        boolean blockedDown = isDirectionBlocked(player, 0.0f, -0.8f);
-
-        if (blockedUp)   wantUp   = false;
-        if (blockedDown) wantDown = false;
-
-        KeyBinding forward = client.options.forwardKey;
-        KeyBinding jump    = client.options.jumpKey;
-        KeyBinding sneak   = client.options.sneakKey;
-        KeyBinding left    = client.options.leftKey;
-        KeyBinding right   = client.options.rightKey;
-
-        if (strafeTimer > 0) {
-            strafeTimer--;
-            left.setPressed(strafeLeft);
-            right.setPressed(!strafeLeft);
-        } else {
-            left.setPressed(false);
-            right.setPressed(false);
-            float chance = (fullDist > APPROACH_DISTANCE * 1.5) ? STRAFE_CHANCE_FAR : STRAFE_CHANCE_NEAR;
-            if (RANDOM.nextFloat() < chance) {
-                strafeLeft = RANDOM.nextBoolean();
-                strafeTimer = STRAFE_TICKS;
-            }
-        }
-
-        forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
-
-        jump.setPressed(wantUp || (player.isOnGround() && wantUp && fullDist > 2.0));
-        sneak.setPressed(wantDown);
-
-        if (player.isOnGround() && wantUp && delta2.y > 0.6) {
-            player.jump();
-            lastJumpTime = System.currentTimeMillis();
-        }
-
-        if (fullDist < APPROACH_DISTANCE) {
-            //if (RANDOM.nextFloat() < 0.25f) forward.setPressed(false);
-            resetKeys();
-        }
-
-        if (fullDist < 0.9 && Math.abs(delta2.y) < 0.4) {
-            //stop();
+           //
         }
     }
 

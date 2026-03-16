@@ -4,6 +4,7 @@ import com.faketils.Faketils;
 import com.faketils.config.Config;
 import com.faketils.events.FlyHandler;
 import com.faketils.events.RotationHandler;
+import com.faketils.events.WalkingHandler;
 import com.faketils.utils.FarmingWaypoints;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -61,7 +62,7 @@ public class Command {
                     )
             );
 
-            dispatcher.register(literal("flyto")
+            dispatcher.register(literal("flytobasic")
                     .then(argument("x", IntegerArgumentType.integer())
                             .then(argument("y", IntegerArgumentType.integer())
                                     .then(argument("z", IntegerArgumentType.integer())
@@ -80,6 +81,46 @@ public class Command {
                             )
                     )
             ));
+
+            dispatcher.register(literal("flytoadv")
+                    .then(argument("x", IntegerArgumentType.integer())
+                            .then(argument("y", IntegerArgumentType.integer())
+                                    .then(argument("z", IntegerArgumentType.integer())
+                                            .executes(context -> {
+                                                int x = IntegerArgumentType.getInteger(context, "x");
+                                                int y = IntegerArgumentType.getInteger(context, "y");
+                                                int z = IntegerArgumentType.getInteger(context, "z");
+
+                                                FlyHandler.flyTo(new Vec3d(x, y, z));
+
+                                                context.getSource().sendFeedback(
+                                                        Text.literal("§7[§bFaketils§7] §aTarget set")
+                                                );
+                                                return 1;
+                                            })
+                                    )
+                            )
+                    ));
+
+            dispatcher.register(literal("walkto")
+                    .then(argument("x", IntegerArgumentType.integer())
+                            .then(argument("y", IntegerArgumentType.integer())
+                                    .then(argument("z", IntegerArgumentType.integer())
+                                            .executes(context -> {
+                                                int x = IntegerArgumentType.getInteger(context, "x");
+                                                int y = IntegerArgumentType.getInteger(context, "y");
+                                                int z = IntegerArgumentType.getInteger(context, "z");
+
+                                                WalkingHandler.walkTo(new Vec3d(x, y, z));
+
+                                                context.getSource().sendFeedback(
+                                                        Text.literal("§7[§bFaketils§7] §aTarget set")
+                                                );
+                                                return 1;
+                                            })
+                                    )
+                            )
+                    ));
 
             dispatcher.register(literal("resetrotation")
                     .executes(context -> {

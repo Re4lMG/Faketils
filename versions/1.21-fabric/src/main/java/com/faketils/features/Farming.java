@@ -836,7 +836,7 @@ public class Farming {
 
         if (closest != null) {
             currentPestTarget = closest;
-            FlyHandler.setTarget(closest);
+            FlyHandler.flyTo(closest);
         } else {
             FlyHandler.stop();
             currentPestTarget = null;
