@@ -69,31 +69,27 @@ public class AStarPathfinder {
             for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
 
-                // 1. Normal horizontal move (walk/traverse)
                 BlockPos horiz = pos.add(dx, 0, dz);
                 if (isValidPosition(horiz)) {
                     neighbors.add(horiz);
                 }
 
-                // 2. Ascend 1 block (Baritone-style jump)
                 BlockPos up = pos.add(dx, 1, dz);
                 if (canAscend(pos, dx, dz)) {
                     neighbors.add(up);
                 }
 
-                // 3. Safe fall (1-3 blocks)
                 for (int dy = -1; dy >= -3; dy--) {
                     BlockPos fall = pos.add(dx, dy, dz);
                     if (isValidPosition(fall)) {
                         neighbors.add(fall);
-                        break; // land on first valid spot
+                        break;
                     }
                 }
             }
         }
 
         if (flyMode) {
-            // Extra pure vertical for flying
             if (isValidPosition(pos.up())) neighbors.add(pos.up());
             if (isValidPosition(pos.down())) neighbors.add(pos.down());
         }
@@ -105,10 +101,9 @@ public class AStarPathfinder {
         BlockState state = world.getBlockState(pos);
 
         if (flyMode) {
-            return state.isAir(); // pure flying (you can tweak to allow water if wanted)
+            return state.isAir();
         }
 
-        // WALK MODE - Baritone-style ground validation
         BlockPos floor = pos.down();
         BlockState floorState = world.getBlockState(floor);
         boolean hasFloor = floorState.isSolidBlock(world, floor) ||
@@ -125,7 +120,6 @@ public class AStarPathfinder {
         BlockPos target = from.add(dx, 1, dz);
         if (!isValidPosition(target)) return false;
 
-        // Clearance over the step (Baritone-style)
         BlockPos front = from.add(dx, 0, dz);
         return world.getBlockState(front.up()).isAir();
     }
@@ -137,10 +131,10 @@ public class AStarPathfinder {
 
         double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        if (dy > 0) return dist * 1.6;           // JUMP
-        if (dy < 0) return dist * 1.1;           // FALL
+        if (dy > 0) return dist * 1.6;
+        if (dy < 0) return dist * 1.1;
         boolean diagonal = Math.abs(dx) + Math.abs(dz) > 1;
-        return diagonal ? 1.4 : 1.0;             // WALK / DIAGONAL
+        return diagonal ? 1.4 : 1.0;
     }
 
     private double heuristic(BlockPos a, BlockPos b) {
