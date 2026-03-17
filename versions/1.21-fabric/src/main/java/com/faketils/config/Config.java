@@ -21,12 +21,10 @@ public class Config {
             ConfigClassHandler.createBuilder(Config.class)
                     .id(Identifier.of("faketils", "config"))
                     .serializer(config -> GsonConfigSerializerBuilder.create(config)
-                            .setPath(FabricLoader.getInstance().getConfigDir().resolve("faketils.json5"))
-                            .setJson5(true)
+                            .setPath(FabricLoader.getInstance().getConfigDir().resolve("faketils.json"))
+                            .setJson5(false)
                             .build())
                     .build();
-
-    public static Config INSTANCE = HANDLER.instance();
 
     public static final KeyBinding.Category FAKETILS_CATEGORY =
             new KeyBinding.Category(Identifier.of("faketils"));
@@ -92,8 +90,8 @@ public class Config {
 
     @AutoGen(category = "farming", group = "general")
     @Boolean
-    @SerialEntry
-    @CustomName("Auto Sell Farming Junk")
+    //@SerialEntry
+    @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
 

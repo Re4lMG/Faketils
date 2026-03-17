@@ -20,13 +20,13 @@ public class Faketils implements ClientModInitializer {
     public static final String MOD_ID = "faketils";
     public static final String NAME = "Faketils";
 
-    public static File configDirectory;
-    public static Config config;
+    public static Config config() {
+        return Config.HANDLER.instance();
+    }
 
     @Override
     public void onInitializeClient() {
         Config.HANDLER.load();
-        config = Config.INSTANCE;
 
         Command.register();
 

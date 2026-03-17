@@ -138,7 +138,7 @@ public class Command {
     }
 
     private static int openGui(FabricClientCommandSource source) {
-        net.minecraft.client.MinecraftClient.getInstance().setScreen(Config.createScreen(MinecraftClient.getInstance().currentScreen));
+        Faketils.currentGui = Config.createScreen(Faketils.currentGui);
         return 1;
     }
 

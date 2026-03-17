@@ -48,7 +48,7 @@ public class Utils {
     }
 
     public static void log(String message) {
-        if (!Faketils.config.debug) return;
+        if (!Faketils.config().debug) return;
         if (mc.player != null) {
             mc.player.sendMessage(
                     Text.literal("§7[§bFaketils§7] §f" + message),

@@ -31,7 +31,7 @@ public final class SphinxSolver {
 
     private static void onChat(Text message) {
         if (!Utils.isInSkyblock()) return;
-        if (!Faketils.config.sphinxSolver) return;
+        if (!Faketils.config().sphinxSolver) return;
 
         String raw = removeFormatting(message.getString()).trim();
 

@@ -47,7 +47,7 @@ public class FishingTickHandler {
     }
 
     private static void onRenderWorldLast() {
-        if (!Utils.isInSkyblock() || !Faketils.config.fishingHelper) return;
+        if (!Utils.isInSkyblock() || !Faketils.config().fishingHelper) return;
         if (mc.currentScreen != null || mc.player == null || mc.world == null) return;
 
         ItemStack heldItem = mc.player.getMainHandStack();
@@ -76,14 +76,14 @@ public class FishingTickHandler {
     }
 
     private static void onClientTick() {
-        if (!Utils.isInSkyblock() || !Faketils.config.fishingHelper) return;
+        if (!Utils.isInSkyblock() || !Faketils.config().fishingHelper) return;
         if (mc.currentScreen != null || mc.player == null || mc.interactionManager == null) return;
 
         var player = mc.player;
         var interactionManager = mc.interactionManager;
         PlayerInventoryAccessor inventory = (PlayerInventoryAccessor) player.getInventory();
 
-        if (Faketils.config.slugFishing) {
+        if (Faketils.config().slugFishing) {
             var bobber = player.fishHook;
             if (bobber != null) {
                 if (bobber.getId() != lastBobberId) {
@@ -119,7 +119,7 @@ public class FishingTickHandler {
 
             scheduledClick = false;
 
-            if (Faketils.config.fishingHelperKilling && !Faketils.config.fishingHelperKillingWeapon.isEmpty()) {
+            if (Faketils.config().fishingHelperKilling && !Faketils.config().fishingHelperKillingWeapon.isEmpty()) {
                 WeaponResult weapon = WeaponDetector.findWeapon();
                 if (weapon != null) {
                     originalSlot = inventory.getSelectedSlot();
@@ -154,7 +154,7 @@ public class FishingTickHandler {
                         clickCount++;
                         delayCounter = random.nextInt(4) + 3;
 
-                        int maxClicks = Faketils.config.fishingHelperKillingAmount + 1;
+                        int maxClicks = Faketils.config().fishingHelperKillingAmount + 1;
                         if (clickCount >= maxClicks) {
                             clickCount = 0;
                             weaponState = 5;
@@ -200,7 +200,7 @@ public class FishingTickHandler {
             var player = mc.player;
             if (player == null) return null;
 
-            String targetName = Faketils.config.fishingHelperKillingWeapon;
+            String targetName = Faketils.config().fishingHelperKillingWeapon;
 
             for (int slot = 0; slot < 9; slot++) {
                 ItemStack stack = player.getInventory().getStack(slot);

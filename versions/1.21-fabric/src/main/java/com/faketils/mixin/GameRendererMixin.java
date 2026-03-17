@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class GameRendererMixin {
     @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
     private void disableHurtCam(MatrixStack matrices, float tickDelta, CallbackInfo ci) {
-        if (Faketils.config.noHurtCam) {
+        if (Faketils.config().noHurtCam) {
             ci.cancel();
         }
     }

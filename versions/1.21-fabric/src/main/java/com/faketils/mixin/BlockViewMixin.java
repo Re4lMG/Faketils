@@ -20,7 +20,7 @@ public interface BlockViewMixin {
     default BlockHitResult faketils$fullBlockPaneRaycast(VoxelShape shape, Vec3d start, Vec3d end, BlockPos pos) {
         if (this instanceof BlockView world) {
             BlockState state = world.getBlockState(pos);
-            if (state.getBlock() instanceof PaneBlock && Faketils.config.fullBlockPanes && Utils.isInSkyblock()) {
+            if (state.getBlock() instanceof PaneBlock && Faketils.config().fullBlockPanes && Utils.isInSkyblock()) {
                 return VoxelShapes.fullCube().raycast(start, end, pos);
             }
         }

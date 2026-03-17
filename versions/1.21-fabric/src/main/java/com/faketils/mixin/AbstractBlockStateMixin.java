@@ -19,7 +19,7 @@ public class AbstractBlockStateMixin {
     @Inject(method = "getOutlineShape", at = @At("HEAD"), cancellable = true)
     private void faketils$fullBlockOutline(BlockView world, BlockPos pos, CallbackInfoReturnable<VoxelShape> cir) {
         BlockState state = (BlockState) (Object) this;
-        if (state.getBlock() instanceof PaneBlock && Faketils.config.fullBlockPanes && Utils.isInSkyblock()) {
+        if (state.getBlock() instanceof PaneBlock && Faketils.config().fullBlockPanes && Utils.isInSkyblock()) {
             cir.setReturnValue(VoxelShapes.fullCube());
         }
     }
