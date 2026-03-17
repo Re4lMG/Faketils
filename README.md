@@ -1,6 +1,9 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Re4lMG/Faketils/master/assets/banner.png" alt="Faketils Banner" width="800"/>
+</p>
+
 <div align="center">
 
-# ✨ **Faketils**
 *A small Quality of Life mod for Hypixel Skyblock*
 
 ![Version](https://img.shields.io/badge/Minecraft-1.21.10-blue?style=flat-square)
