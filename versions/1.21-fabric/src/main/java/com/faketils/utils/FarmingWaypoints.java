@@ -21,8 +21,10 @@ public class FarmingWaypoints {
 
     public static final Map<String, List<BlockPos>> WAYPOINTS = new HashMap<>();
 
+    private static File dir = new File("config/faketils");
+
     private static File getFile() {
-        return new File(Faketils.configDirectory, "farming.json");
+        return new File(dir, "farming.json");
     }
 
     public static void load() {
@@ -66,6 +68,7 @@ public class FarmingWaypoints {
 
         File file = getFile();
         try {
+            file.getParentFile().mkdirs();
             Files.writeString(file.toPath(), GSON.toJson(data));
         } catch (IOException e) {
             e.printStackTrace();

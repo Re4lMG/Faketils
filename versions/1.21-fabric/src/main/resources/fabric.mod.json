@@ -4,6 +4,7 @@
 	"version": "${version}",
 	"name": "${modname}",
 	"description": "Faketils, a small Skyblock QoL mod.",
+    "icon": "assets/faketils/icon.png",
 	"authors": [
 		"Re4lMG"
 	],
