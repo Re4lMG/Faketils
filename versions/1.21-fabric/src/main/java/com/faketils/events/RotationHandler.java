@@ -1,6 +1,5 @@
 package com.faketils.events;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -11,9 +10,9 @@ public class RotationHandler {
     private static float targetPitch = 0;
     private static boolean active = false;
 
-    private static final float MAX_SPEED = 18.0f;
+    private static final float MAX_SPEED = 2.5f;
     private static final float FULL_SPEED_DISTANCE = 90.0f;
-    private static final float JITTER_AMPLITUDE = 0.2f;
+    private static final float JITTER_AMPLITUDE = 0.15f;
     private static final float CURVE_INTENSITY = 0.15f;
     private static final float CURVE_FREQUENCY = 0.15f;
 
@@ -21,7 +20,7 @@ public class RotationHandler {
     private static float time = 0;
 
     public static void init() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
+        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> tick(event.tickDelta));
     }
 
     public static void setTarget(float yaw, float pitch) {
@@ -35,17 +34,17 @@ public class RotationHandler {
         active = false;
     }
 
-    public static void tick() {
+    public static void tick(float partialTicks) {
         if (!active) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
         PlayerEntity player = client.player;
         if (player == null) return;
 
-        float currentYaw = player.getYaw();
+        float currentYaw   = player.getYaw();
         float currentPitch = player.getPitch();
 
-        float yawDiff = normalizeAngle(targetYaw - currentYaw);
+        float yawDiff   = normalizeAngle(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
         float maxDiff = Math.max(Math.abs(yawDiff), Math.abs(pitchDiff));
@@ -57,24 +56,24 @@ public class RotationHandler {
         }
 
         float speed = Math.min(MAX_SPEED, MAX_SPEED * (maxDiff / FULL_SPEED_DISTANCE));
-
+        speed *= partialTicks;
         speed *= (0.9f + 0.2f * RANDOM.nextFloat());
 
-        float yawMove = yawDiff * (speed / maxDiff);
+        float yawMove   = yawDiff   * (speed / maxDiff);
         float pitchMove = pitchDiff * (speed / maxDiff);
 
-        time += 1.0f;
+        time += partialTicks;
         float curveFactor = CURVE_INTENSITY * (float) Math.sin(time * CURVE_FREQUENCY);
-        float perpYaw = -pitchMove * curveFactor;
-        float perpPitch = yawMove * curveFactor;
+        float perpYaw   = -pitchMove * curveFactor;
+        float perpPitch =  yawMove   * curveFactor;
 
-        yawMove += perpYaw;
+        yawMove   += perpYaw;
         pitchMove += perpPitch;
 
-        yawMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE;
-        pitchMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE;
+        yawMove   += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * partialTicks;
+        pitchMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * partialTicks;
 
-        float newYaw = currentYaw + yawMove;
+        float newYaw   = currentYaw   + yawMove;
         float newPitch = currentPitch + pitchMove;
 
         newPitch = Math.max(-90, Math.min(90, newPitch));
