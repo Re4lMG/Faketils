@@ -145,6 +145,7 @@ public class Experiments {
                     lastAdded = i;
                     sequenceAdded = true;
                     clicks = 0;
+                    clickDelay = -1;
                     break;
                 }
             }
@@ -166,7 +167,7 @@ public class Experiments {
             if (now > clickDelay) {
                 clickSlot(client, handler, chronomatronOrder.get(clicks), 2, SlotActionType.CLONE);
                 clicks++;
-                clickDelay = -1;
+                clickDelay = now + rng.nextInt(750 - 250) + 250;
             }
         }
     }
@@ -195,6 +196,7 @@ public class Experiments {
 
             sequenceAdded = true;
             clicks = 0;
+            clickDelay = -1;
         }
 
         if (flag.isOf(Items.CLOCK) && ultrasequencerOrder.containsKey(clicks)) {
@@ -212,7 +214,7 @@ public class Experiments {
                 if (slot != null) {
                     clickSlot(client, handler, slot, 2, SlotActionType.CLONE);
                     clicks++;
-                    clickDelay = -1;
+                    clickDelay = now + rng.nextInt(750 - 250) + 250;
                 }
             }
         }
