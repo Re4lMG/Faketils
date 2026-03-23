@@ -70,9 +70,14 @@ public final class SphinxSolver {
                 && cleanText.toLowerCase().contains(pendingAnswer.toLowerCase())) {
 
             final Style toClick = effectiveStyle;
-            long delay = 1000L + RANDOM.nextInt(1000);
+            long delay = 750L + RANDOM.nextInt(750);
 
             new Thread(() -> {
+                try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                mc.player.sendMessage(
+                        Text.literal("§7[§bFaketils§7] §fAnswer: " + pendingAnswer),
+                        false
+                );
                 try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
                 mc.execute(() -> {
                     if (toClick.getClickEvent() instanceof ClickEvent.RunCommand runCommand) {
