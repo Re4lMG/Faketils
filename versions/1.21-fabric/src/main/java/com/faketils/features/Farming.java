@@ -20,13 +20,17 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import org.lwjgl.glfw.GLFW;
 
+import java.awt.*;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -86,6 +90,11 @@ public class Farming {
     private static int sprayHotbarSlot = -1;
     private static int originalSpraySlot = -1;
 
+    private static boolean isLcVacuum = false;
+    private static volatile Vec3d lastAngryParticlePos = null;
+    private static long lastAngryParticleTime = 0L;
+    private static volatile boolean lcRunning = false;
+
     private static int emptyScans = 0;
 
     private static enum PestPhase { ROOTED, SQUEAKY }
@@ -99,7 +108,7 @@ public class Farming {
     public static boolean isPaused = false;
     public static String currentMode = "none";
 
-    private static boolean killingPests = false;
+    public static boolean killingPests = false;
     private static Vec3d currentPestTarget = null;
     public static boolean pestsSpawned = false;
 
@@ -146,6 +155,8 @@ public class Farming {
     private static String lockedItemName = null;
     private static final Set<ArmorStandEntity> ignoredPests = new HashSet<>();
     private static long ignoredResetTime = 0;
+    private static Vec3d lastSentPestTarget = null;
+    private static final double RETARGET_DIST_SQ = 9.0;
 
     private static boolean isMouseLocked = false;
 
@@ -166,9 +177,13 @@ public class Farming {
     );
 
     private static String currentFail = null;
+    private static String currentState = "idle";
 
     public static String getCurrentFail() {
         return currentFail;
+    }
+    public static String getCurrentState() {
+        return currentState;
     }
 
     public static void initialize() {
@@ -180,6 +195,7 @@ public class Farming {
                 handleToggle();
                 releaseAllKeys();
                 currentFail = null;
+                currentState = "idle";
                 Utils.log("World unloaded, macro turned off");
             }
         });
@@ -207,6 +223,12 @@ public class Farming {
                     Utils.log("§cSilverfish death sound detected → skipping pest");
                 }
             }
+            if (packet instanceof net.minecraft.network.packet.s2c.play.ParticleS2CPacket pp) {
+                if (pp.getParameters().getType() == net.minecraft.particle.ParticleTypes.ANGRY_VILLAGER) {
+                    lastAngryParticlePos = new Vec3d(pp.getX(), pp.getY(), pp.getZ());
+                    lastAngryParticleTime = System.currentTimeMillis();
+                }
+            }
         });
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString().replaceAll("§.", "");
@@ -225,6 +247,7 @@ public class Farming {
                             Thread.sleep(2000);
                             mc.player.networkHandler.sendChatMessage("/eq");
                             eqActive = true;
+                            currentState = "Changing EQ";
                             eqState = EqState.OPENING;
                             eqStateStart = System.currentTimeMillis();
                             currentPestPhase = PestPhase.ROOTED;
@@ -267,16 +290,17 @@ public class Farming {
         while (resetKey.wasPressed()) handleReset();
 
         if (killingPests && isPaused) {
-            handleKilling();
+            currentState = "Killing pests";
+            resetKilling();
             if (currentPestTarget != null && mc.player != null) {
                 double distance = mc.player.getEntityPos().distanceTo(currentPestTarget);
-                boolean inSweetSpot = distance < 10.0;
-                //swapToInfiniVacuum();
+                boolean inSweetSpot = distance < 8.0;
                 mc.options.useKey.setPressed(inSweetSpot);
             }
         }
 
         if (!isActive || (isPaused && !killingPests)) {
+            currentState = "idle";
             releaseAllKeys();
             return;
         }
@@ -298,6 +322,7 @@ public class Farming {
         handleSpraySequence();
 
         if (isSpraying) {
+            currentState = "Spraying";
             return;
         }
 
@@ -684,12 +709,10 @@ public class Farming {
                             try { Thread.sleep(350); } catch (InterruptedException ignored) {}
                             if (Faketils.config().pestKilling) handleKilling();
                             if (Faketils.config().pestKilling) {
-                                Vec3d pos = mc.player.getEntityPos();
-                                Vec3d look = mc.player.getRotationVec(1.0F).normalize();
-                                Vec3d target = pos.add(look.multiply(32)).add(0, 4, 0);
-                                //FlyHandler.flyTo(target);
+                                killingPests = true;
+                                isLcVacuum = true;
+                                lcVacuum();
                             }
-                            if (Faketils.config().pestKilling) killingPests = true;
                         }).start();
                     } else {
                         Utils.log("Squeaky pest items handled → resuming normal farming");
@@ -742,6 +765,86 @@ public class Farming {
         return true;
     }
 
+    private static void lcVacuum() {
+        if (!isLcVacuum) return;
+        if (!Faketils.config().pestKilling) return;
+        if (lcRunning) return;
+        if (mc.player == null) return;
+
+        lcRunning = true;
+
+        new Thread(() -> {
+            try {
+                while (lcRunning && killingPests) {
+                    if (currentPestTarget != null) {
+                        Thread.sleep(500);
+                        continue;
+                    }
+
+                    mc.execute(() -> {
+                        PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
+                        inv.setSelectedSlot(vacuumSlot);
+                    });
+                    Thread.sleep(80);
+
+                    mc.execute(() -> {
+                        if (mc.interactionManager != null && mc.player != null) {
+                            mc.interactionManager.attackBlock(mc.player.getBlockPos(), net.minecraft.util.math.Direction.UP);
+                            mc.options.attackKey.setPressed(true);
+                        }
+                    });
+                    Thread.sleep(100);
+                    mc.execute(() -> mc.options.attackKey.setPressed(false));
+
+                    long waitStart = System.currentTimeMillis();
+                    Vec3d particleHit = null;
+
+                    while (System.currentTimeMillis() - waitStart < 600) {
+                        if (lastAngryParticlePos != null
+                                && System.currentTimeMillis() - lastAngryParticleTime < 400) {
+                            particleHit = lastAngryParticlePos;
+                            break;
+                        }
+                        Thread.sleep(30);
+                    }
+
+                    if (particleHit != null) {
+                        final Vec3d target = particleHit;
+                        Utils.log("§bLC Vacuum → particle hit at " + String.format("%.1f %.1f %.1f",
+                                target.x, target.y, target.z));
+
+                        mc.execute(() -> {
+                            if (mc.player == null) return;
+                            Vec3d delta = target.subtract(mc.player.getEyePos());
+                            float yaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
+                            float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, delta.horizontalLength()));
+                            RotationHandler.setTarget(yaw, pitch);
+                            FlyHandler.flyTo(target);
+                            currentPestTarget = target;
+                        });
+
+                        Thread.sleep(3000);
+
+                        if (currentPestTarget == null ||
+                                (mc.player != null && mc.player.getEntityPos().distanceTo(currentPestTarget) < 3.0)) {
+                            Utils.log("§eLc Vacuum → no pest confirmed after fly, retrying");
+                            currentPestTarget = null;
+                            lastAngryParticlePos = null;
+                        }
+
+                    } else {
+                        Utils.log("§eLc Vacuum → no particle detected, retrying in 3s");
+                        Thread.sleep(3000);
+                    }
+                }
+            } catch (InterruptedException ignored) {
+            } finally {
+                lcRunning = false;
+                Utils.log("§cLC Vacuum thread stopped");
+            }
+        }, "lc-vacuum").start();
+    }
+
     private static void updatePestOffset() {
         long now = System.currentTimeMillis();
         if (now - lastOffsetChange < OFFSET_CHANGE_INTERVAL_MS) {
@@ -760,17 +863,16 @@ public class Farming {
         }
     }
 
-    public static void handleKilling() {
+    private static void resetKilling() {
         if (mc.player == null || mc.world == null || !Utils.isInGarden()) return;
         if (!Faketils.config().pestKilling) return;
-
-        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
-            ignoredPests.clear();
-        }
 
         if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Alive: 0"))) {
             if (killingPests) {
                 killingPests = false;
+                isLcVacuum = false;
+                lastSentPestTarget = null;
+                lcRunning = false;
                 if (originalPestKillSlot >= 0 && originalPestKillSlot < 9) {
                     mc.player.getInventory().setSelectedSlot(originalPestKillSlot);
                     Utils.log("Restored original hotbar slot after pest killing: " + (originalPestKillSlot + 1));
@@ -784,7 +886,15 @@ public class Farming {
                 lastOffsetChange = 0L;
                 Utils.log("All pests killed → resuming normal farming");
             }
-            return;
+        }
+    }
+
+    public static void handleKilling() {
+        if (mc.player == null || mc.world == null || !Utils.isInGarden()) return;
+        if (!Faketils.config().pestKilling) return;
+
+        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
+            ignoredPests.clear();
         }
 
         if (!killingPests) return;
@@ -839,10 +949,18 @@ public class Farming {
         }
 
         if (closest != null) {
-            currentPestTarget = closest;
-            FlyHandler.setTarget(closest);
+            boolean needsUpdate = lastSentPestTarget == null
+                    || closest.squaredDistanceTo(lastSentPestTarget) > RETARGET_DIST_SQ
+                    || !FlyHandler.isFlyingActive();
+
+            if (needsUpdate) {
+                currentPestTarget = closest;
+                lastSentPestTarget = closest;
+                FlyHandler.flyTo(closest);
+            }
         } else {
             FlyHandler.stop();
+            lastSentPestTarget = null;
             currentPestTarget = null;
         }
     }
@@ -880,6 +998,7 @@ public class Farming {
             currentMode = "none";
             lastWaypoint = null;
             pauseWaypoint = null;
+            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
             ticksOnWaypoint = 0;
             unlockMouse();
         } else if (mc.player != null) {
@@ -887,6 +1006,7 @@ public class Farming {
             lockedPitch = mc.player.getPitch();
             PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
             lockedSlot = inv.getSelectedSlot();
+            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
             lockedItemName = mc.player.getMainHandStack().getName().getString();
             lockMouse();
             lastXp = 0;
@@ -903,6 +1023,7 @@ public class Farming {
         if (isPaused) {
             releaseAllKeys();
             movementBlockTicks = 10;
+            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
             unlockMouse();
             pauseTimeMs = System.currentTimeMillis();
 
@@ -916,6 +1037,7 @@ public class Farming {
             Utils.log("Macro paused");
         } else {
             lockMouse();
+            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
             lastXp = 0;
 
             boolean shouldWarp = false;
@@ -951,6 +1073,7 @@ public class Farming {
     private static void handleReset() {
         if (!isActive || mc.player == null) return;
         lockedYaw = mc.player.getYaw();
+        mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
         lockedPitch = mc.player.getPitch();
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
         lockedSlot = inv.getSelectedSlot();
@@ -1048,25 +1171,33 @@ public class Farming {
         if (mc.player == null) return;
         if (!Utils.isInSkyblock() || !Faketils.config().funnyToggle) return;
         if (!Utils.isInGarden()) return;
+        if (Faketils.config().noHuds) return;
 
         String text;
         int color;
 
         if (!isActive) {
-            text = "Macro: OFF";
+            text = "OFF";
             color = 0xFFFF4444;
         } else if (isPaused) {
-            text = "Macro: PAUSED";
+            text = "PAUSED";
             color = 0xFFFFFF44;
         } else {
-            text = "Macro: ACTIVE";
+            text = "ACTIVE";
             color = 0xFF44FF44;
         }
 
         int x = Faketils.config().macroHudX;
         int y = Faketils.config().macroHudY;
 
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(text), x, y, color);
+        var matrices = ctx.getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(2f, 2f);
+
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("Macro: " + text), x, y, color);
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("State: " + getCurrentState()), 0, 0, Color.LIGHT_GRAY.getRGB());
+
+        matrices.popMatrix();
     }
 
     private static boolean isNearWaypoints(BlockPos pos, int range) {
@@ -1108,6 +1239,7 @@ public class Farming {
                         ticksOnWaypoint = 0;
                     } else {
                         currentMode = targetMode;
+                        currentState = targetMode;
                     }
                     if (!Faketils.config().instaSwitch) {
                         randomDelayTicks = random.nextInt(81) + 20;
@@ -1126,6 +1258,7 @@ public class Farming {
         mc.options.backKey.setPressed(currentMode.equals("left") && (Faketils.config().farmType == Config.FarmType.CANE_ROSE || Faketils.config().farmType == Config.FarmType.COCOA_BEANS));
         mc.options.leftKey.setPressed(currentMode.equals("left") && (Faketils.config().farmType == Config.FarmType.MELON_PUMPKIN || Faketils.config().farmType == Config.FarmType.COCOA_BEANS));
         mc.options.rightKey.setPressed(currentMode.equals("right"));
+        GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT);
         mc.options.attackKey.setPressed(true);
         keysAreHeld = true;
     }
