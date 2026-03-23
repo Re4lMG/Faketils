@@ -2,8 +2,7 @@ package com.faketils.events;
 
 import com.faketils.features.Farming;
 import com.faketils.mixin.PlayerInventoryAccessor;
-import com.faketils.pathing.AStarPathfinder;
-import com.faketils.pathing.PathSmoother;
+import com.faketils.pathing.Pathfinder;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
@@ -14,11 +13,13 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.UpdatePlayerAbilitiesC2SPacket;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.RaycastContext.FluidHandling;
 import net.minecraft.world.RaycastContext.ShapeType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -28,7 +29,7 @@ public class FlyHandler {
     private static boolean active = false;
 
     private static final float VERTICAL_TOLERANCE    = 0.6f;
-    private static final float APPROACH_DISTANCE     = 10.0f;
+    private static final float APPROACH_DISTANCE     = 8.0f;
     private static final float SLOW_STOP_DISTANCE    = 1.2f;
     private static final float AOTV_MIN_DISTANCE     = 24.0f;
     private static final float AOTV_MAX_DISTANCE     = 100.0f;
@@ -45,9 +46,7 @@ public class FlyHandler {
     private static int strafeTimer      = 0;
     private static boolean strafeLeft   = false;
     private static long lastJumpTime    = 0;
-    private static boolean wasFallingFast = false;
 
-    // Path for flying
     public static java.util.List<Vec3d> path;
     private static int pathIndex = 0;
 
@@ -77,7 +76,12 @@ public class FlyHandler {
         targetPos = null;
         resetKeys();
         resetAotvState();
-        //setFlying(false);
+        clearPath();
+    }
+
+    public static void clearPath() {
+        path = null;
+        pathIndex = 0;
     }
 
     private static void resetAotvState() {
@@ -89,24 +93,33 @@ public class FlyHandler {
 
     public static void setPath(java.util.List<Vec3d> newPath) {
         path = newPath;
-        pathIndex = 0;
+        pathIndex = 1;
         active = true;
     }
 
     public static void flyTo(Vec3d goal) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
+        clearPath();
 
-        Vec3d start = mc.player.getEntityPos();
+        BlockPos start = mc.player.getBlockPos();
+        BlockPos end   = BlockPos.ofFloored(goal);
 
-        AStarPathfinder pathfinder = new AStarPathfinder(mc.world, true); // flyMode = true
-        List<Vec3d> raw = pathfinder.find(start, goal);
+        List<BlockPos> raw = Pathfinder.findPath(start, end, mc.world, 20000);
 
-        if (raw.isEmpty()) return;
+        if (raw == null || raw.isEmpty()) {
+            targetPos = goal;
+            active = true;
+            return;
+        }
 
-        List<Vec3d> smooth = PathSmoother.smooth(mc.world, raw);
+        List<Vec3d> vec3dPath = new ArrayList<>();
+        for (BlockPos bp : raw) {
+            vec3dPath.add(new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5));
+        }
+
         targetPos = goal;
-        setPath(smooth);
+        setPath(vec3dPath);
     }
 
     private static void onTick(MinecraftClient client) {
@@ -121,31 +134,52 @@ public class FlyHandler {
         double fullDist = delta2.length();
 
         if (path != null && !path.isEmpty()) {
-            Vec3d node = path.get(pathIndex);
+            Vec3d node = path.get(pathIndex).add(0, 4.0, 0);
+            Vec3d nodeRaw = path.get(pathIndex);
             Vec3d deltaPath = node.subtract(pos);
-            float horizDistPath = (float) deltaPath.horizontalLength();
+            Vec3d deltaPathRaw = nodeRaw.subtract(pos);
             float fullDistPath = (float) deltaPath.length();
+            float fullDistPathRaw = (float) deltaPathRaw.length();
 
-            float targetYawPath = (float) Math.toDegrees(Math.atan2(deltaPath.z, deltaPath.x)) - 90f;
-            float targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaPath.y, horizDistPath));
+            float targetYawPath;
+            float targetPitchPath;
+
+            if (isFrontClear(player, 4.0)) {
+                targetYawPath   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
+                targetPitchPath = (float) -Math.toDegrees(Math.atan2(delta.y, delta.horizontalLength()));
+            } else {
+                targetYawPath   = (float) Math.toDegrees(Math.atan2(deltaPathRaw.z, deltaPathRaw.x)) - 90f;
+                targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaPathRaw.y, deltaPathRaw.horizontalLength()));
+            }
 
             RotationHandler.setTarget(targetYawPath, targetPitchPath);
+
+            float yawDiff = Math.abs(wrapDegrees(player.getYaw() - targetYawPath));
+            boolean facingTarget = yawDiff < 35f;
+
+            boolean wantUp   = deltaPath.y > VERTICAL_TOLERANCE;
+            boolean wantDown = deltaPath.y < -VERTICAL_TOLERANCE;
+
+            if (isDirectionBlocked(player, 0.0f, +1.2f)) wantUp   = false;
+            if (isDirectionBlocked(player, 0.0f, -0.01f)) wantDown = false;
+
+            if (player.isOnGround() && wantUp) {
+                player.jump();
+                lastJumpTime = System.currentTimeMillis();
+            }
 
             KeyBinding forward = client.options.forwardKey;
             KeyBinding jump    = client.options.jumpKey;
             KeyBinding sneak   = client.options.sneakKey;
 
-            forward.setPressed(fullDistPath > 0.5);
-            jump.setPressed(deltaPath.y > 0.3);
-            sneak.setPressed(deltaPath.y < -0.3);
-
-            double yawDiffPath = Math.abs(wrapDegrees(player.getYaw() - targetYawPath));
-            double pitchDiffPath = Math.abs(player.getPitch() - targetPitchPath);
+            forward.setPressed(facingTarget && fullDist > SLOW_STOP_DISTANCE);
+            player.setSprinting(facingTarget);
+            jump.setPressed(wantUp);
+            sneak.setPressed(wantDown);
 
             if (fullDistPath > AOTV_MIN_DISTANCE && fullDistPath < AOTV_MAX_DISTANCE
                     && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
-                    && yawDiffPath <= 40f && pitchDiffPath <= 40f) {
-
+                    && yawDiff <= 20f) {
                 aotvSlot = findAotvSlot(player);
                 if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                     player.getInventory().setSelectedSlot(aotvSlot);
@@ -155,7 +189,7 @@ public class FlyHandler {
                 }
             }
 
-            if (fullDistPath < 1) {
+            if (fullDistPathRaw <= 1) {
                 pathIndex++;
                 if (pathIndex >= path.size()) {
                     path = null;
@@ -168,15 +202,11 @@ public class FlyHandler {
             float yawDiff = Math.abs(wrapDegrees(player.getYaw() - targetYaw));
             float pitchDiff = Math.abs(player.getPitch() - targetPitch);
 
-            if (yawDiff < 10f && pitchDiff < 10f) {
-                RotationHandler.reset();
-            } else {
-                RotationHandler.setTarget(targetYaw, targetPitch);
-            }
+            RotationHandler.setTarget(targetYaw, targetPitch);
 
             if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
                     && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
-                    && yawDiff <= 40f && pitchDiff <= 40f) {
+                    && yawDiff <= 20f && pitchDiff <= 20f) {
 
                 aotvSlot = findAotvSlot(player);
                 if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
@@ -191,7 +221,7 @@ public class FlyHandler {
             boolean wantDown = delta2.y < -VERTICAL_TOLERANCE;
 
             boolean blockedUp   = isDirectionBlocked(player, 0.0f, +1.2f);
-            boolean blockedDown = isDirectionBlocked(player, 0.0f, -0.8f);
+            boolean blockedDown = isDirectionBlocked(player, 0.0f, -0.01f);
 
             if (blockedUp)   wantUp   = false;
             if (blockedDown) wantDown = false;
@@ -217,20 +247,13 @@ public class FlyHandler {
             }
 
             forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
-            jump.setPressed(wantUp || (player.isOnGround() && wantUp && fullDist > 2.0));
+            player.setSprinting(true);
+            jump.setPressed(wantUp);
             sneak.setPressed(wantDown);
 
-            if (player.isOnGround() && wantUp && delta2.y > 0.6) {
+            if (player.isOnGround() && wantUp) {
                 player.jump();
                 lastJumpTime = System.currentTimeMillis();
-            }
-
-            if (fullDist < APPROACH_DISTANCE) {
-                resetKeys();
-            }
-
-            if (fullDist < 0.9 && Math.abs(delta2.y) < 0.4) {
-                //stop();
             }
         }
 
@@ -251,8 +274,11 @@ public class FlyHandler {
             }
         }
 
-        if (player.isOnGround()) {
-            player.jump();
+        if (fullDist < APPROACH_DISTANCE) {
+            stop();
+            if (Farming.killingPests) {
+                Farming.handleKilling();
+            }
         }
 
         boolean fallingFast = player.getVelocity().y < -0.1;
@@ -261,7 +287,6 @@ public class FlyHandler {
                 setFlying(true);
             }
         }
-        wasFallingFast = fallingFast;
         if (!fallingFast && player.getAbilities().flying) {
            //
         }
