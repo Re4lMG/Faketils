@@ -54,7 +54,7 @@ public class Config {
             );
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Funny Toggle")
     @CustomDescription("Display if the funny is active or not. Disable if you aren't farming.")
@@ -68,56 +68,56 @@ public class Config {
     public FarmType farmType = FarmType.MELON_PUMPKIN;
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Show Waypoints")
     @CustomDescription("Display the lane switching waypoints. Disable if you aren't farming.")
     public boolean funnyWaypoints = false;
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Insta-Lane Switching")
     @CustomDescription("150ms when switching from right to left, useful in farming contests.")
     public boolean instaSwitch = false;
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Auto Spraynator")
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     //@SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
 
     @AutoGen(category = "farming", group = "general")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Rewarp On Pause")
     @CustomDescription("Sets a spawn point when the macro is paused and warps back when resumed.")
     public boolean rewarpOnPause = false;
 
     @AutoGen(category = "farming", group = "pests")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Pest Helper")
     @CustomDescription("Draws a line and box to the nearest pest.")
     public boolean pestHelper = false;
 
     @AutoGen(category = "farming", group = "pests")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Pest Farming Mode")
     @CustomDescription("Automatically swaps equipment and pet when the pest cooldown is over.")
     public boolean pestFarming = false;
 
     @AutoGen(category = "farming", group = "pests")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Auto Pest Killing")
     @CustomDescription("Automatically kills pests (risky).")
@@ -159,21 +159,21 @@ public class Config {
     public int wardrobeSlotOld = 1;
 
     @AutoGen(category = "fishing", group = "helpers")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Fishing Helper")
     @CustomDescription("Enables the fishing helper.")
     public boolean fishingHelper = false;
 
     @AutoGen(category = "fishing", group = "helpers")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Slug Trophy Fishing")
     @CustomDescription("Enables the slug trophy fishing helper.")
     public boolean slugFishing = false;
 
     @AutoGen(category = "fishing", group = "helpers")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Sea Creature Killing")
     @CustomDescription("Automatically helps kill sea creatures (useful for lava fishing).")
@@ -207,29 +207,57 @@ public class Config {
     @CustomDescription("Vertical position offset of the macro HUD.")
     public int macroHudY = 200;
 
+    @AutoGen(category = "qol", group = "hud")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
+    @CustomName("Hide all huds")
+    @CustomDescription("Disables the huds (useful for streaming).")
+    public boolean noHuds = false;
+
     @AutoGen(category = "qol", group = "other")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("No Hurt Cam")
     @CustomDescription("Disables the hurt camera shake effect.")
     public boolean noHurtCam = false;
 
     @AutoGen(category = "qol", group = "other")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
+    @CustomName("Auto Tipall")
+    @CustomDescription("Runs /tipall every 5mins.")
+    public boolean tipAll = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
+    @CustomName("Auto Exp-table")
+    @CustomDescription("Auto solves both exp table minigames.")
+    public boolean exp = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
+    @CustomName("Auto Harp")
+    @CustomDescription("Auto solves harp songs.")
+    public boolean harp = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Sphinx Solver")
     @CustomDescription("Automatically answers Sphinx riddles.")
     public boolean sphinxSolver = false;
 
     @AutoGen(category = "qol", group = "other")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Full Block Panes")
     @CustomDescription("Increases the bounding box size of glass panes.")
     public boolean fullBlockPanes = false;
 
     @AutoGen(category = "debug", group = "dev")
-    @Boolean
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Debug Mode")
     @CustomDescription("Enables developer debug features.")

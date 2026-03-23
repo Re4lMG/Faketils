@@ -12,7 +12,6 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import java.io.File;
 
 public class Faketils implements ClientModInitializer {
     public static final MinecraftClient mc = MinecraftClient.getInstance();
@@ -34,6 +33,9 @@ public class Faketils implements ClientModInitializer {
         WalkingHandler.init();
         RotationHandler.init();
         FlyHandler.init();
+        TipAll.initialize();
+        Experiments.init();
+        Harp.init();
         FishingTickHandler.initialize();
         Farming.initialize();
         FarmingTitleRenderer.init();
