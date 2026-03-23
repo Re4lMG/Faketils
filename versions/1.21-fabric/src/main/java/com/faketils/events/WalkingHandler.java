@@ -1,14 +1,13 @@
 package com.faketils.events;
 
-import com.faketils.pathing.AStarPathfinder;
-import com.faketils.pathing.PathSmoother;
+import com.faketils.pathing.Pathfinder;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class WalkingHandler {
@@ -34,26 +33,24 @@ public class WalkingHandler {
 
     //toUse
     public static void walkTo(Vec3d goal) {
-
         MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || mc.world == null) return;
 
-        if (mc.player == null || mc.world == null)
+        BlockPos start = mc.player.getBlockPos();
+        BlockPos end   = BlockPos.ofFloored(goal);
+
+        List<BlockPos> raw = Pathfinder.findPath(start, end, mc.world, 24000);
+
+        if (raw == null || raw.isEmpty()) {
             return;
+        }
 
-        AStarPathfinder pathfinder = new AStarPathfinder(mc.world, false);
+        List<Vec3d> vec3dPath = new ArrayList<>();
+        for (BlockPos bp : raw) {
+            vec3dPath.add(new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5));
+        }
 
-        List<Vec3d> rawPath = pathfinder.find(
-                mc.player.getEntityPos(),
-                goal
-        );
-
-        if (rawPath.isEmpty())
-            return;
-
-        List<Vec3d> smoothPath =
-                PathSmoother.smooth(mc.world, rawPath);
-
-        setPath(smoothPath);
+        setPath(vec3dPath);
     }
 
     private static void tick() {
@@ -71,7 +68,7 @@ public class WalkingHandler {
 
         RotationHandler.setTarget(yaw, pitch);
 
-        mc.options.forwardKey.setPressed(dist > 0.8);
+        mc.options.forwardKey.setPressed(dist > 1.5);
         mc.options.jumpKey.setPressed(shouldJump(mc.player));
 
         if (dist < 0.8) {
