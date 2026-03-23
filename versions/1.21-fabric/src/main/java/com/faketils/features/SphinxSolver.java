@@ -1,7 +1,6 @@
 package com.faketils.features;
 
 import com.faketils.Faketils;
-import com.faketils.config.Config;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
@@ -55,31 +54,43 @@ public final class SphinxSolver {
     }
 
     private static void scan(Text text) {
+        scan(text, null);
+    }
+
+    private static void scan(Text text, Style parentStyle) {
+        if (mc.player == null) return;
         String cleanText = removeFormatting(text.getString()).trim();
         Style style = text.getStyle();
         ClickEvent clickEvent = style.getClickEvent();
 
-        if (clickEvent != null
-                && clickEvent.getAction() == ClickEvent.Action.RUN_COMMAND
+        Style effectiveStyle = (clickEvent != null) ? style : parentStyle;
+        ClickEvent effectiveClick = (effectiveStyle != null) ? effectiveStyle.getClickEvent() : null;
+
+        if (effectiveClick instanceof ClickEvent.RunCommand
                 && cleanText.toLowerCase().contains(pendingAnswer.toLowerCase())) {
 
+            final Style toClick = effectiveStyle;
             long delay = 1000L + RANDOM.nextInt(1000);
 
             new Thread(() -> {
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException ignored) {}
+                try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
                 mc.execute(() -> {
-                    if (mc.currentScreen != null) {
-                        mc.currentScreen.handleTextClick(text.getStyle());
+                    if (toClick.getClickEvent() instanceof ClickEvent.RunCommand runCommand) {
+                        String command = runCommand.command();
+                        if (command.startsWith("/")) {
+                            mc.player.networkHandler.sendChatCommand(command.substring(1));
+                        } else {
+                            mc.player.networkHandler.sendChatMessage(command);
+                        }
                         pendingAnswer = null;
                     }
                 });
             }).start();
+            return;
         }
 
         for (Text sibling : text.getSiblings()) {
-            scan(sibling);
+            scan(sibling, effectiveStyle);
         }
     }
 
