@@ -68,7 +68,8 @@ public class Pathfinder {
     private static boolean isPassable(BlockPos pos, World world) {
         BlockState state = world.getBlockState(pos);
         BlockState above = world.getBlockState(pos.up());
-        return !state.isSolidBlock(world, pos) && !above.isSolidBlock(world, above.getBlock().getDefaultState().equals(above) ? pos.up() : pos.up());
+        return state.getCollisionShape(world, pos).isEmpty() &&
+                above.getCollisionShape(world, pos.up()).isEmpty();
     }
 
     private static List<BlockPos> reconstructPath(Node node) {

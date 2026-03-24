@@ -30,9 +30,9 @@ public class FlyHandler {
 
     private static final float VERTICAL_TOLERANCE  = 0.6f;
     private static final float APPROACH_DISTANCE   = 8.0f;
-    private static final float SLOW_STOP_DISTANCE  = 1.2f;
-    private static final float AOTV_MIN_DISTANCE   = 24.0f;
-    private static final float AOTV_MAX_DISTANCE   = 100.0f;
+    private static final float SLOW_STOP_DISTANCE  = 8.0f;
+    private static final float AOTV_MIN_DISTANCE   = 12.0f;
+    private static final float AOTV_MAX_DISTANCE   = 240.0f;
     private static final int   AOTV_COOLDOWN_TICKS = 7;
     private static final int   SLOT_SWITCH_DELAY   = 2 + new Random().nextInt(3);
 
@@ -160,10 +160,8 @@ public class FlyHandler {
         }
 
         if (fullDist < APPROACH_DISTANCE) {
-            stop();
-            if (Farming.killingPests) {
-                Farming.handleKilling();
-            }
+            MinecraftClient.getInstance().options.backKey.setPressed(true);
+            MinecraftClient.getInstance().options.forwardKey.setPressed(true);
         }
 
         boolean fallingFast = player.getVelocity().y < -0.1;
@@ -238,7 +236,7 @@ public class FlyHandler {
             }
         }
 
-        if (fullDistPathRaw <= 0.5) {
+        if (fullDistPathRaw <= 1.5) {
             pathIndex++;
             if (pathIndex >= path.size()) {
                 path = null;

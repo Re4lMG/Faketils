@@ -160,14 +160,14 @@ public class Experiments {
                 chronomatronOrder.size() > clicks) {
 
             if (clickDelay == -1) {
-                clickDelay = now + rng.nextInt(750 - 250) + 250;
+                clickDelay = now + rng.nextInt(1000 - 250) + 250;
                 Utils.log("Chrono Click " + (clicks + 1) + " in " + (clickDelay - now) + "ms");
             }
 
             if (now > clickDelay) {
                 clickSlot(client, handler, chronomatronOrder.get(clicks), 2, SlotActionType.CLONE);
                 clicks++;
-                clickDelay = now + rng.nextInt(750 - 250) + 250;
+                clickDelay = now + rng.nextInt(1000 - 250) + 250;
             }
         }
     }

@@ -292,6 +292,7 @@ public class Farming {
         if (killingPests && isPaused) {
             currentState = "Killing pests";
             resetKilling();
+            handleKilling();
             if (currentPestTarget != null && mc.player != null) {
                 double distance = mc.player.getEntityPos().distanceTo(currentPestTarget);
                 boolean inSweetSpot = distance < 8.0;
