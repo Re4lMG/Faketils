@@ -56,16 +56,59 @@ public class Config {
     @AutoGen(category = "farming", group = "general")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Funny Toggle")
-    @CustomDescription("Display if the funny is active or not. Disable if you aren't farming.")
+    @CustomName("Farming Toggle")
+    @CustomDescription("Activates all the farming stuff.")
     public boolean funnyToggle = false;
 
-    @AutoGen(category = "farming", group = "general")
-    @EnumCycler
+    // Left mode keys
+    @AutoGen(category = "farming", group = "left_mode")
+    @TickBox
     @SerialEntry
-    @CustomName("Farm Type")
-    @CustomDescription("Select a farm.")
-    public FarmType farmType = FarmType.MELON_PUMPKIN;
+    @CustomName("Hold Forward")
+    public boolean leftForward = false;
+
+    @AutoGen(category = "farming", group = "left_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Left")
+    public boolean leftLeft = true;
+
+    @AutoGen(category = "farming", group = "left_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Back")
+    public boolean leftBack = false;
+
+    @AutoGen(category = "farming", group = "left_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Right")
+    public boolean leftRight = false;
+
+    // Right mode keys
+    @AutoGen(category = "farming", group = "right_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Forward")
+    public boolean rightForward = false;
+
+    @AutoGen(category = "farming", group = "right_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Left")
+    public boolean rightLeft = false;
+
+    @AutoGen(category = "farming", group = "right_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Back")
+    public boolean rightBack = false;
+
+    @AutoGen(category = "farming", group = "right_mode")
+    @TickBox
+    @SerialEntry
+    @CustomName("Hold Right")
+    public boolean rightRight = true;
 
     @AutoGen(category = "farming", group = "general")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
@@ -81,21 +124,21 @@ public class Config {
     @CustomDescription("150ms when switching from right to left, useful in farming contests.")
     public boolean instaSwitch = false;
 
-    @AutoGen(category = "farming", group = "general")
+    @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Auto Spraynator")
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
 
-    @AutoGen(category = "farming", group = "general")
+    @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     //@SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
 
-    @AutoGen(category = "farming", group = "general")
+    @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Rewarp On Pause")
@@ -105,7 +148,7 @@ public class Config {
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Pest Helper")
+    @CustomName("Pest Highlighter")
     @CustomDescription("Draws a line and box to the nearest pest.")
     public boolean pestHelper = false;
 
@@ -265,12 +308,6 @@ public class Config {
 
     public static Screen createScreen(Screen parent) {
         return HANDLER.generateGui().generateScreen(parent);
-    }
-
-    public enum FarmType {
-        MELON_PUMPKIN,
-        CANE_ROSE,
-        COCOA_BEANS
     }
 
     public enum PetSwapType {

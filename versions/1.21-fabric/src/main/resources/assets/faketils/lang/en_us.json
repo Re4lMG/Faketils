@@ -9,6 +9,8 @@
   "yacl3.config.faketils:config.title": "Faketils",
 
   "yacl3.config.faketils:config.category.farming": "Farming",
+  "yacl3.config.faketils:config.category.farming.group.left_mode": "Left Mode Keys",
+  "yacl3.config.faketils:config.category.farming.group.right_mode": "Right Mode Keys",
   "yacl3.config.faketils:config.category.farming.group.general": "General",
   "yacl3.config.faketils:config.category.farming.group.pests": "Pests",
   "yacl3.config.faketils:config.category.farming.group.pet_swapping": "Pet Swapping",
@@ -23,11 +25,6 @@
   "yacl3.config.faketils:config.category.debug": "Debug",
   "yacl3.config.faketils:config.category.debug.group.dev": "Developer",
 
-
-
-  "yacl3.config.enum.FarmType.melon_pumpkin": "Melon & Pumpkin",
-  "yacl3.config.enum.FarmType.cane_rose": "Cane / Rose / Mushroom",
-  "yacl3.config.enum.FarmType.cocoa_beans": "Cocoa Beans",
 
   "yacl3.config.enum.PetSwapType.rod": "Fishing Rod",
   "yacl3.config.enum.PetSwapType.armor": "Wardrobe Slot"
