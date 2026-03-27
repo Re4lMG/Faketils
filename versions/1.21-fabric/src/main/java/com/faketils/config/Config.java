@@ -131,8 +131,8 @@ public class Config {
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
 
-    @AutoGen(category = "farming", group = "pests")
-    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    //@AutoGen(category = "farming", group = "pests")
+    //@Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     //@SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
@@ -237,18 +237,18 @@ public class Config {
     public String fishingHelperKillingWeapon = "";
 
     @AutoGen(category = "qol", group = "hud")
-    @IntSlider(min = -500, max = 500, step = 1)
+    @IntSlider(min = -500, max = 1000, step = 1)
     @SerialEntry
     @CustomName("Macro HUD X")
     @CustomDescription("Horizontal position offset of the macro HUD.")
-    public int macroHudX = 60;
+    public int macroHudX = 50;
 
     @AutoGen(category = "qol", group = "hud")
-    @IntSlider(min = -300, max = 300, step = 1)
+    @IntSlider(min = -300, max = 1000, step = 1)
     @SerialEntry
     @CustomName("Macro HUD Y")
     @CustomDescription("Vertical position offset of the macro HUD.")
-    public int macroHudY = 200;
+    public int macroHudY = 80;
 
     @AutoGen(category = "qol", group = "hud")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
