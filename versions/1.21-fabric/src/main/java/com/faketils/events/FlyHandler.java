@@ -116,7 +116,7 @@ public class FlyHandler {
 
     public static void setPath(List<Vec3d> newPath) {
         path = newPath;
-        pathIndex = 1;
+        pathIndex = Math.min(1, path.size() - 1);
         active = true;
         decelerating = false;
     }
@@ -213,7 +213,10 @@ public class FlyHandler {
     private static void tickPath(MinecraftClient client, ClientPlayerEntity player,
                                  Vec3d pos, Vec3d delta, double fullDist) {
 
+        if (path == null || path.isEmpty() || pathIndex >= path.size()) return;
+
         boolean frontClear = isFrontClear(player, 4.0);
+
         if (frontClear == lastFrontClear) {
             frontClearTicks++;
         } else {
@@ -293,6 +296,8 @@ public class FlyHandler {
             pathIndex++;
             if (pathIndex >= path.size()) {
                 path = null;
+                clearPath();
+                return;
             }
         }
     }

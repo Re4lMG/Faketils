@@ -145,7 +145,7 @@ public class Farming {
     private static long startTime = 0L;
     private static double bps = 0.0;
     private static boolean waitingForTrades = false;
-    private static long lastTradesCommand = 0;
+    private static boolean worldChanged = false;
     private static float lockedYaw = 0f;
     private static float lockedPitch = 0f;
     private static long lastFailTime = 0L;
@@ -194,8 +194,16 @@ public class Farming {
             if (isActive) {
                 handleToggle();
                 releaseAllKeys();
-                currentFail = null;
+                worldChanged = true;
                 currentState = "idle";
+                new Thread(() -> {
+                    try {
+                        for (int i = 0; i < 25; i++) {
+                            worldChange();
+                            Thread.sleep(80);
+                        }
+                    } catch (InterruptedException ignored) {}
+                }).start();
                 Utils.log("World unloaded, macro turned off");
             }
         });
@@ -336,9 +344,15 @@ public class Farming {
         checkFailSafes();
         checkInventoryForSell();
         updateMode();
+
         if (movementBlockTicks == 0 && !killingPests) {
             holdKeys();
         }
+    }
+
+    private static void worldChange() {
+        currentFail = "World Changed";
+        mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
     }
 
     private static void handleJump() {
@@ -564,7 +578,7 @@ public class Farming {
                             .trim();
 
                     if (name.contains("slot") && name.contains(String.valueOf(targetPreset))) {
-                        mc.interactionManager.clickSlot(syncId, i, 2, SlotActionType.CLONE, mc.player);
+                        mc.interactionManager.clickSlot(syncId, i, 0, SlotActionType.PICKUP, mc.player);
                         Utils.log("Clicked wardrobe preset '" + targetPreset + "' at slot index " + i);
                         wardrobeSuccess = true;
                         wardrobePhase = WardrobePhase.WAIT_AFTER_CLICK;
@@ -573,7 +587,7 @@ public class Farming {
                     }
                 }
 
-                if (now - wardrobePhaseStart > 4000) {
+                if (now - wardrobePhaseStart > 15000) {
                     Utils.log("Could not find wardrobe slot " + targetPreset + " → aborting");
                     resetWardrobeState();
                 }
@@ -950,15 +964,9 @@ public class Farming {
         }
 
         if (closest != null) {
-            boolean needsUpdate = lastSentPestTarget == null
-                    || closest.squaredDistanceTo(lastSentPestTarget) > RETARGET_DIST_SQ
-                    || !FlyHandler.isFlyingActive();
-
-            if (needsUpdate) {
-                currentPestTarget = closest;
-                lastSentPestTarget = closest;
-                FlyHandler.flyTo(closest);
-            }
+            currentPestTarget = closest;
+            lastSentPestTarget = closest;
+            FlyHandler.flyTo(closest);
         } else {
             FlyHandler.stop();
             lastSentPestTarget = null;
@@ -1115,6 +1123,8 @@ public class Farming {
         int currentSlot = inv.getSelectedSlot();
         String currentItemName = mc.player.getMainHandStack().getName().getString();
 
+        if (!isActive) return;
+
         if (isActive && System.currentTimeMillis() - lastXp > 5000) {
             mc.player.playSound(net.minecraft.sound.SoundEvents.BLOCK_ANVIL_LAND, 1.0f, 1.0f);
             currentFail = "NO XP";
@@ -1178,13 +1188,13 @@ public class Farming {
         int color;
 
         if (!isActive) {
-            text = "OFF";
+            text = "Off";
             color = 0xFFFF4444;
         } else if (isPaused) {
-            text = "PAUSED";
+            text = "Paused";
             color = 0xFFFFFF44;
         } else {
-            text = "ACTIVE";
+            text = "On";
             color = 0xFF44FF44;
         }
 
@@ -1195,8 +1205,8 @@ public class Farming {
         matrices.pushMatrix();
         matrices.scale(2f, 2f);
 
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("Macro: " + text), x, y, color);
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("State: " + getCurrentState()), 0, 0, Color.LIGHT_GRAY.getRGB());
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("§7Macro: ").append(Text.literal(text).withColor(color)), x, y, 0xFFFFFFFF);
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("§7State: ").append(Text.literal(getCurrentState()).withColor(0xFFAAAAAA)), x, y + 9, 0xFFFFFFFF);
 
         matrices.popMatrix();
     }
@@ -1215,18 +1225,37 @@ public class Farming {
         if (mc.player == null) return;
 
         BlockPos pos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
+        float yaw = ((mc.player.getYaw() % 360) + 360) % 360;
+
+        boolean facingSouthOrNorth = (yaw >= 315 || yaw < 45) || (yaw >= 135 && yaw < 225);
+        boolean facingEastOrWest   = (yaw >= 45 && yaw < 135) || (yaw >= 225 && yaw < 315);
+
         List<BlockPos> right = FarmingWaypoints.WAYPOINTS.getOrDefault("right", List.of());
-        List<BlockPos> left = FarmingWaypoints.WAYPOINTS.getOrDefault("left", List.of());
-        List<BlockPos> warp = FarmingWaypoints.WAYPOINTS.getOrDefault("warp", List.of());
+        List<BlockPos> left  = FarmingWaypoints.WAYPOINTS.getOrDefault("left",  List.of());
+        List<BlockPos> warp  = FarmingWaypoints.WAYPOINTS.getOrDefault("warp",  List.of());
 
         String targetMode = "none";
-        if (right.contains(pos)) targetMode = "right";
-        else if (left.contains(pos)) targetMode = "left";
-        else if (warp.contains(pos)) targetMode = "warp";
+        BlockPos matchedWaypoint = null;
+
+        if (facingSouthOrNorth) {
+            for (int x = -200; x <= 200; x++) {
+                BlockPos candidate = new BlockPos(pos.getX() + x, pos.getY(), pos.getZ());
+                if (right.contains(candidate)) { matchedWaypoint = candidate; targetMode = "right"; break; }
+                if (left.contains(candidate))  { matchedWaypoint = candidate; targetMode = "left";  break; }
+                if (warp.contains(candidate))  { matchedWaypoint = candidate; targetMode = "warp";  break; }
+            }
+        } else if (facingEastOrWest) {
+            for (int z = -200; z <= 200; z++) {
+                BlockPos candidate = new BlockPos(pos.getX(), pos.getY(), pos.getZ() + z);
+                if (right.contains(candidate)) { matchedWaypoint = candidate; targetMode = "right"; break; }
+                if (left.contains(candidate))  { matchedWaypoint = candidate; targetMode = "left";  break; }
+                if (warp.contains(candidate))  { matchedWaypoint = candidate; targetMode = "warp";  break; }
+            }
+        }
 
         if (!targetMode.equals("none")) {
-            if (lastWaypoint == null || !lastWaypoint.equals(pos)) {
-                lastWaypoint = pos;
+            if (lastWaypoint == null || !lastWaypoint.equals(matchedWaypoint)) {
+                lastWaypoint = matchedWaypoint;
                 ticksOnWaypoint = 1;
             } else {
                 ticksOnWaypoint++;
@@ -1255,10 +1284,19 @@ public class Farming {
 
     private static void holdKeys() {
         if (currentMode.equals("none")) return;
-        mc.options.forwardKey.setPressed(currentMode.equals("right") || (currentMode.equals("left") && Faketils.config().farmType == Config.FarmType.MELON_PUMPKIN));
-        mc.options.backKey.setPressed(currentMode.equals("left") && (Faketils.config().farmType == Config.FarmType.CANE_ROSE || Faketils.config().farmType == Config.FarmType.COCOA_BEANS));
-        mc.options.leftKey.setPressed(currentMode.equals("left") && (Faketils.config().farmType == Config.FarmType.MELON_PUMPKIN || Faketils.config().farmType == Config.FarmType.COCOA_BEANS));
-        mc.options.rightKey.setPressed(currentMode.equals("right"));
+
+        if (currentMode.equals("left")) {
+            mc.options.forwardKey.setPressed(Faketils.config().leftForward);
+            mc.options.backKey.setPressed(Faketils.config().leftBack);
+            mc.options.leftKey.setPressed(Faketils.config().leftLeft);
+            mc.options.rightKey.setPressed(Faketils.config().leftRight);
+        } else if (currentMode.equals("right")) {
+            mc.options.forwardKey.setPressed(Faketils.config().rightForward);
+            mc.options.backKey.setPressed(Faketils.config().rightBack);
+            mc.options.leftKey.setPressed(Faketils.config().rightLeft);
+            mc.options.rightKey.setPressed(Faketils.config().rightRight);
+        }
+
         GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT);
         mc.options.attackKey.setPressed(true);
         keysAreHeld = true;
