@@ -111,7 +111,7 @@ public class Command {
                                                 int y = IntegerArgumentType.getInteger(context, "y");
                                                 int z = IntegerArgumentType.getInteger(context, "z");
 
-                                                WalkingHandler.walkTo(new Vec3d(x, y, z));
+                                                WalkingHandler.walkTo(new Vec3d(x, y, z), true, true, false);
 
                                                 context.getSource().sendFeedback(
                                                         Text.literal("§7[§bFaketils§7] §aTarget set")
