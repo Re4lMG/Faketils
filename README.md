@@ -18,6 +18,10 @@
 ## ⚙️ **Quality of Life**
 - 🧱 Bigger **glass bounding boxes**
 - 🚫 **No hurt cam**
+- 💸 Auto **/tipall**
+- 📔 **Experiment Table Helper**
+- 🎵 **Harp Helper**
+- 🫏 **Sphinx Solver**
 
 ---
 
@@ -25,7 +29,7 @@
 - 🌿 **Funny Farming Helper**
 
 ### 🐛 **Pests**
-- 🕷️ **Pest Helper**
+- 🕷️ **Pest Highlighter**
 
 ---
 
@@ -51,10 +55,10 @@
     - 🟢 `/ft set left` → Set your **right** corner
     - 🔵 `/ft set right` → Set your **left** corner
     - 🟣 `/ft set warp` → Set your **warp point**
-3. Once configured, the helper will automatically **hold the keys** for you.
+3. Go to your **/ft** settings, set up the keybinds for each **mode** depending on the **farm layout**.
+4. Once configured, the helper will automatically **hold the keys** for you.
 
 > ⚠️ **Note:**
-> - Currently supports only **few** styles of farms.
 > - The helper **does not** handle everything — you still need to manage your **pests manually**.
 
 ---
