@@ -10,6 +10,7 @@ public class Pathfinder {
     public static List<BlockPos> findPath(BlockPos start, BlockPos end, World world, int maxNodes) {
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
         Map<BlockPos, Node> allNodes = new HashMap<>();
+        Set<BlockPos> closedSet = new HashSet<>();
 
         Node startNode = new Node(start, 0, getDistance(start, end));
         openSet.add(startNode);
@@ -19,28 +20,35 @@ public class Pathfinder {
         while (!openSet.isEmpty() && count++ < maxNodes) {
             Node current = openSet.poll();
 
-            if (current.pos.equals(end) || getManhattan(current.pos, end) < 2) {
+            if (closedSet.contains(current.pos)) continue;
+            closedSet.add(current.pos);
+
+            if (getManhattan(current.pos, end) < 2) {
                 return reconstructPath(current);
             }
 
-            for (BlockPos neighbor : getNeighbors(current.pos)) {
+            for (int[] offset : NEIGHBORS) {
+                BlockPos neighbor = current.pos.add(offset[0], offset[1], offset[2]);
+                if (closedSet.contains(neighbor)) continue;
                 if (!isPassable(neighbor, world)) continue;
 
-                double tentativeGScore = current.gScore + getDistance(current.pos, neighbor);
-                Node neighborNode = allNodes.getOrDefault(neighbor, new Node(neighbor, Double.POSITIVE_INFINITY, getDistance(neighbor, end)));
+                double moveCost = (offset[0] != 0 && offset[2] != 0) ? 1.414 : 1.0;
+                double tentativeG = current.gScore + moveCost;
 
-                if (tentativeGScore < neighborNode.gScore) {
+                Node neighborNode = allNodes.get(neighbor);
+                if (neighborNode == null) {
+                    neighborNode = new Node(neighbor, Double.POSITIVE_INFINITY, getDistance(neighbor, end));
+                    allNodes.put(neighbor, neighborNode);
+                }
+
+                if (tentativeG < neighborNode.gScore) {
                     neighborNode.parent = current;
-                    neighborNode.gScore = tentativeGScore;
-                    neighborNode.fScore = tentativeGScore + neighborNode.hScore;
-                    if (!openSet.contains(neighborNode)) {
-                        openSet.add(neighborNode);
-                        allNodes.put(neighbor, neighborNode);
-                    }
+                    neighborNode.gScore = tentativeG;
+                    neighborNode.fScore = tentativeG + neighborNode.hScore;
+                    openSet.add(neighborNode);
                 }
             }
         }
-
         return null;
     }
 
@@ -65,11 +73,24 @@ public class Pathfinder {
         return neighbors;
     }
 
+    private static final int[][] NEIGHBORS = {
+            {1,0,0},{-1,0,0},{0,0,1},{0,0,-1},
+            {1,0,1},{1,0,-1},{-1,0,1},{-1,0,-1},
+            {0,1,0},{0,-1,0},
+            {1,1,0},{-1,1,0},{0,1,1},{0,1,-1},
+            {1,-1,0},{-1,-1,0},{0,-1,1},{0,-1,-1}
+    };
+
     private static boolean isPassable(BlockPos pos, World world) {
         BlockState state = world.getBlockState(pos);
         BlockState above = world.getBlockState(pos.up());
-        return state.getCollisionShape(world, pos).isEmpty() &&
-                above.getCollisionShape(world, pos.up()).isEmpty();
+        BlockState below = world.getBlockState(pos.down());
+
+        boolean bodyFree = state.getCollisionShape(world, pos).isEmpty()
+                && above.getCollisionShape(world, pos.up()).isEmpty();
+        boolean hasGround = !below.getCollisionShape(world, pos.down()).isEmpty();
+
+        return bodyFree && hasGround;
     }
 
     private static List<BlockPos> reconstructPath(Node node) {

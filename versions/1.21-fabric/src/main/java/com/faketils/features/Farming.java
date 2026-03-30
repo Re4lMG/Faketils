@@ -20,7 +20,6 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
-import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
@@ -197,6 +196,7 @@ public class Farming {
                 worldChanged = true;
                 currentState = "idle";
                 new Thread(() -> {
+                    if (mc.player == null) return;
                     try {
                         for (int i = 0; i < 25; i++) {
                             worldChange();
@@ -232,8 +232,9 @@ public class Farming {
                 }
             }
             if (packet instanceof net.minecraft.network.packet.s2c.play.ParticleS2CPacket pp) {
-                if (pp.getParameters().getType() == net.minecraft.particle.ParticleTypes.ANGRY_VILLAGER) {
-                    lastAngryParticlePos = new Vec3d(pp.getX(), pp.getY(), pp.getZ());
+                if (lcRunning && pp.getParameters().getType() == net.minecraft.particle.ParticleTypes.ENCHANT) {
+                    Vec3d pos = new Vec3d(pp.getX(), pp.getY(), pp.getZ());
+                    lastAngryParticlePos = pos;
                     lastAngryParticleTime = System.currentTimeMillis();
                 }
             }
@@ -781,81 +782,48 @@ public class Farming {
     }
 
     private static void lcVacuum() {
-        if (!isLcVacuum) return;
-        if (!Faketils.config().pestKilling) return;
-        if (lcRunning) return;
-        if (mc.player == null) return;
-
+        if (!isLcVacuum || !Faketils.config().pestKilling || lcRunning || mc.player == null) return;
         lcRunning = true;
-
         new Thread(() -> {
             try {
+                long lastResetTime = System.currentTimeMillis();
                 while (lcRunning && killingPests) {
+                    long now = System.currentTimeMillis();
+
+                    if (now - lastResetTime >= 2000) {
+                        lastAngryParticlePos = null;
+                        lastAngryParticleTime = 0;
+                        lastResetTime = now;
+                    }
+
                     if (currentPestTarget != null) {
-                        Thread.sleep(500);
+                        Thread.sleep(50);
                         continue;
                     }
 
-                    mc.execute(() -> {
-                        PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
-                        inv.setSelectedSlot(vacuumSlot);
-                    });
-                    Thread.sleep(80);
-
-                    mc.execute(() -> {
-                        if (mc.interactionManager != null && mc.player != null) {
-                            mc.interactionManager.attackBlock(mc.player.getBlockPos(), net.minecraft.util.math.Direction.UP);
-                            mc.options.attackKey.setPressed(true);
-                        }
-                    });
-                    Thread.sleep(100);
-                    mc.execute(() -> mc.options.attackKey.setPressed(false));
-
-                    long waitStart = System.currentTimeMillis();
-                    Vec3d particleHit = null;
-
-                    while (System.currentTimeMillis() - waitStart < 600) {
-                        if (lastAngryParticlePos != null
-                                && System.currentTimeMillis() - lastAngryParticleTime < 400) {
-                            particleHit = lastAngryParticlePos;
-                            break;
-                        }
-                        Thread.sleep(30);
-                    }
-
-                    if (particleHit != null) {
-                        final Vec3d target = particleHit;
-                        Utils.log("§bLC Vacuum → particle hit at " + String.format("%.1f %.1f %.1f",
-                                target.x, target.y, target.z));
-
+                    if (lastAngryParticlePos != null && now - lastAngryParticleTime < 2000) {
+                        final Vec3d target = lastAngryParticlePos;
+                        mc.execute(() -> FlyHandler.flyTo(target));
+                    } else {
                         mc.execute(() -> {
                             if (mc.player == null) return;
-                            Vec3d delta = target.subtract(mc.player.getEyePos());
-                            float yaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
-                            float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, delta.horizontalLength()));
-                            RotationHandler.setTarget(yaw, pitch);
-                            FlyHandler.flyTo(target);
-                            currentPestTarget = target;
+                            PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
+                            inv.setSelectedSlot(vacuumSlot);
+                            mc.interactionManager.attackBlock(mc.player.getBlockPos(), net.minecraft.util.math.Direction.UP);
+                            mc.options.attackKey.setPressed(true);
                         });
-
-                        Thread.sleep(3000);
-
-                        if (currentPestTarget == null ||
-                                (mc.player != null && mc.player.getEntityPos().distanceTo(currentPestTarget) < 3.0)) {
-                            Utils.log("§eLc Vacuum → no pest confirmed after fly, retrying");
-                            currentPestTarget = null;
-                            lastAngryParticlePos = null;
-                        }
-
-                    } else {
-                        Utils.log("§eLc Vacuum → no particle detected, retrying in 3s");
-                        Thread.sleep(3000);
+                        Thread.sleep(100);
+                        mc.execute(() -> mc.options.attackKey.setPressed(false));
+                        Utils.log("§eLC → no signal, fired vacuum");
+                        Thread.sleep(500);
                     }
+                    Thread.sleep(50);
                 }
             } catch (InterruptedException ignored) {
             } finally {
                 lcRunning = false;
-                Utils.log("§cLC Vacuum thread stopped");
+                lastAngryParticlePos = null;
+                Utils.log("§cLC Vacuum stopped");
             }
         }, "lc-vacuum").start();
     }
@@ -968,7 +936,6 @@ public class Farming {
             lastSentPestTarget = closest;
             FlyHandler.flyTo(closest);
         } else {
-            FlyHandler.stop();
             lastSentPestTarget = null;
             currentPestTarget = null;
         }
@@ -1226,30 +1193,46 @@ public class Farming {
 
         BlockPos pos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
         float yaw = ((mc.player.getYaw() % 360) + 360) % 360;
-
         boolean facingSouthOrNorth = (yaw >= 315 || yaw < 45) || (yaw >= 135 && yaw < 225);
-        boolean facingEastOrWest   = (yaw >= 45 && yaw < 135) || (yaw >= 225 && yaw < 315);
+        boolean facingEastOrWest = (yaw >= 45 && yaw < 135) || (yaw >= 225 && yaw < 315);
 
         List<BlockPos> right = FarmingWaypoints.WAYPOINTS.getOrDefault("right", List.of());
-        List<BlockPos> left  = FarmingWaypoints.WAYPOINTS.getOrDefault("left",  List.of());
-        List<BlockPos> warp  = FarmingWaypoints.WAYPOINTS.getOrDefault("warp",  List.of());
+        List<BlockPos> left = FarmingWaypoints.WAYPOINTS.getOrDefault("left", List.of());
+        List<BlockPos> warp = FarmingWaypoints.WAYPOINTS.getOrDefault("warp", List.of());
 
         String targetMode = "none";
         BlockPos matchedWaypoint = null;
 
-        if (facingSouthOrNorth) {
-            for (int x = -200; x <= 200; x++) {
+        if (warp.contains(pos)) {
+            matchedWaypoint = pos;
+            targetMode = "warp";
+        } else if (facingSouthOrNorth) {
+            for (int x = -1000; x <= 1000; x++) {
                 BlockPos candidate = new BlockPos(pos.getX() + x, pos.getY(), pos.getZ());
-                if (right.contains(candidate)) { matchedWaypoint = candidate; targetMode = "right"; break; }
-                if (left.contains(candidate))  { matchedWaypoint = candidate; targetMode = "left";  break; }
-                if (warp.contains(candidate))  { matchedWaypoint = candidate; targetMode = "warp";  break; }
+                if (right.contains(candidate)) {
+                    matchedWaypoint = candidate;
+                    targetMode = "right";
+                    break;
+                }
+                if (left.contains(candidate)) {
+                    matchedWaypoint = candidate;
+                    targetMode = "left";
+                    break;
+                }
             }
         } else if (facingEastOrWest) {
-            for (int z = -200; z <= 200; z++) {
+            for (int z = -1000; z <= 1000; z++) {
                 BlockPos candidate = new BlockPos(pos.getX(), pos.getY(), pos.getZ() + z);
-                if (right.contains(candidate)) { matchedWaypoint = candidate; targetMode = "right"; break; }
-                if (left.contains(candidate))  { matchedWaypoint = candidate; targetMode = "left";  break; }
-                if (warp.contains(candidate))  { matchedWaypoint = candidate; targetMode = "warp";  break; }
+                if (right.contains(candidate)) {
+                    matchedWaypoint = candidate;
+                    targetMode = "right";
+                    break;
+                }
+                if (left.contains(candidate)) {
+                    matchedWaypoint = candidate;
+                    targetMode = "left";
+                    break;
+                }
             }
         }
 
@@ -1405,7 +1388,15 @@ public class Farming {
         ScreenHandler handler = mc.player.currentScreenHandler;
         if (handler == null) return;
 
-        if (wPhase == WPhase.OPENING && System.currentTimeMillis() - wPhaseStart > 150) {
+        long now = System.currentTimeMillis();
+
+        if (wPhase == WPhase.OPENING && now - wPhaseStart > 500) {
+            wPhase = WPhase.CLICKING;
+            wPhaseStart = now;
+        }
+
+        if (wPhase == WPhase.CLICKING && now - wPhaseStart > 300) {
+            boolean found = false;
 
             for (int i = 0; i < handler.slots.size(); i++) {
                 Slot slot = handler.slots.get(i);
@@ -1420,27 +1411,21 @@ public class Farming {
                         .trim();
 
                 if (isSellable(name)) {
-
-                    mc.interactionManager.clickSlot(
-                            handler.syncId,
-                            i,
-                            2,
-                            SlotActionType.CLONE,
-                            mc.player
-                    );
-
+                    mc.interactionManager.clickSlot(handler.syncId, i, 2, SlotActionType.CLONE, mc.player);
                     Utils.log("Sold: " + name);
-
-                    wPhaseStart = System.currentTimeMillis();
-                    return;
+                    wPhaseStart = now;
+                    found = true;
+                    break;
                 }
             }
 
-            wPhase = WPhase.DONE;
-            wPhaseStart = System.currentTimeMillis();
+            if (!found) {
+                wPhase = WPhase.DONE;
+                wPhaseStart = now;
+            }
         }
 
-        if (wPhase == WPhase.DONE && System.currentTimeMillis() - wPhaseStart > 250) {
+        if (wPhase == WPhase.DONE && now - wPhaseStart > 250) {
             mc.player.closeHandledScreen();
             waitingForTrades = false;
         }

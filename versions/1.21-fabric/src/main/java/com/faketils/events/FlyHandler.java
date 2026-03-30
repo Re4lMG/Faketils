@@ -32,7 +32,7 @@ public class FlyHandler {
     private static final float  VERTICAL_TOLERANCE  = 0.6f;
     private static final float  APPROACH_DISTANCE   = 8.0f;
     private static final float  SLOW_STOP_DISTANCE  = 8.0f;
-    private static final float  AOTV_MIN_DISTANCE   = 12.0f;
+    private static final float  AOTV_MIN_DISTANCE   = 20.0f;
     private static final float  AOTV_MAX_DISTANCE   = 240.0f;
     private static final int    AOTV_COOLDOWN_TICKS = 7;
     private static final int    SLOT_SWITCH_DELAY   = 2 + new Random().nextInt(3);
@@ -63,6 +63,11 @@ public class FlyHandler {
     private static int     slotSwitchTimer   = 0;
     private static int     aotvCooldown      = 0;
     private static boolean awaitingRightClick = false;
+    private static boolean usingPath = false;
+    private static long pathModeEndTime = 0;
+    private static final long PATH_MODE_DURATION_MS = 3000;
+    private static long lastPathRequestTime = 0;
+    private static final long PATH_REQUEST_COOLDOWN_MS = 3000;
 
     private static long    stuckCheckTime     = 0;
     private static Vec3d   lastPosCheck       = Vec3d.ZERO;
@@ -94,6 +99,9 @@ public class FlyHandler {
         isStuckEscaping = false;
         stuckEscapeEndTime = 0;
         ticksAtLastPos = 0;
+        usingPath = false;
+        pathModeEndTime = 0;
+        lastPathRequestTime = 0;
         resetKeys();
         resetAotvState();
         clearPath();
@@ -181,10 +189,33 @@ public class FlyHandler {
             return;
         }
 
-        if (path != null && !path.isEmpty()) {
-            tickPath(client, player, pos, delta, fullDist);
-        } else {
+        long now = System.currentTimeMillis();
+
+        if (usingPath && now > pathModeEndTime) {
+            usingPath = false;
+        }
+
+        if (!usingPath) {
+            if (!isFrontClear(player, 4.0)) {
+                usingPath = true;
+                pathModeEndTime = now + PATH_MODE_DURATION_MS;
+            }
+        }
+
+        if (!usingPath) {
+            if (path != null && !path.isEmpty()) clearPath();
             tickDirect(client, player, pos, delta, horizDist, fullDist);
+        } else {
+            if ((path == null || path.isEmpty())
+                    && now - lastPathRequestTime > PATH_REQUEST_COOLDOWN_MS) {
+                lastPathRequestTime = now;
+                flyTo(targetPos);
+            }
+            if (path != null && !path.isEmpty()) {
+                tickPath(client, player, pos, delta, fullDist);
+            } else {
+                tickDirect(client, player, pos, delta, horizDist, fullDist);
+            }
         }
 
         PlayerInventoryAccessor inv = (PlayerInventoryAccessor) player.getInventory();
@@ -223,29 +254,21 @@ public class FlyHandler {
             frontClearTicks = 0;
             lastFrontClear = frontClear;
         }
-        boolean useDirectLook = frontClearTicks > 3 ? lastFrontClear : !lastFrontClear;
+        boolean stableFrontClear = frontClearTicks > 3 ? lastFrontClear : !lastFrontClear;
 
-        Vec3d lookTarget   = path.get(pathIndex);
-        Vec3d nodeRaw      = useDirectLook ? lookTarget.add(0, 4, 0) : lookTarget;
-        Vec3d node         = nodeRaw.add(0, 0.05, 0);
+        Vec3d rawNode    = path.get(pathIndex);
+        Vec3d moveTarget = stableFrontClear ? rawNode.add(0, 4, 0) : rawNode;
+        Vec3d node       = moveTarget.add(0, 0.05, 0);
 
         Vec3d deltaPath    = node.subtract(pos);
-        Vec3d deltaPathRaw = nodeRaw.subtract(pos);
-        Vec3d deltaLook    = lookTarget.subtract(pos);
+        Vec3d deltaPathRaw = moveTarget.subtract(pos);
+        Vec3d deltaLook    = rawNode.subtract(pos);
 
         float fullDistPath    = (float) deltaPath.length();
         float fullDistPathRaw = (float) deltaPathRaw.length();
 
-        float targetYawPath;
-        float targetPitchPath;
-
-        if (useDirectLook) {
-            targetYawPath   = (float) Math.toDegrees(Math.atan2(deltaLook.z, deltaLook.x)) - 90f;
-            targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaLook.y, deltaLook.horizontalLength()));
-        } else {
-            targetYawPath   = (float) Math.toDegrees(Math.atan2(deltaPathRaw.z, deltaPathRaw.x)) - 90f;
-            targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaPathRaw.y, deltaPathRaw.horizontalLength()));
-        }
+        float targetYawPath   = (float) Math.toDegrees(Math.atan2(deltaLook.z, deltaLook.x)) - 90f;
+        float targetPitchPath = (float) -Math.toDegrees(Math.atan2(deltaLook.y, deltaLook.horizontalLength()));
 
         RotationHandler.setTarget(targetYawPath, targetPitchPath);
 
@@ -253,9 +276,9 @@ public class FlyHandler {
         boolean facingTarget = yawDiff < 35f;
 
         boolean isLastNode = pathIndex >= path.size() - 1;
-        if (isLastNode && willArriveAtDestinationAfterStopping(player, nodeRaw)) {
+        if (isLastNode && willArriveAtDestinationAfterStopping(player, moveTarget)) {
             decelerating = true;
-            resetKeys();
+            stop();
             return;
         }
 
@@ -291,12 +314,13 @@ public class FlyHandler {
             }
         }
 
-        double rawGroundDist = lookTarget.subtract(pos).length();
-        if (rawGroundDist <= 1.5) {
+        double rawGroundDist = rawNode.subtract(pos).length();
+        if (rawGroundDist <= 1.6) {
             pathIndex++;
             if (pathIndex >= path.size()) {
                 path = null;
                 clearPath();
+                stop();
                 return;
             }
         }
@@ -314,7 +338,7 @@ public class FlyHandler {
 
         if (willArriveAtDestinationAfterStopping(player, targetPos)) {
             decelerating = true;
-            resetKeys();
+            stop();
             return;
         }
 
@@ -452,26 +476,13 @@ public class FlyHandler {
     }
 
     private static void handleStuck(ClientPlayerEntity player) {
-        Vec3d current = player.getEntityPos();
+        isStuckEscaping = false;
+        ticksAtLastPos = 0;
+        resetKeys();
 
-        for (float testYaw = 0; testYaw < 360; testYaw += 20) {
-            Vec3d escapeDir = current.add(
-                    Math.cos(Math.toRadians(testYaw)) * 2,
-                    0,
-                    Math.sin(Math.toRadians(testYaw)) * 2
-            );
-            if (traversable(current.add(0, 0.1, 0), escapeDir.add(0, 0.1, 0)) &&
-                    traversable(current.add(0, 0.9, 0), escapeDir.add(0, 0.9, 0)) &&
-                    traversable(current.add(0, 1.1, 0), escapeDir.add(0, 1.1, 0)) &&
-                    traversable(current.add(0, 1.9, 0), escapeDir.add(0, 1.9, 0))) {
-                escapeYaw = testYaw;
-                break;
-            }
+        if (targetPos != null) {
+            flyTo(targetPos);
         }
-
-        isStuckEscaping = true;
-        stuckEscapeEndTime = System.currentTimeMillis() + ESCAPE_DURATION;
-        MinecraftClient.getInstance().options.forwardKey.setPressed(true);
     }
 
     private static void handleEscapeMovement(ClientPlayerEntity player) {

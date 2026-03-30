@@ -8,7 +8,7 @@ public class TipAll {
 
     private static final MinecraftClient mc = MinecraftClient.getInstance();
     private static long lastTipTime = 0L;
-    private static final long INTERVAL = 5 * 60 * 1000L;
+    private static final long INTERVAL = 10 * 60 * 1000L;
 
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> onTick());

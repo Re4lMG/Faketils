@@ -10,7 +10,7 @@ public class RotationHandler {
     private static float targetPitch = 0;
     private static boolean active = false;
 
-    private static final float MAX_SPEED = 8f;
+    private static final float MAX_SPEED = 6f;
     private static final float FULL_SPEED_DISTANCE = 90.0f;
     private static final float JITTER_AMPLITUDE = 0.0f;
     private static final float CURVE_INTENSITY = 0.15f;
