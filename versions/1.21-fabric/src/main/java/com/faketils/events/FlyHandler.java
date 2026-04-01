@@ -344,7 +344,7 @@ public class FlyHandler {
 
         if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
                 && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
-                && yawDiff <= 20f && pitchDiff <= 20f) {
+                && yawDiff <= 10f && pitchDiff <= 10f) {
             aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
@@ -383,10 +383,12 @@ public class FlyHandler {
             }
         }
 
-        forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
-        player.setSprinting(true);
-        jump.setPressed(wantUp);
-        sneak.setPressed(wantDown);
+        if (yawDiff <= 20f && pitchDiff <= 20f) {
+            forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
+            player.setSprinting(true);
+            jump.setPressed(wantUp);
+            sneak.setPressed(wantDown);
+        }
 
         if (player.isOnGround() && wantUp) {
             player.jump();

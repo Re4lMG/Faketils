@@ -12,6 +12,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -134,6 +136,17 @@ public class Farming {
     private static final float OFFSET_MAX_VERTICAL   = 0.5f;
     private static long nextClickTime = 0;
 
+    private record ParticleSample(Vec3d pos, long time) {}
+    private static final java.util.ArrayDeque<ParticleSample> particleSamples = new java.util.ArrayDeque<>();
+    private static volatile Vec3d extrapolatedPestPos = null;
+    private static long lastLcClickTime = 0L;
+    private static final long LC_CLICK_INTERVAL_MS = 2000L;
+    private static final long PARTICLE_WINDOW_MS = 1500L;
+
+    private static enum PhillipPhase { IDLE, COMMAND_SENT, WAIT_FOR_OPEN, CLICKING_ITEM, WAIT_AFTER_CLICK, CLOSING, DONE }
+    private static PhillipPhase phillipPhase = PhillipPhase.IDLE;
+    private static long phillipPhaseStart = 0L;
+
     private static int plot = 0;
     private static long lastBrokenBlock = 0L;
     private static long lastXp = 0L;
@@ -156,6 +169,8 @@ public class Farming {
     private static long ignoredResetTime = 0;
     private static Vec3d lastSentPestTarget = null;
     private static final double RETARGET_DIST_SQ = 9.0;
+    private static long lastTogglePauseTime = 0L;
+    private static final long FAILSAFE_BLOCK_MS = 3000L;
 
     private static boolean isMouseLocked = false;
 
@@ -195,15 +210,15 @@ public class Farming {
                 releaseAllKeys();
                 worldChanged = true;
                 currentState = "idle";
-                new Thread(() -> {
-                    if (mc.player == null) return;
-                    try {
-                        for (int i = 0; i < 25; i++) {
-                            worldChange();
-                            Thread.sleep(80);
-                        }
-                    } catch (InterruptedException ignored) {}
-                }).start();
+//                new Thread(() -> {
+//                    if (mc.player == null) return;
+//                    try {
+//                        for (int i = 0; i < 25; i++) {
+//                            worldChange();
+//                            Thread.sleep(80);
+//                        }
+//                    } catch (InterruptedException ignored) {}
+//                }).start();
                 Utils.log("World unloaded, macro turned off");
             }
         });
@@ -234,8 +249,19 @@ public class Farming {
             if (packet instanceof net.minecraft.network.packet.s2c.play.ParticleS2CPacket pp) {
                 if (lcRunning && pp.getParameters().getType() == net.minecraft.particle.ParticleTypes.ENCHANT) {
                     Vec3d pos = new Vec3d(pp.getX(), pp.getY(), pp.getZ());
+                    long now = System.currentTimeMillis();
                     lastAngryParticlePos = pos;
-                    lastAngryParticleTime = System.currentTimeMillis();
+                    lastAngryParticleTime = now;
+
+                    synchronized (particleSamples) {
+                        particleSamples.addLast(new ParticleSample(pos, now));
+                        while (!particleSamples.isEmpty() && now - particleSamples.peekFirst().time() > PARTICLE_WINDOW_MS) {
+                            particleSamples.pollFirst();
+                        }
+                        if (particleSamples.size() >= 2) {
+                            extrapolatedPestPos = computeExtrapolatedPos(now);
+                        }
+                    }
                 }
             }
         });
@@ -291,7 +317,7 @@ public class Farming {
         if (!Faketils.config().funnyToggle) return;
         if (!Utils.isInGarden()) return;
 
-        handleWindowId();
+        //handleWindowId();
         updatePestsTimer();
 
         while (toggleKey.wasPressed()) handleToggle();
@@ -325,6 +351,7 @@ public class Farming {
         }
 
         handleTradesScreen();
+        handlePestBuff();
 
         if (mc.currentScreen != null) return;
 
@@ -408,9 +435,8 @@ public class Farming {
             return;
         }
 
-        if (!windowReady) {
-            return;
-        }
+        if (mc.currentScreen == null) return;
+        if (!mc.currentScreen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase().contains("your equipment")) return;
 
         ScreenHandler handler = mc.player.currentScreenHandler;
 
@@ -543,6 +569,9 @@ public class Farming {
             resetWardrobeState();
             return;
         }
+
+        if (mc.currentScreen == null) return;
+        if (!mc.currentScreen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase().contains("wardrobe")) return;
 
         switch (wardrobePhase) {
             case OPEN_SENT:
@@ -786,25 +815,23 @@ public class Farming {
         lcRunning = true;
         new Thread(() -> {
             try {
-                long lastResetTime = System.currentTimeMillis();
                 while (lcRunning && killingPests) {
                     long now = System.currentTimeMillis();
-
-                    if (now - lastResetTime >= 2000) {
-                        lastAngryParticlePos = null;
-                        lastAngryParticleTime = 0;
-                        lastResetTime = now;
-                    }
 
                     if (currentPestTarget != null) {
                         Thread.sleep(50);
                         continue;
                     }
 
-                    if (lastAngryParticlePos != null && now - lastAngryParticleTime < 2000) {
-                        final Vec3d target = lastAngryParticlePos;
-                        mc.execute(() -> FlyHandler.flyTo(target));
-                    } else {
+                    Vec3d target = extrapolatedPestPos;
+                    if (target != null && now - lastAngryParticleTime < 2000L) {
+                        final Vec3d flyTarget = target;
+                        mc.execute(() -> FlyHandler.flyTo(flyTarget));
+                        Thread.sleep(150);
+                    }
+
+                    if (now - lastLcClickTime >= LC_CLICK_INTERVAL_MS) {
+                        lastLcClickTime = now;
                         mc.execute(() -> {
                             if (mc.player == null) return;
                             PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
@@ -812,17 +839,19 @@ public class Farming {
                             mc.interactionManager.attackBlock(mc.player.getBlockPos(), net.minecraft.util.math.Direction.UP);
                             mc.options.attackKey.setPressed(true);
                         });
-                        Thread.sleep(100);
+                        Thread.sleep(120);
                         mc.execute(() -> mc.options.attackKey.setPressed(false));
-                        Utils.log("§eLC → no signal, fired vacuum");
-                        Thread.sleep(500);
+                        Utils.log("§eLC → no signal, clicked vacuum");
                     }
+
                     Thread.sleep(50);
                 }
             } catch (InterruptedException ignored) {
             } finally {
                 lcRunning = false;
-                lastAngryParticlePos = null;
+                extrapolatedPestPos = null;
+                lastLcClickTime = 0L;
+                synchronized (particleSamples) { particleSamples.clear(); }
                 Utils.log("§cLC Vacuum stopped");
             }
         }, "lc-vacuum").start();
@@ -875,34 +904,18 @@ public class Farming {
     public static void handleKilling() {
         if (mc.player == null || mc.world == null || !Utils.isInGarden()) return;
         if (!Faketils.config().pestKilling) return;
-
-        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
-            ignoredPests.clear();
-        }
-
         if (!killingPests) return;
-
-        //if (System.currentTimeMillis() - lastPestScan < 1000) return;
-        //lastPestScan = System.currentTimeMillis();
-
-        Vec3d playerPos = mc.player.getEntityPos();
-        Vec3d closest = null;
-        double closestDistSq = Double.MAX_VALUE;
 
         for (Entity entity : mc.world.getEntities()) {
             if (entity instanceof LivingEntity living && living.isDead()) {
-
                 ArmorStandEntity closestStand = null;
                 double closestDist = Double.MAX_VALUE;
 
                 for (Entity e : mc.world.getEntities()) {
                     if (e instanceof ArmorStandEntity stand) {
-
                         PestHelper.Pest pest = PestHelper.getPestFromHead(stand);
                         if (pest == null) continue;
-
                         double dist = stand.squaredDistanceTo(entity);
-
                         if (dist < closestDist) {
                             closestDist = dist;
                             closestStand = stand;
@@ -915,30 +928,28 @@ public class Farming {
                     ignoredResetTime = System.currentTimeMillis();
                 }
             }
-            if (entity instanceof ArmorStandEntity armorStand) {
-                if (ignoredPests.contains(armorStand)) continue;
-                PestHelper.Pest pest = PestHelper.getPestFromHead(armorStand);
-                if (pest != null) {
-                    Vec3d baseTarget = armorStand.getEntityPos().add(0, 1.15, 0);
-                    //updatePestOffset();
-                    Vec3d finalTarget = baseTarget.add(pestOffset);
-                    double distSq = playerPos.squaredDistanceTo(finalTarget);
-                    if (distSq < closestDistSq) {
-                        closestDistSq = distSq;
-                        closest = finalTarget;
-                    }
-                }
-            }
         }
 
-        if (closest != null) {
-            currentPestTarget = closest;
-            lastSentPestTarget = closest;
-            FlyHandler.flyTo(closest);
-        } else {
-            lastSentPestTarget = null;
-            currentPestTarget = null;
+        for (Entity entity : mc.world.getEntities()) {
+            if (!(entity instanceof ArmorStandEntity armorStand)) continue;
+            if (ignoredPests.contains(armorStand)) continue;
+
+            PestHelper.Pest pest = PestHelper.getPestFromHead(armorStand);
+            if (pest == null) continue;
+
+            Vec3d target = armorStand.getEntityPos().add(0, 1.15, 0).add(pestOffset);
+            currentPestTarget = target;
+            lastSentPestTarget = target;
+            FlyHandler.flyTo(target);
+            return;
         }
+
+        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
+            ignoredPests.clear();
+        }
+
+        currentPestTarget = null;
+        lastSentPestTarget = null;
     }
 
     private static void updatePestsTimer() {
@@ -964,10 +975,12 @@ public class Farming {
     }
 
     private static void handleToggle() {
+        lastTogglePauseTime = System.currentTimeMillis();
         isActive = !isActive;
         isPaused = false;
 
         if (!isActive) {
+            lastXp = System.currentTimeMillis();
             releaseAllKeys();
             FlyHandler.stop();
             RotationHandler.reset();
@@ -978,6 +991,7 @@ public class Farming {
             ticksOnWaypoint = 0;
             unlockMouse();
         } else if (mc.player != null) {
+            lastXp = System.currentTimeMillis();
             lockedYaw = mc.player.getYaw();
             lockedPitch = mc.player.getPitch();
             PlayerInventoryAccessor inv = (PlayerInventoryAccessor) mc.player.getInventory();
@@ -993,10 +1007,11 @@ public class Farming {
 
     private static void handlePause() {
         if (!isActive) return;
-
+        lastTogglePauseTime = System.currentTimeMillis();
         isPaused = !isPaused;
 
         if (isPaused) {
+            lastXp = System.currentTimeMillis();
             releaseAllKeys();
             movementBlockTicks = 10;
             mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
@@ -1012,7 +1027,9 @@ public class Farming {
             }
             Utils.log("Macro paused");
         } else {
+            lastXp = System.currentTimeMillis();
             lockMouse();
+            releaseAllKeys();
             mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
             lastXp = 0;
 
@@ -1079,6 +1096,7 @@ public class Farming {
 
     private static void checkFailSafes() {
         if (mc.player == null) return;
+        if (System.currentTimeMillis() - lastTogglePauseTime < FAILSAFE_BLOCK_MS) return;
 
         if (killingPests) {
             lastXp = System.currentTimeMillis();
@@ -1288,6 +1306,7 @@ public class Farming {
     private static void releaseAllKeys() {
         if (!keysAreHeld) return;
         mc.options.forwardKey.setPressed(false);
+        mc.options.useKey.setPressed(false);
         mc.options.backKey.setPressed(false);
         mc.options.leftKey.setPressed(false);
         mc.options.rightKey.setPressed(false);
@@ -1384,10 +1403,10 @@ public class Farming {
     private static void handleTradesScreen() {
         if (!waitingForTrades) return;
         if (mc.player == null) return;
+        if (mc.currentScreen == null) return;
 
         ScreenHandler handler = mc.player.currentScreenHandler;
-        if (handler == null) return;
-
+        if (!mc.currentScreen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase().contains("trades")) return;
         long now = System.currentTimeMillis();
 
         if (wPhase == WPhase.OPENING && now - wPhaseStart > 500) {
@@ -1425,9 +1444,112 @@ public class Farming {
             }
         }
 
-        if (wPhase == WPhase.DONE && now - wPhaseStart > 250) {
+        if (wPhase == WPhase.DONE && now - wPhaseStart > 1000) {
             mc.player.closeHandledScreen();
             waitingForTrades = false;
+        }
+    }
+
+    private static void handlePestBuff() {
+        if (!Faketils.config().autoPhillip) return;
+        if (mc.player == null) return;
+
+        if (phillipPhase == PhillipPhase.IDLE) {
+            if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Bonus: INACTIVE"))) {
+                mc.player.networkHandler.sendChatMessage("/call phillip");
+                phillipPhase = PhillipPhase.COMMAND_SENT;
+                phillipPhaseStart = System.currentTimeMillis();
+                Utils.log("Phillip command sent");
+            }
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+
+        switch (phillipPhase) {
+            case COMMAND_SENT:
+                if (now - phillipPhaseStart > 500 + random.nextInt(300)) {
+                    phillipPhase = PhillipPhase.WAIT_FOR_OPEN;
+                    phillipPhaseStart = now;
+                }
+                break;
+
+            case WAIT_FOR_OPEN:
+                if (mc.currentScreen == null) {
+                    if (now - phillipPhaseStart > 5000) {
+                        Utils.log("Phillip screen never opened → aborting");
+                        phillipPhase = PhillipPhase.IDLE;
+                    }
+                    break;
+                }
+
+                String title = mc.currentScreen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase();
+                if (title.contains("pesthunter")) {
+                    phillipPhase = PhillipPhase.CLICKING_ITEM;
+                    phillipPhaseStart = now;
+                    Utils.log("Pesthunter screen detected");
+                } else if (now - phillipPhaseStart > 5000) {
+                    Utils.log("Wrong screen open: " + title + " → aborting");
+                    mc.player.closeHandledScreen();
+                    phillipPhase = PhillipPhase.IDLE;
+                }
+                break;
+
+            case CLICKING_ITEM:
+                if (now - phillipPhaseStart < 300 + random.nextInt(300)) break;
+
+                if (mc.player.currentScreenHandler == null) {
+                    phillipPhase = PhillipPhase.IDLE;
+                    break;
+                }
+
+                ScreenHandler handler = mc.player.currentScreenHandler;
+                boolean clicked = false;
+
+                for (int i = 0; i < handler.slots.size(); i++) {
+                    ItemStack stack = handler.slots.get(i).getStack();
+                    if (stack.isEmpty()) continue;
+
+                    String name = stack.getName().getString().replaceAll("§.", "").trim().toLowerCase();
+                    if (name.contains("empty vacuum bag")) {
+                        mc.interactionManager.clickSlot(handler.syncId, i, 0, SlotActionType.PICKUP, mc.player);
+                        Utils.log("Clicked Empty Vacuum Bag at slot " + i);
+                        phillipPhase = PhillipPhase.WAIT_AFTER_CLICK;
+                        phillipPhaseStart = now;
+                        clicked = true;
+                        break;
+                    }
+                }
+
+                if (!clicked) {
+                    if (now - phillipPhaseStart > 8000) {
+                        Utils.log("Empty Vacuum Bag not found → aborting");
+                        mc.player.closeHandledScreen();
+                        phillipPhase = PhillipPhase.IDLE;
+                    }
+                }
+                break;
+
+            case WAIT_AFTER_CLICK:
+                if (now - phillipPhaseStart > 400 + random.nextInt(200)) {
+                    phillipPhase = PhillipPhase.CLOSING;
+                    phillipPhaseStart = now;
+                }
+                break;
+
+            case CLOSING:
+                mc.player.closeHandledScreen();
+                Utils.log("Closing Pesthunter screen");
+                phillipPhase = PhillipPhase.DONE;
+                phillipPhaseStart = now;
+                break;
+
+            case DONE:
+                if (now - phillipPhaseStart > 300) {
+                    phillipPhase = PhillipPhase.IDLE;
+                    Utils.log("Phillip sequence complete");
+                }
+                break;
         }
     }
 
@@ -1535,6 +1657,19 @@ public class Farming {
                 }
                 break;
         }
+    }
+
+    private static Vec3d computeExtrapolatedPos(long now) {
+        ParticleSample first = particleSamples.peekFirst();
+        ParticleSample last  = particleSamples.peekLast();
+
+        double dtSec = (last.time() - first.time()) / 1000.0;
+        if (dtSec < 0.05) return last.pos();
+
+        Vec3d velocity = last.pos().subtract(first.pos()).multiply(1.0 / dtSec);
+        double speed = velocity.length();
+
+        return last.pos().add(velocity.multiply(0.4));
     }
 
     private static boolean isSellable(String name) {

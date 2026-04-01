@@ -127,6 +127,13 @@ public class Config {
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
+    @CustomName("Auto Pest Buff")
+    @CustomDescription("Automatically calls phillip and activates the boost, (needs cookie and Phillip contact).")
+    public boolean autoPhillip = false;
+
+    @AutoGen(category = "farming", group = "pests")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
     @CustomName("Auto Spraynator")
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
