@@ -335,6 +335,8 @@ public class Farming {
             }
         }
 
+        if (isActive && !isPaused && Faketils.config().pestKilling) {mc.options.useKey.setPressed(false);}
+
         if (!isActive || (isPaused && !killingPests)) {
             currentState = "idle";
             releaseAllKeys();
@@ -353,7 +355,10 @@ public class Farming {
         handleTradesScreen();
         handlePestBuff();
 
-        if (mc.currentScreen != null) return;
+        if (mc.currentScreen != null) {
+            lastXp = System.currentTimeMillis();
+            return;
+        }
 
         handleSpray();
         handleSpraySequence();
