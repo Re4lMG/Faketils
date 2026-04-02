@@ -29,6 +29,10 @@ public class FlyHandler {
     private static boolean active = false;
     private static boolean decelerating = false;
 
+    private static Vec3d lastFlyToTarget = null;
+    private static final double RETARGET_THRESHOLD_SQ = 2.0;
+    private static volatile boolean pathfindingInProgress = false;
+
     private static final float  VERTICAL_TOLERANCE  = 0.6f;
     private static final float  APPROACH_DISTANCE   = 8.0f;
     private static final float  SLOW_STOP_DISTANCE  = 8.0f;
@@ -104,6 +108,8 @@ public class FlyHandler {
         lastPathRequestTime = 0;
         resetKeys();
         resetAotvState();
+        lastFlyToTarget = null;
+        pathfindingInProgress = false;
         clearPath();
         RotationHandler.reset();
     }
@@ -132,29 +138,36 @@ public class FlyHandler {
     public static void flyTo(Vec3d goal) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-        clearPath();
+
+        if (lastFlyToTarget != null && lastFlyToTarget.squaredDistanceTo(goal) < RETARGET_THRESHOLD_SQ && (path != null || active)) {
+            return;
+        }
+
+        if (pathfindingInProgress) return;
+
+        lastFlyToTarget = goal;
+        targetPos = goal;
+        active = true;
         decelerating = false;
 
         BlockPos start = mc.player.getBlockPos();
         BlockPos end   = BlockPos.ofFloored(goal);
 
-        List<BlockPos> raw = Pathfinder.findPath(start, end, mc.world, 20000);
+        pathfindingInProgress = true;
+        new Thread(() -> {
+            List<BlockPos> raw = Pathfinder.findPath(start, end, mc.world, 20000);
+            mc.execute(() -> {
+                pathfindingInProgress = false;
+                if (raw == null || raw.isEmpty()) return;
 
-        if (raw == null || raw.isEmpty()) {
-            targetPos = goal;
-            active = true;
-            return;
-        }
-
-        List<Vec3d> vec3dPath = new ArrayList<>();
-        for (BlockPos bp : raw) {
-            vec3dPath.add(new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5));
-        }
-
-        vec3dPath = smoothPath(vec3dPath);
-
-        targetPos = goal;
-        setPath(vec3dPath);
+                List<Vec3d> vec3dPath = new ArrayList<>();
+                for (BlockPos bp : raw) {
+                    vec3dPath.add(new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5));
+                }
+                clearPath();
+                setPath(smoothPath(vec3dPath));
+            });
+        }, "pathfinder").start();
     }
 
     private static void onTick(MinecraftClient client) {
@@ -315,7 +328,7 @@ public class FlyHandler {
         }
 
         double rawGroundDist = rawNode.subtract(pos).length();
-        if (rawGroundDist <= 1.6) {
+        if (rawGroundDist <= 1.2) {
             pathIndex++;
             if (pathIndex >= path.size()) {
                 path = null;
