@@ -1,7 +1,6 @@
 package com.faketils.features;
 
 import com.faketils.Faketils;
-import com.faketils.config.Config;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -17,7 +16,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-public class FishingTickHandler {
+public class Fishing {
 
     private static final MinecraftClient mc = MinecraftClient.getInstance();
     private static final Random random = new Random();
@@ -154,7 +153,7 @@ public class FishingTickHandler {
                         clickCount++;
                         delayCounter = random.nextInt(4) + 3;
 
-                        int maxClicks = Faketils.config().fishingHelperKillingAmount + 1;
+                        int maxClicks = Faketils.config().fishingHelperKillingAmount;
                         if (clickCount >= maxClicks) {
                             clickCount = 0;
                             weaponState = 5;

@@ -36,7 +36,7 @@ public class Faketils implements ClientModInitializer {
         TipAll.initialize();
         Experiments.init();
         Harp.init();
-        FishingTickHandler.initialize();
+        Fishing.initialize();
         Farming.initialize();
         FarmingTitleRenderer.init();
         SphinxSolver.init();
