@@ -53,6 +53,8 @@ public class FlyHandler {
 
     private static final float TARGET_Y_OFFSET = 4.5f;
 
+    private static final double MOVE_KEY_THRESHOLD = 0.35;
+
     private static final Random RANDOM = new Random();
 
     private static int     strafeTimer  = 0;
@@ -306,18 +308,19 @@ public class FlyHandler {
             lastJumpTime = System.currentTimeMillis();
         }
 
-        KeyBinding forward = client.options.forwardKey;
-        KeyBinding jump    = client.options.jumpKey;
-        KeyBinding sneak   = client.options.sneakKey;
+        KeyBinding jump  = client.options.jumpKey;
+        KeyBinding sneak = client.options.sneakKey;
 
-        forward.setPressed(facingTarget && fullDist > SLOW_STOP_DISTANCE);
-        player.setSprinting(facingTarget);
+        boolean shouldMove = fullDist > SLOW_STOP_DISTANCE;
+        float relAngle = wrapDegrees(player.getYaw() - targetYawPath);
+        setMovementKeysForAngle(client, relAngle, shouldMove);
+        player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
+
         jump.setPressed(wantUp);
         sneak.setPressed(wantDown);
 
         if (fullDistPath > AOTV_MIN_DISTANCE && fullDistPath < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
-                && yawDiff <= 20f) {
+                && aotvCooldown <= 0 && slotSwitchTimer == 0 && yawDiff <= 20f) {
             aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
@@ -356,8 +359,7 @@ public class FlyHandler {
         }
 
         if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && !player.isSneaking()
-                && yawDiff <= 10f && pitchDiff <= 10f) {
+                && aotvCooldown <= 0 && slotSwitchTimer == 0 && yawDiff <= 10f && pitchDiff <= 10f) {
             aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
@@ -376,37 +378,45 @@ public class FlyHandler {
         if (isDirectionBlocked(player, 0.0f, +1.2f)) wantUp   = false;
         if (isDirectionBlocked(player, 0.0f, -0.01f)) wantDown = false;
 
-        KeyBinding forward = client.options.forwardKey;
-        KeyBinding jump    = client.options.jumpKey;
-        KeyBinding sneak   = client.options.sneakKey;
-        KeyBinding left    = client.options.leftKey;
-        KeyBinding right   = client.options.rightKey;
+        KeyBinding jump  = client.options.jumpKey;
+        KeyBinding sneak = client.options.sneakKey;
 
-        if (strafeTimer > 0) {
-            strafeTimer--;
-            left.setPressed(strafeLeft);
-            right.setPressed(!strafeLeft);
-        } else {
-            left.setPressed(false);
-            right.setPressed(false);
-            float chance = (fullDist > APPROACH_DISTANCE * 1.5) ? STRAFE_CHANCE_FAR : STRAFE_CHANCE_NEAR;
-            if (RANDOM.nextFloat() < chance) {
-                strafeLeft  = RANDOM.nextBoolean();
-                strafeTimer = STRAFE_TICKS;
-            }
-        }
+        boolean shouldMove = fullDist > SLOW_STOP_DISTANCE;
+        float relAngle = wrapDegrees(player.getYaw() - targetYaw);
+        setMovementKeysForAngle(client, relAngle, shouldMove);
+        player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
 
-        if (yawDiff <= 20f && pitchDiff <= 20f) {
-            forward.setPressed(fullDist > SLOW_STOP_DISTANCE);
-            player.setSprinting(true);
-            jump.setPressed(wantUp);
-            sneak.setPressed(wantDown);
-        }
+        jump.setPressed(wantUp);
+        sneak.setPressed(wantDown);
 
         if (player.isOnGround() && wantUp) {
             player.jump();
             lastJumpTime = System.currentTimeMillis();
         }
+    }
+
+    private static void setMovementKeysForAngle(MinecraftClient client, float relAngle, boolean shouldMove) {
+        KeyBinding forward = client.options.forwardKey;
+        KeyBinding back    = client.options.backKey;
+        KeyBinding left    = client.options.leftKey;
+        KeyBinding right   = client.options.rightKey;
+
+        if (!shouldMove) {
+            forward.setPressed(false);
+            back.setPressed(false);
+            left.setPressed(false);
+            right.setPressed(false);
+            return;
+        }
+
+        double rad = Math.toRadians(relAngle);
+        double fwd = Math.cos(rad);
+        double str = Math.sin(rad);
+
+        forward.setPressed(fwd >  MOVE_KEY_THRESHOLD);
+        back.setPressed(   fwd < -MOVE_KEY_THRESHOLD);
+        left.setPressed(   str >  MOVE_KEY_THRESHOLD);
+        right.setPressed(  str < -MOVE_KEY_THRESHOLD);
     }
 
     private static List<Vec3d> smoothPath(List<Vec3d> originalPath) {
@@ -570,20 +580,27 @@ public class FlyHandler {
 
     private static boolean isFrontClear(ClientPlayerEntity player, double distance) {
         float yaw = player.getYaw();
-        Vec3d dir = new Vec3d(
-                -Math.sin(Math.toRadians(yaw)),
-                0,
-                Math.cos(Math.toRadians(yaw))
-        ).normalize();
 
+        float[] yawOffsets = { 0f, -30f, 30f, -60f, 60f };
         double[] yOffsets = { 0.1, 0.9, 1.7 };
-        for (double yOff : yOffsets) {
-            Vec3d start = player.getEntityPos().add(0, yOff, 0);
-            Vec3d end   = start.add(dir.multiply(distance));
-            RaycastContext ctx = new RaycastContext(start, end, ShapeType.COLLIDER, FluidHandling.NONE, player);
-            BlockHitResult hit = player.getEntityWorld().raycast(ctx);
-            if (hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().getY() >= player.getY() - 1) {
-                return false;
+
+        for (int i = 0; i < yawOffsets.length; i++) {
+            float checkYaw = yaw + yawOffsets[i];
+            double checkDist = i < 3 ? distance : distance * 0.5;
+            Vec3d dir = new Vec3d(
+                    -Math.sin(Math.toRadians(checkYaw)),
+                    0,
+                    Math.cos(Math.toRadians(checkYaw))
+            ).normalize();
+
+            for (double yOff : yOffsets) {
+                Vec3d start = player.getEntityPos().add(0, yOff, 0);
+                Vec3d end   = start.add(dir.multiply(checkDist));
+                RaycastContext ctx = new RaycastContext(start, end, ShapeType.COLLIDER, FluidHandling.NONE, player);
+                BlockHitResult hit = player.getEntityWorld().raycast(ctx);
+                if (hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().getY() >= player.getY() - 1) {
+                    return false;
+                }
             }
         }
         return true;
