@@ -16,12 +16,17 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.screen.ScreenHandler;
@@ -36,10 +41,8 @@ import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
 import java.awt.*;
-import java.util.HashSet;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -88,6 +91,7 @@ public class Farming {
         RESTORE_SLOT,
         DONE
     }
+
     private static boolean isSpraying = false;
     private static long sprayNoneDetectedTime = -1L;
     private static SprayPhase sprayPhase = SprayPhase.IDLE;
@@ -181,6 +185,8 @@ public class Farming {
     private static final long FAILSAFE_BLOCK_MS = 3000L;
     private static Vec3d lastPestStandPos = null;
     private static final double TELEPORT_THRESHOLD_SQ = 16.0;
+    private static LivingEntity currentPestMob = null;
+    private static final double PEST_PAIR_RADIUS_SQ = 4.0 * 4.0;
     private static final double PEST_LIVING_RADIUS = 3.5;
     private static boolean hasPaused = false;
 
@@ -302,6 +308,41 @@ public class Farming {
                             lastProcessedSyncId = -1;
                         } catch (InterruptedException ignored) {}
                     }).start();
+                }
+            }
+
+            if (text.contains("There are not any Pests on your Garden right now!")) {
+                if (killingPests) {
+                    killingPests = false;
+                    hasPaused = false;
+                    isLcVacuum = false;
+                    lastSentPestTarget = null;
+                    lcRunning = false;
+                    if (originalPestKillSlot >= 0 && originalPestKillSlot < 9) {
+                        mc.player.getInventory().setSelectedSlot(originalPestKillSlot);
+                        Utils.log("Restored original hotbar slot after pest killing: " + (originalPestKillSlot + 1));
+                    }
+                    originalPestKillSlot = -1;
+                    lastPestStandPos = null;
+                    currentPestStand = null;
+                    FlyHandler.stop();
+                    RotationHandler.reset();
+                    currentPestMob = null;
+                    needsRetarget = true;
+                    handlePause();
+                    if (!Faketils.config().pestFarming) {
+                        currentMode = null;
+                        mc.player.networkHandler.sendChatMessage("/warp garden");
+                        new Thread(() -> {
+                            try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                            mc.player.getAbilities().flying = false;
+                            mc.player.sendAbilitiesUpdate();
+                        }).start();
+                    }
+                    currentPestTarget = null;
+                    pestOffset = Vec3d.ZERO;
+                    lastOffsetChange = 0L;
+                    Utils.log("All pests killed → resuming normal farming");
                 }
             }
         });
@@ -877,6 +918,7 @@ public class Farming {
                 currentPestStand = null;
                 FlyHandler.stop();
                 RotationHandler.reset();
+                currentPestMob = null;
                 needsRetarget = true;
                 handlePause();
                 if (!Faketils.config().pestFarming) {
@@ -901,89 +943,45 @@ public class Farming {
         if (!Faketils.config().pestKilling) return;
         if (!killingPests) return;
 
+        ArmorStandEntity bestStand = null;
+        double bestDistSq = Double.MAX_VALUE;
+
         for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof LivingEntity living) || !living.isDead()) continue;
+            if (!(entity instanceof ArmorStandEntity stand)) continue;
+            if (PestHelper.getPestFromHead(stand) == null) continue;
+
+            Vec3d standPos = stand.getEntityPos();
+            boolean hasPairedMob = false;
 
             for (Entity e : mc.world.getEntities()) {
-                if (!(e instanceof ArmorStandEntity stand)) continue;
-                if (ignoredPests.contains(stand)) continue;
-                PestHelper.Pest pest = PestHelper.getPestFromHead(stand);
-                if (pest == null) continue;
-                if (!hasLivingPestNearby(stand)) continue;
-                if (stand.squaredDistanceTo(entity) < 2) {
-                    ignoredPests.add(stand);
-                    ignoredResetTime = System.currentTimeMillis();
-                    //currentPestTarget = null;
-                    currentPestStand = null;
-                    needsRetarget = true;
-                    //FlyHandler.stop();
+                if (!(e instanceof LivingEntity living)) continue;
+                if (living instanceof ArmorStandEntity) continue;
+                if (living instanceof net.minecraft.entity.player.PlayerEntity) continue;
+                if (living.isDead()) continue;
+                if (!(living instanceof net.minecraft.entity.mob.SilverfishEntity) &&
+                        !(living instanceof net.minecraft.entity.passive.BatEntity)) continue;
+                if (living.squaredDistanceTo(standPos.x, standPos.y, standPos.z) <= PEST_PAIR_RADIUS_SQ) {
+                    hasPairedMob = true;
                     break;
                 }
             }
-        }
 
-        if (!needsRetarget && currentPestStand != null) {
-            Vec3d standPos = currentPestStand.getEntityPos();
+            if (!hasPairedMob) continue;
 
-            if (lastPestStandPos != null) {
-                double movedSq = standPos.squaredDistanceTo(lastPestStandPos);
-                if (movedSq > TELEPORT_THRESHOLD_SQ) {
-                    Utils.log("§ePest stand teleported " + String.format("%.1f", Math.sqrt(movedSq)) + " blocks → retargeting");
-                    needsRetarget = true;
-                    lastSentPestTarget = null;
-                }
-            }
-            lastPestStandPos = standPos;
-
-            if (!needsRetarget && !hasLivingPestNearby(currentPestStand)) {
-                Utils.log("§cNo living pest near stand → ignoring and retargeting");
-                ignoredPests.add(currentPestStand);
-                ignoredResetTime = System.currentTimeMillis();
-                currentPestStand = null;
-                lastPestStandPos = null;
-                needsRetarget = true;
-            }
-
-            if (!needsRetarget) {
-                Vec3d target = currentPestStand.getEntityPos().add(0, 1.15, 0).add(pestOffset);
-                currentPestTarget = target;
-                lastSentPestTarget = target;
-                FlyHandler.flyTo(target);
-                return;
-            }
-        }
-        needsRetarget = false;
-
-        ArmorStandEntity closest = null;
-        double closestDist = Double.MAX_VALUE;
-
-        for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof ArmorStandEntity armorStand)) continue;
-            if (ignoredPests.contains(armorStand)) continue;
-            PestHelper.Pest pest = PestHelper.getPestFromHead(armorStand);
-            if (pest == null) continue;
-            double dist = armorStand.squaredDistanceTo(mc.player);
-            if (dist < closestDist) {
-                closestDist = dist;
-                closest = armorStand;
+            double distSq = stand.squaredDistanceTo(mc.player);
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                bestStand = stand;
             }
         }
 
-        if (closest != null) {
-            currentPestStand = closest;
-            Vec3d target = closest.getEntityPos().add(0, 1.15, 0).add(pestOffset);
+        if (bestStand != null) {
+            Vec3d target = bestStand.getEntityPos().add(0, 1.15, 0).add(pestOffset);
             currentPestTarget = target;
-            lastSentPestTarget = target;
             FlyHandler.flyTo(target);
-            return;
+        } else {
+            currentPestTarget = null;
         }
-
-        if (System.currentTimeMillis() - ignoredResetTime > 2000) {
-            ignoredPests.clear();
-        }
-
-        currentPestTarget = null;
-        lastSentPestTarget = null;
     }
 
     private static void updatePestsTimer() {
@@ -1012,7 +1010,6 @@ public class Farming {
         lastTogglePauseTime = System.currentTimeMillis();
         isActive = !isActive;
         isPaused = false;
-
         if (!isActive) {
             lastXp = System.currentTimeMillis();
             releaseAllKeys();
@@ -1028,12 +1025,15 @@ public class Farming {
             originalPestKillSlot = -1;
             needsRetarget = true;
             currentPestStand = null;
+            currentPestMob = null;
+            lastPestStandPos = null;
             RotationHandler.reset();
             currentMode = "none";
-            lastPestStandPos = null;
             lastWaypoint = null;
             pauseWaypoint = null;
-            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+            if (mc.player != null) {
+                mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+            }
             ticksOnWaypoint = 0;
             unlockMouse();
         } else if (mc.player != null) {
@@ -1060,11 +1060,12 @@ public class Farming {
             lastXp = System.currentTimeMillis();
             releaseAllKeys();
             movementBlockTicks = 10;
-            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+
             unlockMouse();
             pauseTimeMs = System.currentTimeMillis();
 
             if (mc.player != null) {
+                mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
                 pauseWaypoint = BlockPos.ofFloored(mc.player.getEntityPos());
                 if (Faketils.config().rewarpOnPause) {
                     mc.player.networkHandler.sendChatMessage("/setspawn");
@@ -1076,7 +1077,9 @@ public class Farming {
             lastXp = System.currentTimeMillis();
             lockMouse();
             releaseAllKeys();
-            mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+            if (mc.player != null) {
+                mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
+            }
             lastXp = 0;
 
             boolean shouldWarp = false;
@@ -1730,20 +1733,5 @@ public class Farming {
                 || name.startsWith("bookworm")
                 || name.equals("squeaky toy")
                 || name.equals("mantid claw");
-    }
-
-    private static boolean hasLivingPestNearby(ArmorStandEntity stand) {
-        if (mc.world == null) return false;
-        Vec3d standPos = stand.getEntityPos();
-        for (Entity e : mc.world.getEntities()) {
-            if (!(e instanceof LivingEntity living)) continue;
-            if (living instanceof ArmorStandEntity) continue;
-            if (living == mc.player) continue;
-            if (living.isDead()) continue;
-            if (living.squaredDistanceTo(standPos.x, standPos.y, standPos.z) <= PEST_LIVING_RADIUS * PEST_LIVING_RADIUS) {
-                return true;
-            }
-        }
-        return false;
     }
 }

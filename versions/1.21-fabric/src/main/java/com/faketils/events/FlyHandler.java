@@ -42,6 +42,7 @@ public class FlyHandler {
     private static final int    SLOT_SWITCH_DELAY   = 2 + new Random().nextInt(3);
     private static final double STOPPING_THRESHOLD  = 0.75;
     private static final long   ESCAPE_DURATION     = 800;
+    private static final float  ANGLE_THRESHOLD     = 20.0f;
 
     private static int     frontClearTicks = 0;
     private static boolean lastFrontClear  = false;
@@ -140,10 +141,6 @@ public class FlyHandler {
     public static void flyTo(Vec3d goal) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-
-        if (lastFlyToTarget != null && lastFlyToTarget.squaredDistanceTo(goal) < RETARGET_THRESHOLD_SQ && (path != null || active)) {
-            return;
-        }
 
         if (pathfindingInProgress) return;
 
@@ -248,6 +245,7 @@ public class FlyHandler {
             if (inv.getSelectedSlot() != Farming.vacuumSlot) {
                 player.getInventory().setSelectedSlot(Farming.vacuumSlot);
             }
+            resetKeys();
         }
 
         boolean fallingFast = player.getVelocity().y < -0.1;
@@ -261,7 +259,7 @@ public class FlyHandler {
 
         if (path == null || path.isEmpty() || pathIndex >= path.size()) return;
 
-        boolean frontClear = isFrontClear(player, 4.0);
+        boolean frontClear = isFrontClear(player, 2.0);
 
         if (frontClear == lastFrontClear) {
             frontClearTicks++;
@@ -288,7 +286,8 @@ public class FlyHandler {
         RotationHandler.setTarget(targetYawPath, targetPitchPath);
 
         float   yawDiff      = Math.abs(wrapDegrees(player.getYaw() - targetYawPath));
-        boolean facingTarget = yawDiff < 35f;
+        float   pitchDiff    = Math.abs(player.getPitch() - targetPitchPath);
+        boolean facingTarget = yawDiff < ANGLE_THRESHOLD && pitchDiff < ANGLE_THRESHOLD;
 
         boolean isLastNode = pathIndex >= path.size() - 1;
         if (isLastNode && willArriveAtDestinationAfterStopping(player, moveTarget)) {
@@ -303,7 +302,7 @@ public class FlyHandler {
 
         if (isDirectionBlocked(player, 0.0f, +1.2f)) wantUp = false;
 
-        if (player.isOnGround() && wantUp) {
+        if (facingTarget && player.isOnGround() && wantUp) {
             player.jump();
             lastJumpTime = System.currentTimeMillis();
         }
@@ -311,16 +310,21 @@ public class FlyHandler {
         KeyBinding jump  = client.options.jumpKey;
         KeyBinding sneak = client.options.sneakKey;
 
-        boolean shouldMove = fullDist > SLOW_STOP_DISTANCE;
+        boolean shouldMove = facingTarget && fullDist > SLOW_STOP_DISTANCE;
         float relAngle = wrapDegrees(player.getYaw() - targetYawPath);
         setMovementKeysForAngle(client, relAngle, shouldMove);
         player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
 
-        jump.setPressed(wantUp);
-        sneak.setPressed(wantDown);
+        if (facingTarget) {
+            jump.setPressed(wantUp);
+            sneak.setPressed(wantDown);
+        } else {
+            jump.setPressed(false);
+            sneak.setPressed(false);
+        }
 
-        if (fullDistPath > AOTV_MIN_DISTANCE && fullDistPath < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && yawDiff <= 20f) {
+        if (facingTarget && fullDistPath > AOTV_MIN_DISTANCE && fullDistPath < AOTV_MAX_DISTANCE
+                && aotvCooldown <= 0 && slotSwitchTimer == 0) {
             aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
@@ -349,6 +353,7 @@ public class FlyHandler {
 
         float yawDiff   = Math.abs(wrapDegrees(player.getYaw() - targetYaw));
         float pitchDiff = Math.abs(player.getPitch() - targetPitch);
+        boolean facingTarget = yawDiff < ANGLE_THRESHOLD && pitchDiff < ANGLE_THRESHOLD;
 
         RotationHandler.setTarget(targetYaw, targetPitch);
 
@@ -358,8 +363,8 @@ public class FlyHandler {
             return;
         }
 
-        if (fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
-                && aotvCooldown <= 0 && slotSwitchTimer == 0 && yawDiff <= 10f && pitchDiff <= 10f) {
+        if (facingTarget && fullDist > AOTV_MIN_DISTANCE && fullDist < AOTV_MAX_DISTANCE
+                && aotvCooldown <= 0 && slotSwitchTimer == 0) {
             aotvSlot = findAotvSlot(player);
             if (aotvSlot != -1 && isFrontClear(player, 12.0)) {
                 player.getInventory().setSelectedSlot(aotvSlot);
@@ -381,15 +386,20 @@ public class FlyHandler {
         KeyBinding jump  = client.options.jumpKey;
         KeyBinding sneak = client.options.sneakKey;
 
-        boolean shouldMove = fullDist > SLOW_STOP_DISTANCE;
+        boolean shouldMove = facingTarget && fullDist > SLOW_STOP_DISTANCE;
         float relAngle = wrapDegrees(player.getYaw() - targetYaw);
         setMovementKeysForAngle(client, relAngle, shouldMove);
         player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
 
-        jump.setPressed(wantUp);
-        sneak.setPressed(wantDown);
+        if (facingTarget) {
+            jump.setPressed(wantUp);
+            sneak.setPressed(wantDown);
+        } else {
+            jump.setPressed(false);
+            sneak.setPressed(false);
+        }
 
-        if (player.isOnGround() && wantUp) {
+        if (facingTarget && player.isOnGround() && wantUp) {
             player.jump();
             lastJumpTime = System.currentTimeMillis();
         }
