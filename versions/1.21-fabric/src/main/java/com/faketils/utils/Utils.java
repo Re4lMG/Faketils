@@ -94,7 +94,9 @@ public class Utils {
     }
 
     public static void simulateUseItem(ClientPlayerInteractionManager interactionManager) {
+        if (mc.player == null) return;
         interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+        //mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
     }
 
     public static List<String> getSidebarLines() {

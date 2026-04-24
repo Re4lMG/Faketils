@@ -10,33 +10,23 @@ import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.block.CropBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.FishingRodItem;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
@@ -412,6 +402,7 @@ public class Farming {
 
         if (mc.currentScreen != null) {
             lastXp = System.currentTimeMillis();
+            releaseAllKeys();
             return;
         }
 
@@ -1333,8 +1324,6 @@ public class Farming {
     }
 
     private static void holdKeys() {
-        if (currentMode.equals("none")) return;
-
         if (currentMode.equals("left")) {
             mc.options.forwardKey.setPressed(Faketils.config().leftForward);
             mc.options.backKey.setPressed(Faketils.config().leftBack);
