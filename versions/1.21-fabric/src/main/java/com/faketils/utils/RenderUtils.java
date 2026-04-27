@@ -2,7 +2,6 @@ package com.faketils.utils;
 
 import com.faketils.events.FlyHandler;
 import com.faketils.events.FtEvent;
-import com.faketils.events.WalkingHandler;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.MinecraftClient;
@@ -77,8 +76,6 @@ public class RenderUtils {
 
         if (FlyHandler.path != null && !FlyHandler.path.isEmpty()) {
             currentPath = FlyHandler.path;
-        } else if (WalkingHandler.path != null && !WalkingHandler.path.isEmpty()) {
-            currentPath = WalkingHandler.path;
         }
 
         if (currentPath == null) return;

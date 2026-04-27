@@ -7,12 +7,21 @@ import net.minecraft.block.BlockState;
 import java.util.*;
 
 public class Pathfinder {
+
+    private static final int[][] NEIGHBORS = {
+            { 1, 0,  0}, {-1, 0,  0}, {0, 0,  1}, {0, 0, -1},
+            { 1, 0,  1}, { 1, 0, -1}, {-1, 0,  1}, {-1, 0, -1},
+            {0,  1, 0}, {0, -1, 0},
+            { 1,  1, 0}, {-1,  1, 0}, {0,  1,  1}, {0,  1, -1},
+            { 1, -1, 0}, {-1, -1, 0}, {0, -1,  1}, {0, -1, -1},
+    };
+
     public static List<BlockPos> findPath(BlockPos start, BlockPos end, World world, int maxNodes) {
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
         Map<BlockPos, Node> allNodes = new HashMap<>();
         Set<BlockPos> closedSet = new HashSet<>();
 
-        Node startNode = new Node(start, 0, getDistance(start, end));
+        Node startNode = new Node(start, 0, heuristic(start, end));
         openSet.add(startNode);
         allNodes.put(start, startNode);
 
@@ -23,74 +32,99 @@ public class Pathfinder {
             if (closedSet.contains(current.pos)) continue;
             closedSet.add(current.pos);
 
-            if (getManhattan(current.pos, end) < 2) {
-                return reconstructPath(current);
+            if (current.pos.isWithinDistance(end, 1.5)) {
+                List<BlockPos> raw = reconstructPath(current);
+                return smoothPath(raw, world);
             }
 
             for (int[] offset : NEIGHBORS) {
-                BlockPos neighbor = current.pos.add(offset[0], offset[1], offset[2]);
-                if (closedSet.contains(neighbor)) continue;
-                if (!isPassable(neighbor, world)) continue;
+                BlockPos neighbour = current.pos.add(offset[0], offset[1], offset[2]);
+                if (closedSet.contains(neighbour)) continue;
+                if (!isPassable(neighbour, world)) continue;
 
                 double moveCost = (offset[0] != 0 && offset[2] != 0) ? 1.414 : 1.0;
                 double tentativeG = current.gScore + moveCost;
 
-                Node neighborNode = allNodes.get(neighbor);
-                if (neighborNode == null) {
-                    neighborNode = new Node(neighbor, Double.POSITIVE_INFINITY, getDistance(neighbor, end));
-                    allNodes.put(neighbor, neighborNode);
+                Node neighbourNode = allNodes.get(neighbour);
+                if (neighbourNode == null) {
+                    neighbourNode = new Node(neighbour, Double.POSITIVE_INFINITY, heuristic(neighbour, end));
+                    allNodes.put(neighbour, neighbourNode);
                 }
 
-                if (tentativeG < neighborNode.gScore) {
-                    neighborNode.parent = current;
-                    neighborNode.gScore = tentativeG;
-                    neighborNode.fScore = tentativeG + neighborNode.hScore;
-                    openSet.add(neighborNode);
+                if (tentativeG < neighbourNode.gScore) {
+                    neighbourNode.parent = current;
+                    neighbourNode.gScore = tentativeG;
+                    neighbourNode.fScore = tentativeG + neighbourNode.hScore;
+                    openSet.add(neighbourNode);
                 }
             }
         }
         return null;
     }
 
-    private static int getManhattan(BlockPos a, BlockPos b) {
-        return Math.abs(a.getX() - b.getX())
-                + Math.abs(a.getY() - b.getY())
-                + Math.abs(a.getZ() - b.getZ());
-    }
-
-    private static double getDistance(BlockPos a, BlockPos b) {
-        return Math.sqrt(a.getSquaredDistance(b));
-    }
-
-    private static List<BlockPos> getNeighbors(BlockPos pos) {
-        List<BlockPos> neighbors = new ArrayList<>();
-        neighbors.add(pos.north());
-        neighbors.add(pos.south());
-        neighbors.add(pos.east());
-        neighbors.add(pos.west());
-        neighbors.add(pos.up());
-        neighbors.add(pos.down());
-        return neighbors;
-    }
-
-    private static final int[][] NEIGHBORS = {
-            {1,0,0},{-1,0,0},{0,0,1},{0,0,-1},
-            {1,0,1},{1,0,-1},{-1,0,1},{-1,0,-1},
-            {0,1,0},{0,-1,0},
-            {1,1,0},{-1,1,0},{0,1,1},{0,1,-1},
-            {1,-1,0},{-1,-1,0},{0,-1,1},{0,-1,-1}
-    };
-
     private static boolean isPassable(BlockPos pos, World world) {
-        BlockState state = world.getBlockState(pos);
-        BlockState above = world.getBlockState(pos.up());
-        BlockState below = world.getBlockState(pos.down());
+        BlockState feet  = world.getBlockState(pos);
+        BlockState head  = world.getBlockState(pos.up());
+        return feet.getCollisionShape(world, pos).isEmpty()
+                && head.getCollisionShape(world, pos.up()).isEmpty();
+    }
 
-        boolean bodyFree = state.getCollisionShape(world, pos).isEmpty()
-                && above.getCollisionShape(world, pos.up()).isEmpty();
-        boolean hasGround = !below.getCollisionShape(world, pos.down()).isEmpty();
+    private static List<BlockPos> smoothPath(List<BlockPos> path, World world) {
+        if (path.size() < 3) return path;
 
-        return bodyFree && hasGround;
+        List<BlockPos> result = new ArrayList<>();
+        result.add(path.get(0));
+
+        int i = 0;
+        while (i < path.size() - 1) {
+            int j = path.size() - 1;
+            while (j > i + 1 && !hasLineOfSight(path.get(i), path.get(j), world)) {
+                j--;
+            }
+            result.add(path.get(j));
+            i = j;
+        }
+        return result;
+    }
+
+    private static boolean hasLineOfSight(BlockPos from, BlockPos to, World world) {
+        double fx = from.getX() + 0.5, fy = from.getY(), fz = from.getZ() + 0.5;
+        double tx = to.getX()   + 0.5, ty = to.getY(),   tz = to.getZ()   + 0.5;
+
+        double dx = tx - fx, dy = ty - fy, dz = tz - fz;
+        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length == 0) return true;
+
+        dx /= length; dy /= length; dz /= length;
+
+        double[] xOff = {-0.3, 0.3};
+        double[] zOff = {-0.3, 0.3};
+        double[] yOff = { 0.1, 1.7};  // feet, head
+
+        int steps = (int) Math.ceil(length);
+        for (double xo : xOff) {
+            for (double zo : zOff) {
+                for (double yo : yOff) {
+                    for (int s = 1; s <= steps; s++) {
+                        double t = (double) s / steps * length;
+                        BlockPos check = BlockPos.ofFloored(
+                                fx + dx * t + xo,
+                                fy + dy * t + yo,
+                                fz + dz * t + zo
+                        );
+                        BlockState state = world.getBlockState(check);
+                        if (!state.getCollisionShape(world, check).isEmpty()) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private static double heuristic(BlockPos a, BlockPos b) {
+        return Math.sqrt(a.getSquaredDistance(b));
     }
 
     private static List<BlockPos> reconstructPath(Node node) {
@@ -106,13 +140,11 @@ public class Pathfinder {
 
     private static class Node {
         BlockPos pos;
-        double gScore;
-        double hScore;
-        double fScore;
+        double gScore, hScore, fScore;
         Node parent;
 
         Node(BlockPos pos, double gScore, double hScore) {
-            this.pos = pos;
+            this.pos    = pos;
             this.gScore = gScore;
             this.hScore = hScore;
             this.fScore = gScore + hScore;

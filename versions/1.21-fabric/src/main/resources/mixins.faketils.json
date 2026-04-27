@@ -11,7 +11,8 @@
     "AbstractBlockStateMixin",
     "MouseMixin",
     "ClientPlayerInteractionManagerMixin",
-    "WorldRendererMixin"
+    "WorldRendererMixin",
+    "MinecraftClientMixin"
   ],
   "client": [
   ],
