@@ -27,5 +27,10 @@
 
 
   "yacl3.config.enum.PetSwapType.rod": "Fishing Rod",
-  "yacl3.config.enum.PetSwapType.armor": "Wardrobe Slot"
+  "yacl3.config.enum.PetSwapType.armor": "Wardrobe Slot",
+  "yacl3.config.enum.TeleportingToPlotType.aotv": "Aotv Above",
+  "yacl3.config.enum.TeleportingToPlotType.tptoplot": "Tp To Plot",
+  "yacl3.config.enum.TeleportingToPlotType.disco": "Disco",
+  "yacl3.config.enum.WaypointModeType.block": "Block",
+  "yacl3.config.enum.WaypointModeType.lane": "Lane"
 }

@@ -1,6 +1,7 @@
 package com.faketils.features;
 
 import com.faketils.Faketils;
+import com.faketils.events.RotationHandler;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -32,11 +33,26 @@ public class Fishing {
     private static int delayCounter = 0;
     private static int clickCount = 0;
 
+    private static final float LOOK_DOWN_PITCH = 89f;
+    private static float savedYaw = 0f;
+    private static float savedPitch = 0f;
+
     private static boolean slugFishingActive = false;
     private static long slugStartTime = 0L;
     private static int lastBobberId = -1;
 
     private static final Set<Integer> handledArmorStands = new HashSet<>();
+
+    private static final int STATE_IDLE              = 0;
+    private static final int STATE_PRE_ROTATE        = 1;
+    private static final int STATE_SWITCH_DELAY      = 2;
+    private static final int STATE_SWITCH_TO_WEAPON  = 3;
+    private static final int STATE_WAIT_SWITCH       = 4;
+    private static final int STATE_CLICK_WEAPON      = 5;
+    private static final int STATE_WAIT_SWITCH_BACK  = 6;
+    private static final int STATE_SWITCH_BACK       = 7;
+    private static final int STATE_POST_ROTATE       = 8;
+    private static final int STATE_DONE              = 9;
 
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -113,9 +129,7 @@ public class Fishing {
             hasClickedOnce = true;
 
             Utils.simulateUseItem(interactionManager);
-
             player.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-
             scheduledClick = false;
 
             if (Faketils.config().fishingHelperKilling && !Faketils.config().fishingHelperKillingWeapon.isEmpty()) {
@@ -123,53 +137,84 @@ public class Fishing {
                 if (weapon != null) {
                     originalSlot = inventory.getSelectedSlot();
                     weaponSlot = weapon.slot;
-                    weaponState = 1;
-                    delayCounter = random.nextInt(4) + 2;
+
+                    if (Faketils.config().fishingLookDown) {
+                        savedYaw = player.getYaw();
+                        savedPitch = player.getPitch();
+                        RotationHandler.setTarget(savedYaw, LOOK_DOWN_PITCH);
+                        weaponState = STATE_PRE_ROTATE;
+                    } else {
+                        weaponState = STATE_SWITCH_DELAY;
+                        delayCounter = random.nextInt(4) + 2;
+                    }
                     Utils.log("Weapon found in slot " + weaponSlot + ", switching...");
                 }
             }
         }
 
-        if (weaponState > 0) {
+        if (weaponState > STATE_IDLE) {
             switch (weaponState) {
-                case 1 -> {
-                    if (delayCounter-- <= 0) {
-                        weaponState = 2;
+                case STATE_PRE_ROTATE -> {
+                    if (!RotationHandler.active) {
+                        weaponState = STATE_SWITCH_DELAY;
+                        delayCounter = random.nextInt(4) + 2;
                     }
                 }
-                case 2 -> {
+                case STATE_SWITCH_DELAY -> {
+                    if (delayCounter-- <= 0) {
+                        weaponState = STATE_SWITCH_TO_WEAPON;
+                    }
+                }
+                case STATE_SWITCH_TO_WEAPON -> {
                     inventory.setSelectedSlot(weaponSlot);
                     delayCounter = random.nextInt(4) + 2;
-                    weaponState = 3;
+                    weaponState = STATE_WAIT_SWITCH;
                 }
-                case 3 -> {
+                case STATE_WAIT_SWITCH -> {
                     if (delayCounter-- <= 0) {
-                        weaponState = 4;
+                        weaponState = STATE_CLICK_WEAPON;
+                        delayCounter = random.nextInt(4) + 3;
                     }
                 }
-                case 4 -> {
+                case STATE_CLICK_WEAPON -> {
                     if (delayCounter-- <= 0) {
                         Utils.simulateUseItem(interactionManager);
                         clickCount++;
-                        delayCounter = random.nextInt(4) + 3;
 
                         int maxClicks = Faketils.config().fishingHelperKillingAmount;
                         if (clickCount >= maxClicks) {
                             clickCount = 0;
-                            weaponState = 5;
+                            weaponState = STATE_WAIT_SWITCH_BACK;
                             delayCounter = random.nextInt(4) + 2;
+                        } else {
+                            delayCounter = random.nextInt(4) + 3;
                         }
                     }
                 }
-                case 5 -> {
+                case STATE_WAIT_SWITCH_BACK -> {
                     if (delayCounter-- <= 0) {
-                        weaponState = 6;
+                        weaponState = STATE_SWITCH_BACK;
                     }
                 }
-                case 6 -> {
+                case STATE_SWITCH_BACK -> {
                     inventory.setSelectedSlot(originalSlot);
-                    weaponState = 0;
                     Utils.log("Switched back to original slot.");
+
+                    if (Faketils.config().fishingLookDown) {
+                        RotationHandler.setTarget(savedYaw, savedPitch);
+                        weaponState = STATE_POST_ROTATE;
+                    } else {
+                        weaponState = STATE_DONE;
+                    }
+                }
+                case STATE_POST_ROTATE -> {
+                    if (!RotationHandler.active) {
+                        weaponState = STATE_DONE;
+                    }
+                }
+                case STATE_DONE -> {
+                    weaponState = STATE_IDLE;
+                    Utils.log("Weapon sequence finished, ready for reel.");
                 }
             }
             return;

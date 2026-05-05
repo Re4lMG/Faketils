@@ -118,6 +118,13 @@ public class Config {
     public boolean funnyWaypoints = false;
 
     @AutoGen(category = "farming", group = "general")
+    @EnumCycler
+    @SerialEntry
+    @CustomName("Waypoint Mode Type")
+    @CustomDescription("Select the mode you want the waypoints to work, 1 block means only switch if ur in that block, lane means if ur in that lane of that block.")
+    public WaypointModeType waypointModeType = WaypointModeType.Block;
+
+    @AutoGen(category = "farming", group = "general")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("Insta-Lane Switching")
@@ -138,9 +145,9 @@ public class Config {
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
 
-    //@AutoGen(category = "farming", group = "pests")
-    //@Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
-    //@SerialEntry
+    @AutoGen(category = "farming", group = "pests")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
@@ -165,6 +172,13 @@ public class Config {
     @CustomName("Pest Farming Mode")
     @CustomDescription("Automatically swaps equipment and pet when the pest cooldown is over.")
     public boolean pestFarming = false;
+
+    @AutoGen(category = "farming", group = "pests")
+    @EnumCycler
+    @SerialEntry
+    @CustomName("Teleporting To Plot Type")
+    @CustomDescription("Select the method used to tp above a plot to kill pests.")
+    public TeleportingToPlotType teleportingToPlotType = TeleportingToPlotType.AOTV;
 
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
@@ -206,7 +220,7 @@ public class Config {
     @SerialEntry
     @CustomName("Mantid Wardrobe Slot")
     @CustomDescription("Wardrobe slot used for Mantid equipment.")
-    public int wardrobeSlotOld = 1;
+    public int wardrobeSlotOld = 2;
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
@@ -221,6 +235,13 @@ public class Config {
     @CustomName("Slug Trophy Fishing")
     @CustomDescription("Enables the slug trophy fishing helper.")
     public boolean slugFishing = false;
+
+    @AutoGen(category = "fishing", group = "helpers")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
+    @CustomName("Look Down Item Use")
+    @CustomDescription("Automatically looks down and uses your weapon, very useful if using a hyperion and not fishing inside water/lava.")
+    public boolean fishingLookDown = false;
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
@@ -320,5 +341,14 @@ public class Config {
     public enum PetSwapType {
         ROD,
         ARMOR
+    }
+    public enum TeleportingToPlotType {
+        AOTV,
+        TpToPlot,
+        Disco
+    }
+    public enum WaypointModeType {
+        Block,
+        Lane
     }
 }
