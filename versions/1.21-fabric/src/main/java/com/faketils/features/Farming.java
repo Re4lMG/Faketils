@@ -10,7 +10,6 @@ import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.block.CropBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
@@ -28,9 +27,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import org.lwjgl.glfw.GLFW;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -123,7 +120,16 @@ public class Farming {
     private static boolean wardrobeClicked = false;
     public static int originalPestKillSlot = -1;
     public static int vacuumSlot = -1;
-    private static int movementBlockTicks = 0;
+    private static enum AotvPhase {
+        IDLE, INIT, SET_ROTATION, WAIT_ROTATION, SNEAK, WAIT_SNEAK, SNEAK_USE, WAIT_AFTER_USE, CHECK_HEIGHT, RESTORE, DONE
+    }
+    private static AotvPhase aotvPhase = AotvPhase.IDLE;
+    private static long aotvPhaseStart = 0L;
+    private static float aotvSavedYaw = 0f;
+    private static float aotvSavedPitch = 0f;
+    private static int aotvHotbarSlot = -1;
+    private static int originalAotvSlot = -1;
+    private static float aotvTargetPitch = -80f;    private static int movementBlockTicks = 0;
 
     private static boolean eqActive = false;
 
@@ -284,7 +290,7 @@ public class Farming {
                 pestsSpawned = true;
                 Utils.log("Pest spawned in plot " + plot);
 
-                if (mc.player != null && isActive) {
+                if (mc.player != null && isActive && !isPaused) {
                     new Thread(() -> {
                         try {
                             Thread.sleep(2000);
@@ -378,6 +384,8 @@ public class Farming {
             if (mc.currentScreen != null && mc.player != null && mc.currentScreen.getTitle().getString()
                     .replaceAll("§.", "").trim().toLowerCase().contains("stereo harmony")) mc.player.closeHandledScreen();
         }
+
+        handleAotvSequence();
 
         if (isActive && !isPaused && Faketils.config().pestKilling) {mc.options.useKey.setPressed(false);}
 
@@ -662,20 +670,15 @@ public class Farming {
             case CLOSING:
                 mc.player.closeHandledScreen();
                 Utils.log("Closing wardrobe");
-
+                rodPhase = RodPhase.DONE;
+                rodPhaseStart = now;
                 wardrobePhase = WardrobePhase.DONE;
                 wardrobePhaseStart = now;
                 break;
 
             case DONE:
                 if (now - wardrobePhaseStart > 150 + random.nextInt(200)) {
-                    if (wardrobeSuccess) {
-                        rodPhase = RodPhase.DONE;
-                        rodPhaseStart = now;
-                        Utils.log("Wardrobe → rod sequence started");
-                    } else {
-                        Utils.log("Wardrobe failed → rod sequence skipped");
-                    }
+                    Utils.log("Wardrobe → rod sequence started");
                     resetWardrobeState();
                 }
                 break;
@@ -775,21 +778,31 @@ public class Farming {
                         movementBlockTicks = 10;
                         releaseAllKeys();
                         currentPestPhase = PestPhase.SQUEAKY;
-                        new Thread(() -> {
-                            try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-                            mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
-                            if (Faketils.config().pestKilling) swapToInfiniVacuum();
-                            pendingDoubleJumpTicks = 10;
-                            try { Thread.sleep(350); } catch (InterruptedException ignored) {}
-                            if (Faketils.config().pestKilling) handleKilling();
-                            if (Faketils.config().pestKilling) {
-                                killingPests = true;
-                                isLcVacuum = true;
-                                lcVacuum();
-                            }
-                        }).start();
-                    } else {
-                        Utils.log("Squeaky pest items handled → resuming normal farming");
+                        if (Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.TpToPlot) {
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(150);
+                                } catch (InterruptedException ignored) {
+                                }
+                                    mc.player.networkHandler.sendChatMessage("/tptoplot " + plot);
+                                if (Faketils.config().pestKilling) swapToInfiniVacuum();
+                                pendingDoubleJumpTicks = 10;
+                                try {
+                                    Thread.sleep(350);
+                                } catch (InterruptedException ignored) {
+                                }
+                                if (Faketils.config().pestKilling) handleKilling();
+                                if (Faketils.config().pestKilling) {
+                                    killingPests = true;
+                                    isLcVacuum = true;
+                                    lcVacuum();
+                                }
+                            }).start();
+                        }
+                        if (Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.AOTV) startAotvEtherwarp();
+                        if (Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.Disco) {
+                            killingPests = true;
+                        }
                     }
 
                     originalHotbarSlot = -1;
@@ -803,6 +816,154 @@ public class Farming {
             default:
                 rodPhase = RodPhase.IDLE;
                 break;
+        }
+    }
+
+    public static void startAotvEtherwarp() {
+        if (aotvPhase != AotvPhase.IDLE || mc.player == null) return;
+        aotvPhase = AotvPhase.INIT;
+        aotvPhaseStart = System.currentTimeMillis();
+        Utils.log("Starting AOTV etherwarp sequence");
+    }
+
+    private static void handleAotvSequence() {
+        if (aotvPhase == AotvPhase.IDLE || mc.player == null || mc.world == null) return;
+
+        long now = System.currentTimeMillis();
+
+        switch (aotvPhase) {
+
+            case INIT: {
+                aotvSavedYaw   = mc.player.getYaw();
+                aotvSavedPitch = mc.player.getPitch();
+                originalAotvSlot = ((PlayerInventoryAccessor) mc.player.getInventory()).getSelectedSlot();
+
+                aotvHotbarSlot = -1;
+                for (int i = 0; i < 9; i++) {
+                    ItemStack stack = mc.player.getInventory().getStack(i);
+                    if (stack.isEmpty()) continue;
+                    String name = stack.getName().getString()
+                            .replaceAll("§.", "").toLowerCase().trim();
+                    if (name.contains("aspect of the void")) {
+                        aotvHotbarSlot = i;
+                        break;
+                    }
+                }
+
+                if (aotvHotbarSlot == -1) {
+                    Utils.log("§cNo AOTV found in hotbar → skipping etherwarp, going straight to killing");
+                    aotvPhase = AotvPhase.DONE;
+                    aotvPhaseStart = now;
+                    break;
+                }
+
+                mc.player.getInventory().setSelectedSlot(aotvHotbarSlot);
+                Utils.log("AOTV found in slot " + (aotvHotbarSlot + 1) + ", beginning etherwarp loop");
+                aotvPhase = AotvPhase.SET_ROTATION;
+                aotvPhaseStart = now;
+                break;
+            }
+
+            case SET_ROTATION: {
+                aotvTargetPitch = -(80 + random.nextInt(11));
+                RotationHandler.setTarget(aotvSavedYaw, aotvTargetPitch);
+                aotvPhase = AotvPhase.WAIT_ROTATION;
+                aotvPhaseStart = now;
+                break;
+            }
+
+            case WAIT_ROTATION: {
+                if (now - aotvPhaseStart >= 150) {
+                    if (!RotationHandler.active) {
+                        aotvPhase = AotvPhase.SNEAK;
+                        aotvPhaseStart = now;
+                    }
+                }
+                break;
+            }
+
+            case SNEAK: {
+                Utils.simulateUseItem(mc.interactionManager);
+                mc.options.sneakKey.setPressed(true);
+                aotvPhase = AotvPhase.WAIT_SNEAK;
+                aotvPhaseStart = now;
+                break;
+            }
+
+            case WAIT_SNEAK: {
+                if (now - aotvPhaseStart >= 50 + random.nextInt(30)) {
+                    aotvPhase = AotvPhase.SNEAK_USE;
+                    aotvPhaseStart = now;
+                }
+                break;
+            }
+
+            case SNEAK_USE: {
+                mc.options.useKey.setPressed(true);
+                aotvPhase = AotvPhase.WAIT_AFTER_USE;
+                aotvPhaseStart = now;
+                break;
+            }
+
+            case WAIT_AFTER_USE: {
+                if (now - aotvPhaseStart >= 400) {
+                    mc.options.useKey.setPressed(false);
+                    aotvPhase = AotvPhase.CHECK_HEIGHT;
+                    aotvPhaseStart = now;
+                }
+                break;
+            }
+
+            case CHECK_HEIGHT: {
+                BlockPos headAbove = BlockPos.ofFloored(
+                        mc.player.getX(),
+                        mc.player.getY() + 10.5,
+                        mc.player.getZ()
+                );
+                boolean noBlockAbove = mc.world.getBlockState(headAbove).isAir();
+
+                if (noBlockAbove) {
+                    Utils.log("Etherwarp reached top (y=" + (int) mc.player.getY() + ") → restoring state");
+                    aotvPhase = AotvPhase.RESTORE;
+                } else {
+                    aotvPhase = AotvPhase.SET_ROTATION;
+                }
+                aotvPhaseStart = now;
+                break;
+            }
+
+            case RESTORE: {
+                if (now - aotvPhaseStart >= 100) {
+                    mc.options.sneakKey.setPressed(false);
+                    RotationHandler.setTarget(aotvSavedYaw, aotvSavedPitch);
+                    if (originalAotvSlot >= 0 && originalAotvSlot < 9) {
+                        mc.player.getInventory().setSelectedSlot(originalAotvSlot);
+                    }
+                    aotvPhase = AotvPhase.DONE;
+                    aotvPhaseStart = now;
+                }
+                break;
+            }
+
+            case DONE: {
+                if (RotationHandler.active) break;
+                if (now - aotvPhaseStart < 100) break;
+
+                aotvPhase        = AotvPhase.IDLE;
+                aotvHotbarSlot   = -1;
+                originalAotvSlot = -1;
+
+                Utils.log("AOTV sequence done → starting pest kill");
+
+                if (Faketils.config().pestKilling) {
+                    swapToInfiniVacuum();
+                    handleKilling();
+                    killingPests = true;
+                    isLcVacuum = true;
+                    lcVacuum();
+                }
+                break;
+            }
         }
     }
 
@@ -969,7 +1130,7 @@ public class Farming {
         if (bestStand != null) {
             Vec3d target = bestStand.getEntityPos().add(0, 1.15, 0).add(pestOffset);
             currentPestTarget = target;
-            FlyHandler.flyTo(target);
+            if (Faketils.config().teleportingToPlotType != Config.TeleportingToPlotType.Disco) FlyHandler.flyTo(target);
         } else {
             currentPestTarget = null;
         }
@@ -1104,6 +1265,8 @@ public class Farming {
     }
 
     private static void handleReset() {
+        FlyHandler.stop();
+        RotationHandler.reset();
         if (!isActive || mc.player == null) return;
         lockedYaw = mc.player.getYaw();
         mc.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
@@ -1205,6 +1368,7 @@ public class Farming {
 
     private static void render(DrawContext ctx) {
         if (mc.player == null) return;
+        if (mc.options.hudHidden) return;
         if (!Utils.isInSkyblock() || !Faketils.config().funnyToggle) return;
         if (!Utils.isInGarden()) return;
         if (Faketils.config().noHuds) return;
@@ -1249,6 +1413,39 @@ public class Farming {
     private static void updateMode() {
         if (mc.player == null) return;
 
+        if (Faketils.config().waypointModeType == Config.WaypointModeType.Block) {
+            updateModeBlock();
+        } else {
+            updateModeLane();
+        }
+    }
+
+    private static void updateModeBlock() {
+        BlockPos pos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
+        List<BlockPos> right = FarmingWaypoints.WAYPOINTS.getOrDefault("right", List.of());
+        List<BlockPos> left  = FarmingWaypoints.WAYPOINTS.getOrDefault("left", List.of());
+        List<BlockPos> warp  = FarmingWaypoints.WAYPOINTS.getOrDefault("warp", List.of());
+
+        if (warp.contains(pos)) {
+            mc.player.networkHandler.sendChatMessage("/warp garden");
+            currentMode = "none";
+            releaseAllKeys();
+        } else if (right.contains(pos)) {
+            currentMode = "right";
+            currentState = "right";
+        } else if (left.contains(pos)) {
+            currentMode = "left";
+            currentState = "left";
+        } else {
+            currentMode = "none";
+            releaseAllKeys();
+        }
+
+        lastWaypoint = null;
+        ticksOnWaypoint = 0;
+    }
+
+    private static void updateModeLane() {
         BlockPos pos = BlockPos.ofFloored(mc.player.getEntityPos().add(0, 0.5, 0));
         float yaw = ((mc.player.getYaw() % 360) + 360) % 360;
         boolean facingSouthOrNorth = (yaw >= 315 || yaw < 45) || (yaw >= 135 && yaw < 225);
@@ -1585,7 +1782,7 @@ public class Farming {
                 break;
 
             case DONE:
-                if (now - phillipPhaseStart > 300) {
+                if (now - phillipPhaseStart > 1000) {
                     phillipPhase = PhillipPhase.IDLE;
                     Utils.log("Phillip sequence complete");
                 }
@@ -1708,7 +1905,7 @@ public class Farming {
 
         Vec3d velocity = last.pos().subtract(first.pos()).multiply(1.0 / dtSec);
 
-        return last.pos().add(velocity.x * 100, velocity.y * 0.4, velocity.z * 100);
+        return last.pos().add(velocity.x * 50, velocity.y * 0.4, velocity.z * 100);
     }
 
     private static boolean isSellable(String name) {
