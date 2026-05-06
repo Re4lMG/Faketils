@@ -8,9 +8,9 @@ import java.util.Random;
 public class RotationHandler {
     private static float targetYaw = 0;
     private static float targetPitch = 0;
-    private static boolean active = false;
+    public static boolean active = false;
 
-    private static final float MAX_SPEED = 6f;
+    private static final float DEGREES_PER_SECOND = 720f;
     private static final float FULL_SPEED_DISTANCE = 90.0f;
     private static final float JITTER_AMPLITUDE = 0.0f;
     private static final float CURVE_INTENSITY = 0.15f;
@@ -18,9 +18,10 @@ public class RotationHandler {
 
     private static final Random RANDOM = new Random();
     private static float time = 0;
+    private static long lastTickMs = -1;
 
     public static void init() {
-        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> tick(event.tickDelta));
+        FtEventBus.onEvent(FtEvent.WorldRender.class, event -> tick());
     }
 
     public static void setTarget(float yaw, float pitch) {
@@ -28,18 +29,29 @@ public class RotationHandler {
         targetPitch = pitch;
         active = true;
         time = 0;
+        lastTickMs = -1;
     }
 
     public static void reset() {
         active = false;
+        lastTickMs = -1;
     }
 
-    public static void tick(float partialTicks) {
+    public static void tick() {
         if (!active) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
         PlayerEntity player = client.player;
         if (player == null) return;
+
+        long now = System.currentTimeMillis();
+        if (lastTickMs == -1) {
+            lastTickMs = now;
+            return;
+        }
+
+        float dtSeconds = Math.min((now - lastTickMs) / 1000f, 0.05f);
+        lastTickMs = now;
 
         float currentYaw   = player.getYaw();
         float currentPitch = player.getPitch();
@@ -48,21 +60,21 @@ public class RotationHandler {
         float pitchDiff = targetPitch - currentPitch;
 
         float maxDiff = Math.max(Math.abs(yawDiff), Math.abs(pitchDiff));
-        if (maxDiff < 0.001f) {
+        if (maxDiff < 0.1f) {
             player.setYaw(targetYaw);
             player.setPitch(targetPitch);
             active = false;
             return;
         }
 
-        float speed = Math.min(MAX_SPEED, MAX_SPEED * (maxDiff / FULL_SPEED_DISTANCE));
-        speed *= partialTicks;
+        float speed = DEGREES_PER_SECOND * dtSeconds;
+        speed *= Math.min(1f, maxDiff / FULL_SPEED_DISTANCE);
         speed *= (0.9f + 0.2f * RANDOM.nextFloat());
 
         float yawMove   = yawDiff   * (speed / maxDiff);
         float pitchMove = pitchDiff * (speed / maxDiff);
 
-        time += partialTicks;
+        time += dtSeconds;
         float curveFactor = CURVE_INTENSITY * (float) Math.sin(time * CURVE_FREQUENCY);
         float perpYaw   = -pitchMove * curveFactor;
         float perpPitch =  yawMove   * curveFactor;
@@ -70,16 +82,11 @@ public class RotationHandler {
         yawMove   += perpYaw;
         pitchMove += perpPitch;
 
-        yawMove   += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * partialTicks;
-        pitchMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * partialTicks;
+        yawMove   += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * dtSeconds;
+        pitchMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * dtSeconds;
 
-        float newYaw   = currentYaw   + yawMove;
-        float newPitch = currentPitch + pitchMove;
-
-        newPitch = Math.max(-90, Math.min(90, newPitch));
-
-        player.setYaw(newYaw);
-        player.setPitch(newPitch);
+        player.setYaw(currentYaw + yawMove);
+        player.setPitch(Math.max(-90, Math.min(90, currentPitch + pitchMove)));
 
         if (Math.abs(yawDiff) < 0.1f && Math.abs(pitchDiff) < 0.1f) {
             player.setYaw(targetYaw);

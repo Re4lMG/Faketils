@@ -29,27 +29,21 @@ public class FlyHandler {
     private static boolean active = false;
     private static boolean decelerating = false;
 
-    private static Vec3d lastFlyToTarget = null;
-    private static final double RETARGET_THRESHOLD_SQ = 2.0;
     private static volatile boolean pathfindingInProgress = false;
 
     private static final float  VERTICAL_TOLERANCE  = 0.6f;
     private static final float  APPROACH_DISTANCE   = 8.0f;
     private static final float  SLOW_STOP_DISTANCE  = 8.0f;
-    private static final float  AOTV_MIN_DISTANCE   = 20.0f;
-    private static final float  AOTV_MAX_DISTANCE   = 240.0f;
-    private static final int    AOTV_COOLDOWN_TICKS = 7;
+    private static final float  AOTV_MIN_DISTANCE   = 14.0f;
+    private static final float  AOTV_MAX_DISTANCE   = 1000.0f;
+    private static final int    AOTV_COOLDOWN_TICKS = 4;
     private static final int    SLOT_SWITCH_DELAY   = 2 + new Random().nextInt(3);
     private static final double STOPPING_THRESHOLD  = 0.75;
-    private static final long   ESCAPE_DURATION     = 800;
     private static final float  ANGLE_THRESHOLD     = 20.0f;
 
     private static int     frontClearTicks = 0;
     private static boolean lastFrontClear  = false;
 
-    private static final float STRAFE_CHANCE_FAR  = 0.015f;
-    private static final float STRAFE_CHANCE_NEAR = 0.08f;
-    private static final int   STRAFE_TICKS       = 4 + new Random().nextInt(5);
     private static final int   JUMP_BOOST_DELAY   = 180;
 
     private static final float TARGET_Y_OFFSET = 4.5f;
@@ -58,8 +52,6 @@ public class FlyHandler {
 
     private static final Random RANDOM = new Random();
 
-    private static int     strafeTimer  = 0;
-    private static boolean strafeLeft   = false;
     private static long    lastJumpTime = 0;
 
     public static List<Vec3d> path;
@@ -74,7 +66,7 @@ public class FlyHandler {
     private static long pathModeEndTime = 0;
     private static final long PATH_MODE_DURATION_MS = 3000;
     private static long lastPathRequestTime = 0;
-    private static final long PATH_REQUEST_COOLDOWN_MS = 3000;
+    private static final long PATH_REQUEST_COOLDOWN_MS = 500;
 
     private static long    stuckCheckTime     = 0;
     private static Vec3d   lastPosCheck       = Vec3d.ZERO;
@@ -96,7 +88,6 @@ public class FlyHandler {
         targetPos = pos;
         active = true;
         decelerating = false;
-        strafeTimer = 0;
     }
 
     public static void stop() {
@@ -111,7 +102,6 @@ public class FlyHandler {
         lastPathRequestTime = 0;
         resetKeys();
         resetAotvState();
-        lastFlyToTarget = null;
         pathfindingInProgress = false;
         clearPath();
         RotationHandler.reset();
@@ -144,7 +134,6 @@ public class FlyHandler {
 
         if (pathfindingInProgress) return;
 
-        lastFlyToTarget = goal;
         targetPos = goal;
         active = true;
         decelerating = false;
@@ -218,8 +207,7 @@ public class FlyHandler {
             if (path != null && !path.isEmpty()) clearPath();
             tickDirect(client, player, pos, delta, horizDist, fullDist);
         } else {
-            if ((path == null || path.isEmpty())
-                    && now - lastPathRequestTime > PATH_REQUEST_COOLDOWN_MS) {
+            if (now - lastPathRequestTime > PATH_REQUEST_COOLDOWN_MS) {
                 lastPathRequestTime = now;
                 flyTo(targetPos);
             }
@@ -312,10 +300,10 @@ public class FlyHandler {
 
         boolean shouldMove = facingTarget && fullDist > SLOW_STOP_DISTANCE;
         float relAngle = wrapDegrees(player.getYaw() - targetYawPath);
-        setMovementKeysForAngle(client, relAngle, shouldMove);
+        setMovementKeysForAngle(client, relAngle, shouldMove, fullDist);
         player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
 
-        if (facingTarget) {
+        if (shouldMove) {
             jump.setPressed(wantUp);
             sneak.setPressed(wantDown);
         } else {
@@ -336,10 +324,10 @@ public class FlyHandler {
 
         double rawGroundDist = rawNode.subtract(pos).length();
         if (rawGroundDist <= 1.2) {
+            int pathSize = path.size();
             pathIndex++;
-            if (pathIndex >= path.size()) {
-                path = null;
-                clearPath();
+            clearPath();
+            if (pathIndex >= pathSize) {
                 stop();
                 return;
             }
@@ -388,10 +376,10 @@ public class FlyHandler {
 
         boolean shouldMove = facingTarget && fullDist > SLOW_STOP_DISTANCE;
         float relAngle = wrapDegrees(player.getYaw() - targetYaw);
-        setMovementKeysForAngle(client, relAngle, shouldMove);
+        setMovementKeysForAngle(client, relAngle, shouldMove, fullDist);
         player.setSprinting(shouldMove && Math.abs(relAngle) < 50f);
 
-        if (facingTarget) {
+        if (shouldMove) {
             jump.setPressed(wantUp);
             sneak.setPressed(wantDown);
         } else {
@@ -399,17 +387,25 @@ public class FlyHandler {
             sneak.setPressed(false);
         }
 
-        if (facingTarget && player.isOnGround() && wantUp) {
+        if (player.isOnGround() && wantUp && shouldMove) {
             player.jump();
             lastJumpTime = System.currentTimeMillis();
         }
     }
 
-    private static void setMovementKeysForAngle(MinecraftClient client, float relAngle, boolean shouldMove) {
+    private static void setMovementKeysForAngle(MinecraftClient client, float relAngle, boolean shouldMove, double distanceToTarget) {
         KeyBinding forward = client.options.forwardKey;
         KeyBinding back    = client.options.backKey;
         KeyBinding left    = client.options.leftKey;
         KeyBinding right   = client.options.rightKey;
+
+        if (distanceToTarget <= 2) {
+            forward.setPressed(false);
+            back.setPressed(true);
+            left.setPressed(false);
+            right.setPressed(false);
+            return;
+        }
 
         if (!shouldMove) {
             forward.setPressed(false);
@@ -563,7 +559,7 @@ public class FlyHandler {
         return hit.getType() == HitResult.Type.BLOCK;
     }
 
-    private static int findAotvSlot(ClientPlayerEntity player) {
+    public static int findAotvSlot(ClientPlayerEntity player) {
         for (int i = 0; i < 9; i++) {
             ItemStack stack = player.getInventory().getStack(i);
             if (!stack.isEmpty()) {
