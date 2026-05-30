@@ -70,11 +70,11 @@ public class PestHelper {
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
         if (!Faketils.config().pestHelper) return;
-        //RenderUtils.renderCurrentPath(event.camera.getPos(), event);
+        //RenderUtils.renderCurrentPath(event.camera.getCameraPos(), event);
         if (!Utils.isInGarden()) return;
         if (mc.player == null || mc.world == null) return;
 
-        Vec3d cameraPos = event.camera.getPos();
+        Vec3d cameraPos = event.camera.getCameraPos();
 
         for (Entity entity : mc.world.getEntities()) {
             if (entity instanceof ArmorStandEntity armorStand) {

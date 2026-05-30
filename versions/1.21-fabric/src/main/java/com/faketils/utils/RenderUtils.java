@@ -46,7 +46,7 @@ public class RenderUtils {
         );
 
         addCube(cube, baseMatrix, half, red, green, blue, cubeAlpha);
-        RenderLayer.getDebugQuads().draw(cube.end());
+        RenderLayers.debugFilledBox().draw(cube.end());
 
         Matrix4f beamMatrix = new Matrix4f(baseMatrix)
                 .translate(0f, 0.5f, 0f)
@@ -58,7 +58,7 @@ public class RenderUtils {
         );
 
         addCube(beam, beamMatrix, 0.5f, red, green, blue, alpha);
-        RenderLayer.getDebugQuads().draw(beam.end());
+        RenderLayers.debugFilledBox().draw(beam.end());
 
         if (waypointName != null && !waypointName.isEmpty()) {
             renderWaypointName(
@@ -153,7 +153,7 @@ public class RenderUtils {
         float blue  =  (color        & 0xFF) / 255f;
         float alpha = ((color >> 24) & 0xFF) / 255f;
 
-        Vec3d cam = event.camera.getPos();
+        Vec3d cam = event.camera.getCameraPos();
 
         Vec3d startRel = start.subtract(cam);
         Vec3d endRel = end.subtract(cam);
@@ -176,8 +176,8 @@ public class RenderUtils {
         buffer.vertex(endMatrix, (float) end.x, (float) end.y, (float) end.z)
                 .color(red, green, blue, alpha);
 
-        RenderSystem.lineWidth(width);
-        RenderLayer.getLines().draw(buffer.end());
+        //RenderSystem.lineWidth(width);
+        RenderLayers.lines().draw(buffer.end());
     }
 
     public static void renderLineToEntity(

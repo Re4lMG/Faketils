@@ -6,7 +6,7 @@ group = 'com.faketils'
 version = "${mod_version}"
 
 base {
-    archivesName = "${mod_name}-Fabric-1.21.10"
+    archivesName = "${mod_name}-Fabric-1.21.11"
 }
 
 java {
@@ -30,15 +30,15 @@ repositories {
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 
-    minecraft "com.mojang:minecraft:1.21.10"
-    mappings "net.fabricmc:yarn:1.21.10+build.1:v2"
+    minecraft "com.mojang:minecraft:1.21.11"
+    mappings "net.fabricmc:yarn:1.21.11+build.1:v2"
 
     modImplementation "net.fabricmc:fabric-loader:0.18.2"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:0.138.4+1.21.10"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.138.4+1.21.11"
 
-    modImplementation "dev.isxander:yet-another-config-lib:3.8.2+1.21.10-fabric"
+    modImplementation "dev.isxander:yet-another-config-lib:3.8.2+1.21.11-fabric"
 
-    modImplementation "com.terraformersmc:modmenu:16.0.0"
+    modImplementation "com.terraformersmc:modmenu:17.0.0"
 
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'

@@ -924,7 +924,7 @@ public class Farming {
 
                 if (noBlockAbove) {
                     Utils.log("Etherwarp reached top (y=" + (int) mc.player.getY() + ") → restoring state");
-                    aotvPhase = AotvPhase.RESTORE;
+                    aotvPhase = AotvPhase.DONE;
                 } else {
                     aotvPhase = AotvPhase.SET_ROTATION;
                 }
@@ -948,6 +948,8 @@ public class Farming {
             case DONE: {
                 if (RotationHandler.active) break;
                 if (now - aotvPhaseStart < 100) break;
+
+                mc.options.sneakKey.setPressed(false);
 
                 aotvPhase        = AotvPhase.IDLE;
                 aotvHotbarSlot   = -1;
@@ -1567,7 +1569,7 @@ public class Farming {
             return;
         }
 
-        Vec3d cameraPos = event.camera.getPos();
+        Vec3d cameraPos = event.camera.getCameraPos();
         if (Faketils.config().funnyWaypoints) {
             for (var entry : FarmingWaypoints.WAYPOINTS.entrySet()) {
                 String type = entry.getKey();
