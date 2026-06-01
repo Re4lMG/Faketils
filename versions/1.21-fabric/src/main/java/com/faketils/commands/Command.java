@@ -10,12 +10,12 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.*;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.*;
 
 public class Command {
 
@@ -53,7 +53,7 @@ public class Command {
                                         RotationHandler.setTarget(yaw, pitch);
 
                                         context.getSource().sendFeedback(
-                                                Text.literal("§7[§bFaketils§7] §aRotation target: yaw=§e" + yaw + "§a, pitch=§e" + pitch)
+                                                Component.literal("§7[§bFaketils§7] §aRotation target: yaw=§e" + yaw + "§a, pitch=§e" + pitch)
                                         );
                                         return 1;
                                     })
@@ -70,10 +70,10 @@ public class Command {
                                                 int y = IntegerArgumentType.getInteger(context, "y");
                                                 int z = IntegerArgumentType.getInteger(context, "z");
 
-                                                FlyHandler.flyTo(new Vec3d(x, y, z));
+                                                FlyHandler.flyTo(new Vec3(x, y, z));
 
                                                 context.getSource().sendFeedback(
-                                                        Text.literal("§7[§bFaketils§7] §aTarget set")
+                                                        Component.literal("§7[§bFaketils§7] §aTarget set")
                                                 );
                                                 return 1;
                                             })
@@ -86,7 +86,7 @@ public class Command {
                         RotationHandler.reset();
                         FlyHandler.stop();
                         context.getSource().sendFeedback(
-                                Text.literal("§7[§bFaketils§7] §eRotation reset")
+                                Component.literal("§7[§bFaketils§7] §eRotation reset")
                         );
                         return 1;
                     })
@@ -102,20 +102,20 @@ public class Command {
     }
 
     private static int handleSet(FabricClientCommandSource source, String action) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.world == null) return 0;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return 0;
 
         action = action.toLowerCase();
 
         if (action.equals("reset")) {
             FarmingWaypoints.WAYPOINTS.clear();
             FarmingWaypoints.save();
-            source.sendFeedback(Text.literal("§7[§bFaketils§7] §eAll waypoints cleared!"));
+            source.sendFeedback(Component.literal("§7[§bFaketils§7] §eAll waypoints cleared!"));
             return 1;
         }
 
         double yOffset = 0.5;
-        BlockPos pos = BlockPos.ofFloored(
+        BlockPos pos = BlockPos.containing(
                 mc.player.getX(),
                 mc.player.getY() + yOffset,
                 mc.player.getZ()
@@ -124,18 +124,18 @@ public class Command {
         switch (action) {
             case "right" -> {
                 FarmingWaypoints.WAYPOINTS.computeIfAbsent("right", k -> new java.util.ArrayList<>()).add(pos);
-                source.sendFeedback(Text.literal("§7[§bFaketils§7] §aRight waypoint added!"));
+                source.sendFeedback(Component.literal("§7[§bFaketils§7] §aRight waypoint added!"));
             }
             case "left" -> {
                 FarmingWaypoints.WAYPOINTS.computeIfAbsent("left", k -> new java.util.ArrayList<>()).add(pos);
-                source.sendFeedback(Text.literal("§7[§bFaketils§7] §cLeft waypoint added!"));
+                source.sendFeedback(Component.literal("§7[§bFaketils§7] §cLeft waypoint added!"));
             }
             case "warp" -> {
                 FarmingWaypoints.WAYPOINTS.computeIfAbsent("warp", k -> new java.util.ArrayList<>()).add(pos);
-                source.sendFeedback(Text.literal("§7[§bFaketils§7] §eWarp waypoint added!"));
+                source.sendFeedback(Component.literal("§7[§bFaketils§7] §eWarp waypoint added!"));
             }
             default -> {
-                source.sendFeedback(Text.literal("§7[§bFaketils§7] §cInvalid argument. Use right/left/warp/reset"));
+                source.sendFeedback(Component.literal("§7[§bFaketils§7] §cInvalid argument. Use right/left/warp/reset"));
                 return 0;
             }
         }

@@ -2,45 +2,37 @@ package com.faketils.utils;
 
 import com.faketils.Faketils;
 import com.faketils.events.TabListParser;
-import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.*;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.scoreboard.*;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.DisplaySlot;
 
 import java.util.*;
 
 public class Utils {
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static String stripColorCodes(String s) {
-        return s == null ? "" : Formatting.strip(s);
+        return s == null ? "" : ChatFormatting.stripFormatting(s);
     }
 
     public static String cleanSB(String s) {
         if (s == null) return "";
 
-        String stripped = Formatting.strip(s);
+        String stripped = ChatFormatting.stripFormatting(s);
 
         return stripped
                 .replaceAll("[^\\p{Print}]", "")
@@ -50,41 +42,22 @@ public class Utils {
     public static void log(String message) {
         if (!Faketils.config().debug) return;
         if (mc.player != null) {
-            mc.player.sendMessage(
-                    Text.literal("§7[§bFaketils§7] §f" + message),
-                    false
+            mc.player.sendSystemMessage(
+                    Component.literal("§7[§bFaketils§7] §f" + message)
             );
         }
     }
-    /*
-    public static void logSound(PlaySoundS2CPacket packet) {
-        String id = Registries.SOUND_EVENT.getId(packet.getSound().getIdAsString());
-
-        double x = packet.getX();
-        double y = packet.getY();
-        double z = packet.getZ();
-
-        float volume = packet.getVolume();
-        float pitch = packet.getPitch();
-
-        log(
-                "[Sound] " + id +
-                        " @ " + x + ", " + y + ", " + z +
-                        " vol=" + volume +
-                        " pitch=" + pitch
-        );
-    }*/
 
     public static String getHeadTexture(ItemStack stack) {
-        if (!stack.isOf(Items.PLAYER_HEAD) || !stack.contains(DataComponentTypes.PROFILE)) {
+        if (!stack.is(Items.PLAYER_HEAD) || !stack.has(DataComponents.PROFILE)) {
             return "";
         }
 
-        ProfileComponent profileComponent = stack.get(DataComponentTypes.PROFILE);
+        ResolvableProfile profileComponent = stack.get(DataComponents.PROFILE);
         if (profileComponent == null) return "";
 
-        GameProfile profile = profileComponent.getGameProfile();
-        if (profile == null) return "";
+        com.mojang.authlib.GameProfile profile = profileComponent.partialProfile();
+        if (profile.properties() == null) return "";
 
         return profile.properties().get("textures").stream()
                 .filter(Objects::nonNull)
@@ -93,33 +66,32 @@ public class Utils {
                 .orElse("");
     }
 
-    public static void simulateUseItem(ClientPlayerInteractionManager interactionManager) {
+    public static void simulateUseItem(MultiPlayerGameMode interactionManager) {
         if (mc.player == null) return;
-        interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-        //mc.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+        interactionManager.useItem(mc.player, InteractionHand.MAIN_HAND);
     }
 
     public static List<String> getSidebarLines() {
         List<String> lines = new ArrayList<>();
 
-        if (mc.world == null) return lines;
+        if (mc.level == null) return lines;
 
-        Scoreboard scoreboard = mc.world.getScoreboard();
-        ScoreboardObjective objective =
-                scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+        Scoreboard scoreboard = mc.level.getScoreboard();
+        Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
 
         if (objective == null) return lines;
 
-        List<Text> textLines = new ArrayList<>();
+        List<Component> textLines = new ArrayList<>();
 
-        for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-            String name = entry.name().toString();
-            Team team = scoreboard.getTeam(name);
+        for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+            String name = entry.owner();
+            PlayerTeam team = scoreboard.getPlayersTeam(name);
             if (team == null) continue;
 
-            Text line = Text.empty()
-                    .append(team.getPrefix())
-                    .append(team.getSuffix());
+            Component line = Component.empty()
+                    .copy()
+                    .append(team.getPlayerPrefix())
+                    .append(team.getPlayerSuffix());
 
             if (!line.getString().trim().isEmpty()) {
                 textLines.add(line);
@@ -128,7 +100,7 @@ public class Utils {
 
         Collections.reverse(textLines);
 
-        for (Text t : textLines) {
+        for (Component t : textLines) {
             lines.add(t.getString());
         }
 
@@ -136,10 +108,10 @@ public class Utils {
     }
 
     public static boolean isInSkyblock() {
-        if (mc.world == null || mc.player == null) return false;
-        if (mc.isInSingleplayer()) return false;
+        if (mc.level == null || mc.player == null) return false;
+        if (mc.hasSingleplayerServer()) return false;
 
-        ScoreboardObjective obj = mc.world.getScoreboard().getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+        Objective obj = mc.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
 
         if (obj == null) return false;
 
@@ -159,29 +131,5 @@ public class Utils {
             }
         }
         return "Unknown";
-    }
-
-    public static class FtVec {
-        public final double x;
-        public final double y;
-        public final double z;
-
-        public FtVec(double x, double y, double z) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-        public Vec3d toVec3d() {
-            return new Vec3d(x, y, z);
-        }
-
-        public FtVec add(double x, double y, double z) {
-            return new FtVec(this.x + x, this.y + y, this.z + z);
-        }
-
-        public Vec3d center() {
-            return new Vec3d(x + 0.5, y + 0.5, z + 0.5);
-        }
     }
 }

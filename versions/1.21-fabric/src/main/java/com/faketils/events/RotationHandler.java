@@ -1,7 +1,7 @@
 package com.faketils.events;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.Random;
 
@@ -40,8 +40,8 @@ public class RotationHandler {
     public static void tick() {
         if (!active) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        PlayerEntity player = client.player;
+        Minecraft client = Minecraft.getInstance();
+        Player player = client.player;
         if (player == null) return;
 
         long now = System.currentTimeMillis();
@@ -53,16 +53,16 @@ public class RotationHandler {
         float dtSeconds = Math.min((now - lastTickMs) / 1000f, 0.05f);
         lastTickMs = now;
 
-        float currentYaw   = player.getYaw();
-        float currentPitch = player.getPitch();
+        float currentYaw   = player.getYRot();
+        float currentPitch = player.getXRot();
 
         float yawDiff   = normalizeAngle(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
         float maxDiff = Math.max(Math.abs(yawDiff), Math.abs(pitchDiff));
         if (maxDiff < 0.1f) {
-            player.setYaw(targetYaw);
-            player.setPitch(targetPitch);
+            player.setYRot(targetYaw);
+            player.setXRot(targetPitch);
             active = false;
             return;
         }
@@ -85,12 +85,12 @@ public class RotationHandler {
         yawMove   += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * dtSeconds;
         pitchMove += (RANDOM.nextFloat() - 0.5f) * JITTER_AMPLITUDE * dtSeconds;
 
-        player.setYaw(currentYaw + yawMove);
-        player.setPitch(Math.max(-90, Math.min(90, currentPitch + pitchMove)));
+        player.setYRot(currentYaw + yawMove);
+        player.setXRot(Math.max(-90, Math.min(90, currentPitch + pitchMove)));
 
         if (Math.abs(yawDiff) < 0.1f && Math.abs(pitchDiff) < 0.1f) {
-            player.setYaw(targetYaw);
-            player.setPitch(targetPitch);
+            player.setYRot(targetYaw);
+            player.setXRot(targetPitch);
             active = false;
         }
     }

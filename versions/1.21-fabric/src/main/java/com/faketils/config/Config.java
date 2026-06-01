@@ -6,12 +6,11 @@ import dev.isxander.yacl3.config.v2.api.autogen.Boolean;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
-
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.resources.Identifier;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -19,36 +18,36 @@ public class Config {
 
     public static final ConfigClassHandler<Config> HANDLER =
             ConfigClassHandler.createBuilder(Config.class)
-                    .id(Identifier.of("faketils", "config"))
+                    .id(Identifier.fromNamespaceAndPath("faketils", "config"))
                     .serializer(config -> GsonConfigSerializerBuilder.create(config)
                             .setPath(FabricLoader.getInstance().getConfigDir().resolve("faketils.json"))
                             .setJson5(false)
                             .build())
                     .build();
 
-    public static final KeyBinding.Category FAKETILS_CATEGORY =
-            new KeyBinding.Category(Identifier.of("faketils"));
+    private static final KeyMapping.Category FAKETILS_CATEGORY =
+            KeyMapping.Category.register(Identifier.fromNamespaceAndPath("minecraft", "faketils"));
 
-    public static final KeyBinding toggleMacro =
-            KeyBindingHelper.registerKeyBinding(
-                    new KeyBinding("key.faketils.toggle_macro",
-                            InputUtil.Type.KEYSYM,
+    public static final KeyMapping toggleMacro =
+            KeyMappingHelper.registerKeyMapping(
+                    new KeyMapping("key.faketils.toggle_macro",
+                            InputConstants.Type.KEYSYM,
                             GLFW.GLFW_KEY_F8,
                             FAKETILS_CATEGORY)
             );
 
-    public static final KeyBinding pauseMacro =
-            KeyBindingHelper.registerKeyBinding(
-                    new KeyBinding("key.faketils.pause_macro",
-                            InputUtil.Type.KEYSYM,
+    public static final KeyMapping pauseMacro =
+            KeyMappingHelper.registerKeyMapping(
+                    new KeyMapping("key.faketils.pause_macro",
+                            InputConstants.Type.KEYSYM,
                             GLFW.GLFW_KEY_P,
                             FAKETILS_CATEGORY)
             );
 
-    public static final KeyBinding resetFakeFails =
-            KeyBindingHelper.registerKeyBinding(
-                    new KeyBinding("key.faketils.reset_fails",
-                            InputUtil.Type.KEYSYM,
+    public static final KeyMapping resetFakeFails =
+            KeyMappingHelper.registerKeyMapping(
+                    new KeyMapping("key.faketils.reset_fails",
+                            InputConstants.Type.KEYSYM,
                             GLFW.GLFW_KEY_BACKSPACE,
                             FAKETILS_CATEGORY)
             );

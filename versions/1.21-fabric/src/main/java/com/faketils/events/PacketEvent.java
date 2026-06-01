@@ -1,16 +1,16 @@
 package com.faketils.events;
 
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
 
 public class PacketEvent {
 
     public interface Send {
-        void onSend(Packet<?> packet, ClientConnection connection);
+        void onSend(Packet<?> packet, Connection connection);
     }
 
     public interface Receive {
-        void onReceive(Packet<?> packet, ClientConnection connection);
+        void onReceive(Packet<?> packet, Connection connection);
     }
 
     public static Send SEND = (packet, connection) -> {};

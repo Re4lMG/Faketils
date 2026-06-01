@@ -1,22 +1,20 @@
 package com.faketils.features;
 
 import com.faketils.Faketils;
-import com.faketils.config.Config;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
 import com.faketils.utils.RenderUtils;
 import com.faketils.utils.Utils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.phys.Vec3;
 
-import java.util.List;
 import java.util.Set;
 
 public class PestHelper {
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     public static class Pest {
         public final String name;
@@ -70,17 +68,16 @@ public class PestHelper {
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
         if (!Faketils.config().pestHelper) return;
-        //RenderUtils.renderCurrentPath(event.camera.getCameraPos(), event);
         if (!Utils.isInGarden()) return;
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
-        Vec3d cameraPos = event.camera.getCameraPos();
+        Vec3 cameraPos = event.camera.position();
 
-        for (Entity entity : mc.world.getEntities()) {
-            if (entity instanceof ArmorStandEntity armorStand) {
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof ArmorStand armorStand) {
                 Pest pest = getPestFromHead(armorStand);
                 if (pest != null) {
-                    Vec3d target = armorStand.getLerpedPos(event.tickDelta).add(0, 1.15, 0);
+                    Vec3 target = armorStand.getPosition(event.tickDelta).add(0, 1.15, 0);
                     String name = pest.name;
 
                     if (pest.name.equals("Earthworm Tail")) name = "";
@@ -97,14 +94,14 @@ public class PestHelper {
         }
     }
 
-    public static Pest getPestFromHead(ArmorStandEntity entity) {
-        if (!entity.hasStackEquipped(EquipmentSlot.HEAD)) {
+    public static Pest getPestFromHead(ArmorStand entity) {
+        net.minecraft.world.item.ItemStack headItem = entity.getItemBySlot(EquipmentSlot.HEAD);
+
+        if (headItem.isEmpty()) {
             return null;
         }
 
-        String texture = Utils.getHeadTexture(
-                entity.getEquippedStack(EquipmentSlot.HEAD)
-        );
+        String texture = Utils.getHeadTexture(headItem);
 
         for (Pest pest : PESTS) {
             if (pest.texture.equals(texture)) {

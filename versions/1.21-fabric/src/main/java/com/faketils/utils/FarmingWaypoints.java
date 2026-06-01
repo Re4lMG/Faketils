@@ -1,9 +1,8 @@
 package com.faketils.utils;
 
-import com.faketils.Faketils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 import java.io.File;
 import java.io.IOException;

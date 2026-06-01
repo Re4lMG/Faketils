@@ -4,20 +4,23 @@ import com.faketils.Faketils;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.item.DyeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ItemSlotMouseAction;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.DyeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.client.gui.ItemSlotMouseAction;
+import net.minecraft.world.inventory.Slot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -25,18 +28,18 @@ public class Experiments {
     private enum ExperimentType {
         CHRONOMATRON,
         ULTRASEQUENCER,
-        SUPERPAIRS, // not implemented
+        SUPERPAIRS,
         END,
         NONE
     }
 
     public static void init() {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
-                onScreenOpen(screen);
+            onScreenOpen(screen);
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-                onTick(client);
+            onTick(client);
         });
     }
 
@@ -61,7 +64,7 @@ public class Experiments {
             return;
         }
 
-        if (!(screen instanceof GenericContainerScreen)) {
+        if (!(screen instanceof AbstractContainerScreen)) {
             clearAll();
             return;
         }
@@ -81,20 +84,19 @@ public class Experiments {
         }
     }
 
-    public static void onTick(MinecraftClient client) {
+    public static void onTick(Minecraft client) {
         if (!Faketils.config().exp ||
                 currentExperiment == ExperimentType.NONE ||
                 client.player == null) {
             return;
         }
 
-        if (!(client.currentScreen instanceof GenericContainerScreen)) {
+        if (!(client.screen instanceof AbstractContainerScreen)) {
             clearAll();
             return;
         }
 
-        ScreenHandler handler = client.player.currentScreenHandler;
-        ItemStack center = handler.slots.get(49).getStack();
+        AbstractContainerMenu handler = client.player.containerMenu;
         long now = System.currentTimeMillis();
 
         if (startDelay == -1) {
@@ -112,34 +114,34 @@ public class Experiments {
         }
     }
 
-    private static void tickEnd(MinecraftClient client, long now) {
+    private static void tickEnd(Minecraft client, long now) {
         if (endDelay == -1) {
             endDelay = now + rng.nextInt(END_DELAY_MAX - END_DELAY_MIN) + END_DELAY_MIN;
             Utils.log("End delay: " + (endDelay - now) + "ms");
         }
 
         if (now > endDelay) {
-            client.player.closeHandledScreen();
+            client.player.closeContainer();
             clearAll();
         }
     }
 
-    private static void tickChrono(MinecraftClient client, ScreenHandler handler, long now) {
-        ItemStack flag = handler.slots.get(49).getStack();
-        DefaultedList<Slot> container = handler.slots;
+    private static void tickChrono(Minecraft client, AbstractContainerMenu handler, long now) {
+        ItemStack flag = handler.slots.get(49).getItem();
+        List<Slot> container = handler.slots;
 
-        if (flag.isOf(Items.GLOWSTONE) &&
-                !container.get(lastAdded).getStack().hasGlint()) {
+        if (flag.is(Items.GLOWSTONE) &&
+                !container.get(lastAdded).getItem().hasFoil()) {
             sequenceAdded = false;
             if (chronomatronOrder.size() > 10) {
-                client.player.closeHandledScreen();
+                client.player.closeContainer();
             }
         }
 
-        if (!sequenceAdded && flag.isOf(Items.CLOCK)) {
+        if (!sequenceAdded && flag.is(Items.CLOCK)) {
             for (int i = 10; i <= 43; i++) {
-                ItemStack stack = container.get(i).getStack();
-                if (!stack.isEmpty() && stack.hasGlint()) {
+                ItemStack stack = container.get(i).getItem();
+                if (!stack.isEmpty() && stack.hasFoil()) {
                     chronomatronOrder.add(i);
                     Utils.log("Added glowing slot: " + i);
                     lastAdded = i;
@@ -156,7 +158,7 @@ public class Experiments {
             }
         }
 
-        if (sequenceAdded && flag.isOf(Items.CLOCK) &&
+        if (sequenceAdded && flag.is(Items.CLOCK) &&
                 chronomatronOrder.size() > clicks) {
 
             if (clickDelay == -1) {
@@ -165,28 +167,28 @@ public class Experiments {
             }
 
             if (now > clickDelay) {
-                clickSlot(client, handler, chronomatronOrder.get(clicks), 2, SlotActionType.CLONE);
+                clickSlot(client, handler, chronomatronOrder.get(clicks), 2, ContainerInput.CLONE);
                 clicks++;
                 clickDelay = now + rng.nextInt(1000 - 250) + 250;
             }
         }
     }
 
-    private static void tickUltra(MinecraftClient client, ScreenHandler handler, long now) {
-        ItemStack flag = handler.slots.get(49).getStack();
-        DefaultedList<Slot> container = handler.slots;
+    private static void tickUltra(Minecraft client, AbstractContainerMenu handler, long now) {
+        ItemStack flag = handler.slots.get(49).getItem();
+        List<Slot> container = handler.slots;
 
-        if (flag.isOf(Items.CLOCK)) {
+        if (flag.is(Items.CLOCK)) {
             sequenceAdded = false;
         }
 
-        if (!sequenceAdded && flag.isOf(Items.GLOWSTONE)) {
-            if (!container.get(44).hasStack()) return;
+        if (!sequenceAdded && flag.is(Items.GLOWSTONE)) {
+            if (!container.get(44).hasItem()) return;
 
             ultrasequencerOrder.clear();
 
             for (int i = 9; i <= 44; i++) {
-                ItemStack stack = container.get(i).getStack();
+                ItemStack stack = container.get(i).getItem();
                 Item item = stack.getItem();
                 if (item instanceof DyeItem || item == Items.BONE_MEAL || item == Items.INK_SAC ||
                         item == Items.LAPIS_LAZULI || item == Items.COCOA_BEANS) {
@@ -199,7 +201,7 @@ public class Experiments {
             clickDelay = -1;
         }
 
-        if (flag.isOf(Items.CLOCK) && ultrasequencerOrder.containsKey(clicks)) {
+        if (flag.is(Items.CLOCK) && ultrasequencerOrder.containsKey(clicks)) {
             if (clickDelay == -1) {
                 clickDelay = now + rng.nextInt(750 - 250) + 250;
                 Utils.log("Ultra Click " + (clicks + 1) + " in " + (clickDelay - now) + "ms");
@@ -207,12 +209,12 @@ public class Experiments {
 
             if (now > clickDelay) {
                 if (ultrasequencerOrder.size() > 6) {
-                    client.player.closeHandledScreen();
+                    client.player.closeContainer();
                 }
 
                 Integer slot = ultrasequencerOrder.get(clicks);
                 if (slot != null) {
-                    clickSlot(client, handler, slot, 2, SlotActionType.CLONE);
+                    clickSlot(client, handler, slot, 2, ContainerInput.CLONE);
                     clicks++;
                     clickDelay = now + rng.nextInt(750 - 250) + 250;
                 }
@@ -231,14 +233,14 @@ public class Experiments {
         startDelay = -1;
     }
 
-    public static void clickSlot(MinecraftClient client, ScreenHandler handler, int slot,
-                                 int button, SlotActionType actionType) {
-        assert client.interactionManager != null;
-        client.interactionManager.clickSlot(
-                handler.syncId,
+    public static void clickSlot(Minecraft client, AbstractContainerMenu handler, int slot, int button, ContainerInput action) {
+        assert client.gameMode != null;
+
+        client.gameMode.handleContainerInput(
+                handler.containerId,
                 slot,
                 button,
-                actionType,
+                action,
                 client.player
         );
     }

@@ -1,16 +1,16 @@
 plugins {
-    id 'fabric-loom' version '1.14.10'
+    id 'net.fabricmc.fabric-loom' version '1.15.+'
 }
 
 group = 'com.faketils'
 version = "${mod_version}"
 
 base {
-    archivesName = "${mod_name}-Fabric-1.21.11"
+    archivesName = "${mod_name}-Fabric-26.1"
 }
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
     withSourcesJar()
 }
 
@@ -30,18 +30,17 @@ repositories {
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 
-    minecraft "com.mojang:minecraft:1.21.11"
-    mappings "net.fabricmc:yarn:1.21.11+build.1:v2"
+    minecraft "com.mojang:minecraft:26.1"
 
-    modImplementation "net.fabricmc:fabric-loader:0.18.2"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:0.138.4+1.21.11"
+    implementation "net.fabricmc:fabric-loader:0.18.4"
+    implementation "net.fabricmc.fabric-api:fabric-api:0.150.0+26.1.2"
 
-    modImplementation "dev.isxander:yet-another-config-lib:3.8.2+1.21.11-fabric"
+    implementation "dev.isxander:yet-another-config-lib:3.9.3+26.1-fabric"
 
-    modImplementation "com.terraformersmc:modmenu:17.0.0"
+    implementation "com.terraformersmc:modmenu:18.0.0-beta.1"
 
-    compileOnly 'org.projectlombok:lombok:1.18.34'
-    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
 }
 
 loom {

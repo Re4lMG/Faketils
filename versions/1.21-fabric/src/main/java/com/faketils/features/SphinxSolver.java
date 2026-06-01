@@ -3,10 +3,10 @@ package com.faketils.features;
 import com.faketils.Faketils;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.Random;
 
 public final class SphinxSolver {
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private static final Random RANDOM = new Random();
 
     private static final List<SphinxQuestion> questions = new ArrayList<>();
@@ -28,7 +28,7 @@ public final class SphinxSolver {
         });
     }
 
-    private static void onChat(Text message) {
+    private static void onChat(Component message) {
         if (!Utils.isInSkyblock()) return;
         if (!Faketils.config().sphinxSolver) return;
 
@@ -48,16 +48,16 @@ public final class SphinxSolver {
         }
     }
 
-    private static void autoClickIfAnswer(Text component) {
+    private static void autoClickIfAnswer(Component component) {
         if (pendingAnswer == null) return;
         scan(component);
     }
 
-    private static void scan(Text text) {
+    private static void scan(Component text) {
         scan(text, null);
     }
 
-    private static void scan(Text text, Style parentStyle) {
+    private static void scan(Component text, Style parentStyle) {
         if (mc.player == null) return;
         String cleanText = removeFormatting(text.getString()).trim();
         Style style = text.getStyle();
@@ -66,35 +66,48 @@ public final class SphinxSolver {
         Style effectiveStyle = (clickEvent != null) ? style : parentStyle;
         ClickEvent effectiveClick = (effectiveStyle != null) ? effectiveStyle.getClickEvent() : null;
 
-        if (effectiveClick instanceof ClickEvent.RunCommand
-                && cleanText.toLowerCase().contains(pendingAnswer.toLowerCase())) {
+        if (effectiveClick != null && effectiveClick.action() == ClickEvent.Action.RUN_COMMAND) {
+            String str = effectiveClick.toString();
+            int index = str.indexOf("value=");
+            String commandText = "";
+            if (index != -1) {
+                commandText = str.substring(index + 6, str.length() - 1);
+            }
 
-            final Style toClick = effectiveStyle;
-            long delay = 750L + RANDOM.nextInt(750);
+            if (cleanText.toLowerCase().contains(pendingAnswer.toLowerCase())) {
+                final Style toClick = effectiveStyle;
+                long delay = 750L + RANDOM.nextInt(750);
 
-            new Thread(() -> {
-                try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-                mc.player.sendMessage(
-                        Text.literal("§7[§bFaketils§7] §fAnswer: " + pendingAnswer),
-                        false
-                );
-                try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
-                mc.execute(() -> {
-                    if (toClick.getClickEvent() instanceof ClickEvent.RunCommand runCommand) {
-                        String command = runCommand.command();
-                        if (command.startsWith("/")) {
-                            mc.player.networkHandler.sendChatCommand(command.substring(1));
-                        } else {
-                            mc.player.networkHandler.sendChatMessage(command);
+                new Thread(() -> {
+                    try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+                    mc.player.sendSystemMessage(
+                            Component.literal("§7[§bFaketils§7] §fAnswer: " + pendingAnswer)
+                    );
+                    try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
+                    mc.execute(() -> {
+                        ClickEvent ce = toClick.getClickEvent();
+                        if (ce != null && ce.action() == ClickEvent.Action.RUN_COMMAND) {
+                            String clickStr = ce.toString();
+                            int clickIndex = clickStr.indexOf("value=");
+                            String command = "";
+                            if (clickIndex != -1) {
+                                command = clickStr.substring(clickIndex + 6, clickStr.length() - 1);
+                            }
+
+                            if (command.startsWith("/")) {
+                                mc.getConnection().sendCommand(command.substring(1));
+                            } else {
+                                mc.getConnection().sendChat(command);
+                            }
+                            pendingAnswer = null;
                         }
-                        pendingAnswer = null;
-                    }
-                });
-            }).start();
-            return;
+                    });
+                }).start();
+                return;
+            }
         }
 
-        for (Text sibling : text.getSiblings()) {
+        for (Component sibling : text.getSiblings()) {
             scan(sibling, effectiveStyle);
         }
     }

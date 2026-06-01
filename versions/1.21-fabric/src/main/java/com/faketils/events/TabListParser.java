@@ -1,8 +1,8 @@
 package com.faketils.events;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,17 +10,17 @@ import java.util.List;
 public class TabListParser {
 
     public static List<String> getTabLines() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
-        if (client.getNetworkHandler() == null) {
+        if (client.getConnection() == null) {
             return List.of();
         }
 
         List<String> lines = new ArrayList<>();
 
-        for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+        for (PlayerInfo entry : client.getConnection().getOnlinePlayers()) {
 
-            Text displayName = entry.getDisplayName();
+            Component displayName = entry.getTabListDisplayName();
             if (displayName == null) continue;
 
             String line = displayName.getString();

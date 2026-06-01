@@ -1,8 +1,8 @@
 package com.faketils.pathing;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.block.BlockState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.*;
 
@@ -16,7 +16,8 @@ public class Pathfinder {
             { 1, -1, 0}, {-1, -1, 0}, {0, -1,  1}, {0, -1, -1},
     };
 
-    public static List<BlockPos> findPath(BlockPos start, BlockPos end, World world, int maxNodes) {
+    public static List<BlockPos> findPath(BlockPos start, BlockPos end, Level world, int maxNodes) {
+
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fScore));
         Map<BlockPos, Node> allNodes = new HashMap<>();
         Set<BlockPos> closedSet = new HashSet<>();
@@ -26,19 +27,21 @@ public class Pathfinder {
         allNodes.put(start, startNode);
 
         int count = 0;
+
         while (!openSet.isEmpty() && count++ < maxNodes) {
             Node current = openSet.poll();
 
             if (closedSet.contains(current.pos)) continue;
             closedSet.add(current.pos);
 
-            if (current.pos.isWithinDistance(end, 1.5)) {
+            if (current.pos.closerThan(end, 1.5)) {
                 List<BlockPos> raw = reconstructPath(current);
                 return smoothPath(raw, world);
             }
 
             for (int[] offset : NEIGHBORS) {
-                BlockPos neighbour = current.pos.add(offset[0], offset[1], offset[2]);
+                BlockPos neighbour = current.pos.offset(offset[0], offset[1], offset[2]);
+
                 if (closedSet.contains(neighbour)) continue;
                 if (!isPassable(neighbour, world)) continue;
 
@@ -46,6 +49,7 @@ public class Pathfinder {
                 double tentativeG = current.gScore + moveCost;
 
                 Node neighbourNode = allNodes.get(neighbour);
+
                 if (neighbourNode == null) {
                     neighbourNode = new Node(neighbour, Double.POSITIVE_INFINITY, heuristic(neighbour, end));
                     allNodes.put(neighbour, neighbourNode);
@@ -59,17 +63,19 @@ public class Pathfinder {
                 }
             }
         }
+
         return null;
     }
 
-    private static boolean isPassable(BlockPos pos, World world) {
-        BlockState feet  = world.getBlockState(pos);
-        BlockState head  = world.getBlockState(pos.up());
+    private static boolean isPassable(BlockPos pos, Level world) {
+        BlockState feet = world.getBlockState(pos);
+        BlockState head = world.getBlockState(pos.above());
+
         return feet.getCollisionShape(world, pos).isEmpty()
-                && head.getCollisionShape(world, pos.up()).isEmpty();
+                && head.getCollisionShape(world, pos.above()).isEmpty();
     }
 
-    private static List<BlockPos> smoothPath(List<BlockPos> path, World world) {
+    private static List<BlockPos> smoothPath(List<BlockPos> path, Level world) {
         if (path.size() < 3) return path;
 
         List<BlockPos> result = new ArrayList<>();
@@ -78,41 +84,53 @@ public class Pathfinder {
         int i = 0;
         while (i < path.size() - 1) {
             int j = path.size() - 1;
+
             while (j > i + 1 && !hasLineOfSight(path.get(i), path.get(j), world)) {
                 j--;
             }
+
             result.add(path.get(j));
             i = j;
         }
+
         return result;
     }
 
-    private static boolean hasLineOfSight(BlockPos from, BlockPos to, World world) {
+    private static boolean hasLineOfSight(BlockPos from, BlockPos to, Level world) {
+
         double fx = from.getX() + 0.5, fy = from.getY(), fz = from.getZ() + 0.5;
-        double tx = to.getX()   + 0.5, ty = to.getY(),   tz = to.getZ()   + 0.5;
+        double tx = to.getX() + 0.5, ty = to.getY(), tz = to.getZ() + 0.5;
 
         double dx = tx - fx, dy = ty - fy, dz = tz - fz;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
         if (length == 0) return true;
 
-        dx /= length; dy /= length; dz /= length;
+        dx /= length;
+        dy /= length;
+        dz /= length;
 
         double[] xOff = {-0.3, 0.3};
         double[] zOff = {-0.3, 0.3};
-        double[] yOff = { 0.1, 1.7};  // feet, head
+        double[] yOff = {0.1, 1.7};
 
         int steps = (int) Math.ceil(length);
+
         for (double xo : xOff) {
             for (double zo : zOff) {
                 for (double yo : yOff) {
                     for (int s = 1; s <= steps; s++) {
+
                         double t = (double) s / steps * length;
-                        BlockPos check = BlockPos.ofFloored(
+
+                        BlockPos check = BlockPos.containing(
                                 fx + dx * t + xo,
                                 fy + dy * t + yo,
                                 fz + dz * t + zo
                         );
+
                         BlockState state = world.getBlockState(check);
+
                         if (!state.getCollisionShape(world, check).isEmpty()) {
                             return false;
                         }
@@ -120,20 +138,23 @@ public class Pathfinder {
                 }
             }
         }
+
         return true;
     }
 
     private static double heuristic(BlockPos a, BlockPos b) {
-        return Math.sqrt(a.getSquaredDistance(b));
+        return Math.sqrt(a.distSqr(b));
     }
 
     private static List<BlockPos> reconstructPath(Node node) {
         List<BlockPos> path = new ArrayList<>();
         Node current = node;
+
         while (current != null) {
             path.add(current.pos);
             current = current.parent;
         }
+
         Collections.reverse(path);
         return path;
     }
@@ -144,7 +165,7 @@ public class Pathfinder {
         Node parent;
 
         Node(BlockPos pos, double gScore, double hScore) {
-            this.pos    = pos;
+            this.pos = pos;
             this.gScore = gScore;
             this.hScore = hScore;
             this.fScore = gScore + hScore;

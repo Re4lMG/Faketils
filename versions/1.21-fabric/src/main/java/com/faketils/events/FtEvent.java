@@ -1,30 +1,31 @@
 package com.faketils.events;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.Camera;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.Camera;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 
 public class FtEvent {
 
     @Nullable
-    public final DrawContext context;
+    public final GuiGraphicsExtractor guiGraphics;
 
-    protected FtEvent(@Nullable DrawContext context) {
-        this.context = context;
+    protected FtEvent(@Nullable GuiGraphicsExtractor guiGraphics) {
+        this.guiGraphics = guiGraphics;
     }
 
     public static class WorldRender extends FtEvent {
         public final Matrix4f positionMatrix;
         public final Matrix4f modelViewMatrix;
-        public final Matrix4f projectionMatrix;
+        public final GpuBufferSlice projectionMatrix;
         public final float tickDelta;
         public final Camera camera;
 
         public WorldRender(
                 Matrix4f positionMatrix,
                 Matrix4f modelViewMatrix,
-                Matrix4f projectionMatrix,
+                GpuBufferSlice projectionMatrix,
                 float tickDelta,
                 Camera camera
         ) {
@@ -40,8 +41,8 @@ public class FtEvent {
     public static class HudRender extends FtEvent {
         public final float tickDelta;
 
-        public HudRender(DrawContext context, float tickDelta) {
-            super(context);
+        public HudRender(GuiGraphicsExtractor guiGraphics, float tickDelta) {
+            super(guiGraphics);
             this.tickDelta = tickDelta;
         }
     }

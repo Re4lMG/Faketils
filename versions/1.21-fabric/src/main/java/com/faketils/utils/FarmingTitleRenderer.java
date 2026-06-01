@@ -3,27 +3,28 @@ package com.faketils.utils;
 import com.faketils.features.Farming;
 import com.faketils.events.FtEvent;
 import com.faketils.events.FtEventBus;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import org.joml.Matrix3x2fStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 public class FarmingTitleRenderer {
 
     public static void init() {
         FtEventBus.onEvent(FtEvent.HudRender.class, hud -> {
-            renderTitle(hud.context);
+            renderTitle(hud.guiGraphics);
         });
     }
 
-    private static void renderTitle(DrawContext ctx) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private static void renderTitle(GuiGraphicsExtractor graphics) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || !Farming.isActive) return;
 
         String fail = Farming.getCurrentFail();
         if (fail == null || fail.isEmpty()) return;
 
-        int sw = mc.getWindow().getScaledWidth();
-        int sh = mc.getWindow().getScaledHeight();
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
 
         float scale = 9.0f;
         int x = sw / 2;
@@ -35,13 +36,23 @@ public class FarmingTitleRenderer {
         int alpha = (int)(255 * pulse);
         int color = (alpha << 24) | 0x00FFAAAA;
 
-        var matrices = ctx.getMatrices();
-        matrices.pushMatrix();
-        matrices.translate(x, y);
-        matrices.scale(scale, scale);
+        Component textComponent = Component.literal("FAIL: " + fail);
+        int textWidth = mc.font.width(textComponent);
 
-        ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("FAIL: " + fail), 0, 0, color);
+        Matrix3x2fStack poseStack = graphics.pose();
+        poseStack.pushMatrix();
+        poseStack.translate(x, y);
+        poseStack.scale(scale, scale);
 
-        matrices.popMatrix();
+        graphics.textWithBackdrop(
+                mc.font,
+                textComponent,
+                -textWidth / 2,
+                0,
+                textWidth,
+                color
+        );
+
+        poseStack.popMatrix();
     }
 }

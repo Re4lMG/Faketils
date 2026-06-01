@@ -2,14 +2,14 @@ package com.faketils.utils;
 
 import com.faketils.events.FlyHandler;
 import com.faketils.events.FtEvent;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.*;
-import net.minecraft.entity.Entity;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
@@ -18,8 +18,8 @@ import java.util.List;
 public class RenderUtils {
 
     public static void renderWaypointMarker(
-            Vec3d waypointPos,
-            Vec3d cameraPos,
+            Vec3 waypointPos,
+            Vec3 cameraPos,
             int color,
             String waypointName,
             FtEvent.WorldRender event
@@ -29,36 +29,37 @@ public class RenderUtils {
         float blue  =  (color        & 0xFF) / 255f;
         float alpha = 0.5f;
 
-        Vec3d rel = waypointPos.subtract(cameraPos);
+        Vec3 rel = waypointPos.subtract(cameraPos);
 
         Matrix4f baseMatrix = new Matrix4f(event.positionMatrix)
                 .translate((float) rel.x, (float) rel.y, (float) rel.z);
 
 
-        Tessellator tessellator = Tessellator.getInstance();
+        Tesselator tesselator = Tesselator.getInstance();
 
         float cubeAlpha = 0.8f;
         float half = 0.5f;
 
-        BufferBuilder cube = tessellator.begin(
-                VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_COLOR
+        BufferBuilder cube = tesselator.begin(
+                VertexFormat.Mode.QUADS,
+                DefaultVertexFormat.POSITION_COLOR
         );
 
         addCube(cube, baseMatrix, half, red, green, blue, cubeAlpha);
-        RenderLayers.debugFilledBox().draw(cube.end());
+
+        RenderTypes.debugFilledBox().draw(cube.buildOrThrow());
 
         Matrix4f beamMatrix = new Matrix4f(baseMatrix)
                 .translate(0f, 0.5f, 0f)
                 .scale(0.2f, 50f, 0.2f);
 
-        BufferBuilder beam = tessellator.begin(
-                VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_COLOR
+        BufferBuilder beam = tesselator.begin(
+                VertexFormat.Mode.QUADS,
+                DefaultVertexFormat.POSITION_COLOR
         );
 
         addCube(beam, beamMatrix, 0.5f, red, green, blue, alpha);
-        RenderLayers.debugFilledBox().draw(beam.end());
+        RenderTypes.debugFilledBox().draw(beam.buildOrThrow());
 
         if (waypointName != null && !waypointName.isEmpty()) {
             renderWaypointName(
@@ -71,8 +72,8 @@ public class RenderUtils {
         }
     }
 
-    public static void renderCurrentPath(Vec3d cameraPos, FtEvent.WorldRender event) {
-        List<Vec3d> currentPath = null;
+    public static void renderCurrentPath(Vec3 cameraPos, FtEvent.WorldRender event) {
+        List<Vec3> currentPath = null;
 
         if (FlyHandler.path != null && !FlyHandler.path.isEmpty()) {
             currentPath = FlyHandler.path;
@@ -81,7 +82,7 @@ public class RenderUtils {
         if (currentPath == null) return;
 
         for (int i = 0; i < currentPath.size(); i++) {
-            Vec3d node = currentPath.get(i).add(0, -0.5, 0);
+            Vec3 node = currentPath.get(i).add(0, -0.5, 0);
 
             int color = (i == 0) ? 0x00FF00 :
                     (i == currentPath.size() - 1) ? 0xFF0000 : 0xFFFF00;
@@ -94,22 +95,22 @@ public class RenderUtils {
     }
 
     private static void renderWaypointName(
-            Vec3d waypointPos,
-            Vec3d cameraPos,
+            Vec3 waypointPos,
+            Vec3 cameraPos,
             String name,
             int color,
             FtEvent.WorldRender event
     ) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        TextRenderer tr = mc.textRenderer;
+        Minecraft mc = Minecraft.getInstance();
+        Font font = mc.font;
 
         double distance = waypointPos.distanceTo(cameraPos);
-        Vec3d rel = waypointPos.subtract(cameraPos).add(0, 2.0, 0);
+        Vec3 rel = waypointPos.subtract(cameraPos).add(0, 2.0, 0);
 
         float scale = (float) Math.max(0.02, Math.min(0.1, distance * 0.05));
 
-        float yaw = event.camera.getYaw();
-        float pitch = event.camera.getPitch();
+        float yaw = event.camera.yRot();
+        float pitch = event.camera.xRot();
 
         Quaternionf rotation = new Quaternionf()
                 .rotateY((float) Math.toRadians(-yaw))
@@ -120,12 +121,12 @@ public class RenderUtils {
                 .rotate(rotation)
                 .scale(-scale, -scale, scale);
 
-        Text text = Text.literal(name);
-        float x = -tr.getWidth(text) / 2f;
+        Component text = Component.literal(name);
+        float x = -font.width(text) / 2f;
 
-        VertexConsumerProvider.Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
+        MultiBufferSource.BufferSource provider = mc.renderBuffers().bufferSource();
 
-        tr.draw(
+        font.drawInBatch(
                 text,
                 x,
                 0,
@@ -133,17 +134,17 @@ public class RenderUtils {
                 true,
                 textMatrix,
                 provider,
-                TextRenderer.TextLayerType.SEE_THROUGH,
+                Font.DisplayMode.SEE_THROUGH,
                 0,
                 15728880
         );
 
-        provider.draw();
+        provider.endBatch();
     }
 
     public static void renderLine(
-            Vec3d start,
-            Vec3d end,
+            Vec3 start,
+            Vec3 end,
             int color,
             float width,
             FtEvent.WorldRender event
@@ -153,15 +154,15 @@ public class RenderUtils {
         float blue  =  (color        & 0xFF) / 255f;
         float alpha = ((color >> 24) & 0xFF) / 255f;
 
-        Vec3d cam = event.camera.getCameraPos();
+        Vec3 cam = event.camera.position();
 
-        Vec3d startRel = start.subtract(cam);
-        Vec3d endRel = end.subtract(cam);
+        Vec3 startRel = start.subtract(cam);
+        Vec3 endRel = end.subtract(cam);
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(
-                VertexFormat.DrawMode.LINES,
-                VertexFormats.POSITION_COLOR
+        Tesselator tesselator = Tesselator.getInstance();
+        BufferBuilder buffer = tesselator.begin(
+                VertexFormat.Mode.LINES,
+                DefaultVertexFormat.POSITION_COLOR
         );
 
         Matrix4f startMatrix = new Matrix4f(event.positionMatrix)
@@ -171,13 +172,12 @@ public class RenderUtils {
                 .translate((float) endRel.x, (float) endRel.y, (float) endRel.z);
 
 
-        buffer.vertex(startMatrix, (float) start.x, (float) start.y, (float) start.z)
-                .color(red, green, blue, alpha);
-        buffer.vertex(endMatrix, (float) end.x, (float) end.y, (float) end.z)
-                .color(red, green, blue, alpha);
+        buffer.addVertex(startMatrix, (float) start.x, (float) start.y, (float) start.z)
+                .setColor(red, green, blue, alpha);
+        buffer.addVertex(endMatrix, (float) end.x, (float) end.y, (float) end.z)
+                .setColor(red, green, blue, alpha);
 
-        //RenderSystem.lineWidth(width);
-        RenderLayers.lines().draw(buffer.end());
+        RenderTypes.lines().draw(buffer.buildOrThrow());
     }
 
     public static void renderLineToEntity(
@@ -188,11 +188,12 @@ public class RenderUtils {
     ) {
         if (entity == null || !entity.isAlive()) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
-        Vec3d eye = mc.player.getEyePos();
-        Vec3d target = entity.getLerpedPos(event.tickDelta);
+        Vec3 eye = mc.player.getEyePosition();
+
+        Vec3 target = entity.getPosition(event.tickDelta);
 
         renderLine(eye, target, color, width, event);
     }
@@ -229,9 +230,9 @@ public class RenderUtils {
             float x4,float y4,float z4,
             float r,float g,float bl,float a
     ) {
-        b.vertex(m,x1,y1,z1).color(r,g,bl,a);
-        b.vertex(m,x2,y2,z2).color(r,g,bl,a);
-        b.vertex(m,x3,y3,z3).color(r,g,bl,a);
-        b.vertex(m,x4,y4,z4).color(r,g,bl,a);
+        b.addVertex(m,x1,y1,z1).setColor(r,g,bl,a);
+        b.addVertex(m,x2,y2,z2).setColor(r,g,bl,a);
+        b.addVertex(m,x3,y3,z3).setColor(r,g,bl,a);
+        b.addVertex(m,x4,y4,z4).setColor(r,g,bl,a);
     }
 }

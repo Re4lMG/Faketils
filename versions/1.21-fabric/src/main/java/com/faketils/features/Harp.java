@@ -3,15 +3,17 @@ package com.faketils.features;
 import com.faketils.Faketils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,31 +34,30 @@ public class Harp {
     }
 
     public static void onScreenOpen(Screen screen) {
-        if (screen instanceof GenericContainerScreen gui &&
+        if (screen instanceof AbstractContainerScreen gui &&
                 gui.getTitle().getString().startsWith("Harp -")) {
             lastInventory.clear();
             inHarp = true;
         }
-
     }
 
-    public static void onTick(MinecraftClient client) {
+    public static void onTick(Minecraft client) {
         if (!Faketils.config().harp || client.player == null || ++counter % 2 == 0)
             return;
 
-        if (!inHarp || !(client.currentScreen instanceof GenericContainerScreen gui) ||
+        if (!inHarp || !(client.screen instanceof AbstractContainerScreen gui) ||
                 !gui.getTitle().getString().startsWith("Harp -")) {
             inHarp = false;
             return;
         }
 
-        ScreenHandler handler = client.player.currentScreenHandler;
+        AbstractContainerMenu handler = client.player.containerMenu;
         List<Item> currentInventory = snapshotItems(handler);
 
         if (!lastInventory.equals(currentInventory)) {
             for (int i = 0; i < handler.slots.size(); i++) {
-                if (handler.slots.get(i).getStack().isOf(Items.QUARTZ_BLOCK)) {
-                    Experiments.clickSlot(client, handler, i, 2, SlotActionType.CLONE);
+                if (handler.slots.get(i).getItem().is(Items.QUARTZ_BLOCK)) {
+                    Experiments.clickSlot(client, handler, i, 2, ContainerInput.CLONE);
                     break;
                 }
             }
@@ -66,9 +67,9 @@ public class Harp {
         lastInventory.addAll(currentInventory);
     }
 
-    public static List<Item> snapshotItems(ScreenHandler handler) {
+    public static List<Item> snapshotItems(AbstractContainerMenu handler) {
         return handler.slots.stream()
-                .map(Slot::getStack)
+                .map(Slot::getItem)
                 .filter(stack -> !stack.isEmpty())
                 .map(ItemStack::getItem)
                 .toList();

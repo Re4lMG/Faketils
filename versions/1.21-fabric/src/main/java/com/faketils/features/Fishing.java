@@ -5,13 +5,13 @@ import com.faketils.events.RotationHandler;
 import com.faketils.mixin.PlayerInventoryAccessor;
 import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.item.FishingRodItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.FishingRodItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
 
 import java.util.HashSet;
 import java.util.Random;
@@ -19,7 +19,7 @@ import java.util.Set;
 
 public class Fishing {
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
     private static final Random random = new Random();
 
     private static int clickTimer = 0;
@@ -63,19 +63,19 @@ public class Fishing {
 
     private static void onRenderWorldLast() {
         if (!Utils.isInSkyblock() || !Faketils.config().fishingHelper) return;
-        if (mc.currentScreen != null || mc.player == null || mc.world == null) return;
+        if (mc.screen != null || mc.player == null || mc.level == null) return;
 
-        ItemStack heldItem = mc.player.getMainHandStack();
+        ItemStack heldItem = mc.player.getMainHandItem();
         if (!(heldItem.getItem() instanceof FishingRodItem)) return;
 
-        handledArmorStands.removeIf(id -> mc.world.getEntityById(id) == null);
+        handledArmorStands.removeIf(id -> mc.level.getEntity(id) == null);
 
-        for (ArmorStandEntity armorStand : mc.world.getEntitiesByClass(ArmorStandEntity.class,
-                mc.player.getBoundingBox().expand(64), e -> true)) {
+        for (ArmorStand armorStand : mc.level.getEntitiesOfClass(ArmorStand.class,
+                mc.player.getBoundingBox().inflate(64), e -> true)) {
 
             if (armorStand.isRemoved() || !armorStand.hasCustomName()) continue;
 
-            Text customName = armorStand.getCustomName();
+            Component customName = armorStand.getCustomName();
             if (customName == null) continue;
 
             if (customName.getString().equals("!!!")) {
@@ -92,14 +92,14 @@ public class Fishing {
 
     private static void onClientTick() {
         if (!Utils.isInSkyblock() || !Faketils.config().fishingHelper) return;
-        if (mc.currentScreen != null || mc.player == null || mc.interactionManager == null) return;
+        if (mc.screen != null || mc.player == null || mc.gameMode == null) return;
 
         var player = mc.player;
-        var interactionManager = mc.interactionManager;
+        var gameMode = mc.gameMode;
         PlayerInventoryAccessor inventory = (PlayerInventoryAccessor) player.getInventory();
 
         if (Faketils.config().slugFishing) {
-            var bobber = player.fishHook;
+            var bobber = player.fishing;
             if (bobber != null) {
                 if (bobber.getId() != lastBobberId) {
                     lastBobberId = bobber.getId();
@@ -128,8 +128,8 @@ public class Fishing {
             clickTimer = random.nextInt(6) + 5;
             hasClickedOnce = true;
 
-            Utils.simulateUseItem(interactionManager);
-            player.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+            Utils.simulateUseItem(gameMode);
+            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
             scheduledClick = false;
 
             if (Faketils.config().fishingHelperKilling && !Faketils.config().fishingHelperKillingWeapon.isEmpty()) {
@@ -139,8 +139,8 @@ public class Fishing {
                     weaponSlot = weapon.slot;
 
                     if (Faketils.config().fishingLookDown) {
-                        savedYaw = player.getYaw();
-                        savedPitch = player.getPitch();
+                        savedYaw = player.getYRot();
+                        savedPitch = player.getXRot();
                         RotationHandler.setTarget(savedYaw, LOOK_DOWN_PITCH);
                         weaponState = STATE_PRE_ROTATE;
                     } else {
@@ -178,7 +178,7 @@ public class Fishing {
                 }
                 case STATE_CLICK_WEAPON -> {
                     if (delayCounter-- <= 0) {
-                        Utils.simulateUseItem(interactionManager);
+                        Utils.simulateUseItem(gameMode);
                         clickCount++;
 
                         int maxClicks = Faketils.config().fishingHelperKillingAmount;
@@ -223,7 +223,7 @@ public class Fishing {
         if (clickTimer > 0) {
             clickTimer--;
             if (clickTimer == 0 && hasClickedOnce) {
-                Utils.simulateUseItem(interactionManager);
+                Utils.simulateUseItem(gameMode);
                 hasClickedOnce = false;
             }
         }
@@ -231,9 +231,9 @@ public class Fishing {
 
     public static class WeaponResult {
         public final int slot;
-        public final KeyBinding hotbarKey;
+        public final KeyMapping hotbarKey;
 
-        public WeaponResult(int slot, KeyBinding hotbarKey) {
+        public WeaponResult(int slot, KeyMapping hotbarKey) {
             this.slot = slot;
             this.hotbarKey = hotbarKey;
         }
@@ -247,13 +247,13 @@ public class Fishing {
             String targetName = Faketils.config().fishingHelperKillingWeapon;
 
             for (int slot = 0; slot < 9; slot++) {
-                ItemStack stack = player.getInventory().getStack(slot);
+                ItemStack stack = player.getInventory().getItem(slot);
                 if (stack.isEmpty()) continue;
 
-                Text displayName = stack.getName();
+                Component displayName = stack.getHoverName();
                 if (displayName.getString().contains(targetName)) {
                     Utils.log("Found weapon '" + targetName + "' in slot " + slot);
-                    return new WeaponResult(slot, mc.options.hotbarKeys[slot]);
+                    return new WeaponResult(slot, mc.options.keyHotbarSlots[slot]);
                 }
             }
             return null;
