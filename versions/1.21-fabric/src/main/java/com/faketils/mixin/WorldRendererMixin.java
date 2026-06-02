@@ -42,7 +42,7 @@ public abstract class WorldRendererMixin {
         Camera camera = mc.gameRenderer.getMainCamera();
 
         FtEventBus.emit(new FtEvent.WorldRender(
-                new Matrix4f(),
+                new Matrix4f(modelViewMatrix),
                 new Matrix4f(modelViewMatrix),
                 RenderSystem.getProjectionMatrixBuffer(),
                 tickDelta,

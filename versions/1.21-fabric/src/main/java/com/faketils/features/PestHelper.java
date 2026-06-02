@@ -68,6 +68,7 @@ public class PestHelper {
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
         if (!Faketils.config().pestHelper) return;
+        //RenderUtils.renderCurrentPath(event.camera.position(), event);
         if (!Utils.isInGarden()) return;
         if (mc.player == null || mc.level == null) return;
 

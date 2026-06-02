@@ -1358,6 +1358,7 @@ public class Farming {
         if (mc.options.hideGui) return;
         if (!Utils.isInSkyblock() || !Faketils.config().funnyToggle) return;
         if (!Utils.isInGarden()) return;
+        if (mc.screen != null) return;
         if (Faketils.config().noHuds) return;
 
         String text;
@@ -1557,9 +1558,7 @@ public class Farming {
     }
 
     private static void onRenderWorldLast(FtEvent.WorldRender event) {
-        if (!Utils.isInSkyblock() || mc.player == null || mc.level == null || !Utils.isInGarden()) {
-            return;
-        }
+        if (!Utils.isInSkyblock() || mc.player == null || mc.level == null || !Utils.isInGarden()) {return;}
 
         Vec3 cameraPos = event.camera.position();
         if (Faketils.config().funnyWaypoints) {
