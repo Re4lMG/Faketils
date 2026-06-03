@@ -6,7 +6,7 @@
 
 *A small Quality of Life mod for Hypixel Skyblock*
 
-![Version](https://img.shields.io/badge/Minecraft-1.21.10-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Minecraft-26.1-blue?style=flat-square)
 ![Mod Loader](https://img.shields.io/badge/Fabric-Yes-green?style=flat-square)
 
 </div>
