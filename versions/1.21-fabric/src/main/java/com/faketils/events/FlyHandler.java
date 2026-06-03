@@ -16,8 +16,6 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.ClipContext.Fluid;
-import net.minecraft.world.level.ClipContext.Block;
 
 import java.util.ArrayList;
 import java.util.List;
