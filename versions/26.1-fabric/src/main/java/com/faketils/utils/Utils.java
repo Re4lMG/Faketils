@@ -123,6 +123,10 @@ public class Utils {
         return TabListParser.getTabLines().contains("Area: Garden");
     }
 
+    public static boolean isSelf(Object entity) {
+        return entity == mc.player;
+    }
+
     public static String getCurrentArea() {
         for (String line : TabListParser.getTabLines()) {
             if (line.startsWith("Area:")) {

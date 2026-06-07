@@ -294,6 +294,13 @@ public class Config {
     @AutoGen(category = "qol", group = "other")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
+    @CustomName("1.8.9 Sneaking")
+    @CustomDescription("Brings back the old sneaking height.")
+    public boolean oldSneak = false;
+
+    @AutoGen(category = "qol", group = "other")
+    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    @SerialEntry
     @CustomName("Auto Tipall")
     @CustomDescription("Runs /tipall every 5mins.")
     public boolean tipAll = false;

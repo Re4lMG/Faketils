@@ -12,7 +12,8 @@
     "MouseMixin",
     "ClientPlayerInteractionManagerMixin",
     "WorldRendererMixin",
-    "MinecraftClientMixin"
+    "MinecraftClientMixin",
+    "LivingEntityMixin"
   ],
   "client": [
   ],
