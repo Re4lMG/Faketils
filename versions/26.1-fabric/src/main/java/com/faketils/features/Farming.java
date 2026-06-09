@@ -282,7 +282,7 @@ public class Farming {
                     new Thread(() -> {
                         try {
                             Thread.sleep(2000);
-                            mc.player.connection.sendCommand("/eq");
+                            mc.player.connection.sendCommand("equipment");
                             eqActive = true;
                             currentState = "Changing EQ";
                             eqState = EqState.OPENING;
@@ -316,7 +316,7 @@ public class Farming {
                     handlePause();
                     if (!Faketils.config().pestFarming) {
                         currentMode = null;
-                        mc.player.connection.sendCommand("/warp garden");
+                        mc.player.connection.sendCommand("warp garden");
                         new Thread(() -> {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                             mc.player.getAbilities().flying = false;
@@ -365,7 +365,8 @@ public class Farming {
             handleKilling();
             if (currentPestTarget != null && mc.player != null) {
                 double distance = mc.player.position().distanceTo(currentPestTarget);
-                boolean inSweetSpot = distance < 8.0;
+                double threshold = Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.Disco ? 20.0 : 8.0;
+                boolean inSweetSpot = distance < threshold;
                 mc.options.keyUse.setDown(inSweetSpot);
             }
             if (mc.screen != null && mc.player != null && mc.screen.getTitle().getString()
@@ -510,7 +511,7 @@ public class Farming {
                         : name.contains("squeaky pest");
 
                 if (isMatch) {
-                    mc.gameMode.handleContainerInput(handler.containerId, i, 4, ContainerInput.THROW, mc.player);
+                    mc.gameMode.handleContainerInput(handler.containerId, i, 2, ContainerInput.CLONE, mc.player);
                     lastClickTime = now;
                     eqState = EqState.PICKUP_CLICKED;
                     eqStateStart = now;
@@ -544,7 +545,7 @@ public class Farming {
                 }
 
                 if (placeSlot != -1) {
-                    mc.gameMode.handleContainerInput(handler.containerId, placeSlot, 4, ContainerInput.THROW, mc.player);
+                    mc.gameMode.handleContainerInput(handler.containerId, placeSlot, 2, ContainerInput.CLONE, mc.player);
                     lastClickTime = now;
                     eqState = EqState.SEARCHING_ITEMS;
                     eqStateStart = now;
@@ -570,7 +571,7 @@ public class Farming {
                 if (currentPestPhase == PestPhase.SQUEAKY) {
                     wardrobeSlot = Faketils.config().wardrobeSlotOld;
                 }
-                mc.player.connection.sendCommand("/wardrobe");
+                mc.player.connection.sendCommand("wardrobe");
                 eqState = EqState.IDLE;
                 wardrobePhase = WardrobePhase.OPEN_SENT;
                 wardrobePhaseStart = now;
@@ -771,7 +772,7 @@ public class Farming {
                                     Thread.sleep(150);
                                 } catch (InterruptedException ignored) {
                                 }
-                                mc.player.connection.sendCommand("/tptoplot " + plot);
+                                mc.player.connection.sendCommand("tptoplot " + plot);
                                 if (Faketils.config().pestKilling) swapToInfiniVacuum();
                                 pendingDoubleJumpTicks = 10;
                                 try {
@@ -788,7 +789,22 @@ public class Farming {
                         }
                         if (Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.AOTV) startAotvEtherwarp();
                         if (Faketils.config().teleportingToPlotType == Config.TeleportingToPlotType.Disco) {
-                            killingPests = true;
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(150);
+                                } catch (InterruptedException ignored) {
+                                }
+                                mc.player.connection.sendCommand("tptoplot " + plot);
+                                if (Faketils.config().pestKilling) swapToInfiniVacuum();
+                                pendingDoubleJumpTicks = 10;
+                                try {
+                                    Thread.sleep(350);
+                                } catch (InterruptedException ignored) {
+                                }
+                                if (Faketils.config().pestKilling) {
+                                    killingPests = true;
+                                }
+                            }).start();
                         }
                     }
 
@@ -1064,7 +1080,7 @@ public class Farming {
                 handlePause();
                 if (!Faketils.config().pestFarming) {
                     currentMode = null;
-                    mc.player.connection.sendCommand("/warp garden");
+                    mc.player.connection.sendCommand("warp garden");
                     new Thread(() -> {
                         try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                         mc.player.getAbilities().flying = false;
@@ -1133,7 +1149,7 @@ public class Farming {
             pestsSpawned = false;
             if (isActive && !isPaused) {
                 releaseAllKeys();
-                mc.player.connection.sendCommand("/eq");
+                mc.player.connection.sendCommand("equipment");
             }
             eqActive = true;
             eqState = EqState.OPENING;
@@ -1208,7 +1224,7 @@ public class Farming {
                 mc.player.playSound(SoundEvents.NOTE_BLOCK_PLING.value(), 1.0f, 1.0f);
                 pauseWaypoint = BlockPos.containing(mc.player.position());
                 if (Faketils.config().rewarpOnPause) {
-                    mc.player.connection.sendCommand("/setspawn");
+                    mc.player.connection.sendCommand("setspawn");
                     mc.player.sendSystemMessage(Component.literal("§7[§bFaketils§7] §eReWarp point set!"));
                 }
             }
@@ -1238,7 +1254,7 @@ public class Farming {
             pauseWaypoint = null;
 
             if (shouldWarp) {
-                mc.player.connection.sendCommand("/warp garden");
+                mc.player.connection.sendCommand("warp garden");
                 new Thread(() -> {
                     try { Thread.sleep(150); } catch (InterruptedException ignored) {}
                     mc.player.getAbilities().flying = false;
@@ -1422,7 +1438,7 @@ public class Farming {
         List<BlockPos> warp  = FarmingWaypoints.WAYPOINTS.getOrDefault("warp", List.of());
 
         if (warp.contains(pos)) {
-            mc.player.connection.sendCommand("/warp garden");
+            mc.player.connection.sendCommand("warp garden");
             currentMode = "none";
             releaseAllKeys();
         } else if (right.contains(pos)) {
@@ -1495,7 +1511,7 @@ public class Farming {
                 int requiredTicks = Faketils.config().instaSwitch ? 15 : randomDelayTicks;
                 if (ticksOnWaypoint >= requiredTicks) {
                     if (targetMode.equals("warp")) {
-                        mc.player.connection.sendCommand("/warp garden");
+                        mc.player.connection.sendCommand("warp garden");
                         currentMode = "none";
                         releaseAllKeys();
                         lastWaypoint = null;
@@ -1616,7 +1632,7 @@ public class Farming {
                     .trim();
 
             if (isSellable(name)) {
-                mc.player.connection.sendCommand("/trades");
+                mc.player.connection.sendCommand("trades");
                 waitingForTrades = true;
                 wPhase = WPhase.OPENING;
                 long now = System.currentTimeMillis();
@@ -1685,7 +1701,7 @@ public class Farming {
 
         if (phillipPhase == PhillipPhase.IDLE) {
             if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Bonus: INACTIVE"))) {
-                mc.player.connection.sendCommand("/call phillip");
+                mc.player.connection.sendCommand("call phillip");
                 phillipPhase = PhillipPhase.COMMAND_SENT;
                 phillipPhaseStart = System.currentTimeMillis();
                 Utils.log("Phillip command sent");
