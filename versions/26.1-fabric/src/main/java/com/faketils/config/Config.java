@@ -1,14 +1,20 @@
 package com.faketils.config;
 
+import dev.isxander.yacl3.api.ButtonOption;
+import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.LabelOption;
+import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.config.v2.api.*;
 import dev.isxander.yacl3.config.v2.api.autogen.*;
 import dev.isxander.yacl3.config.v2.api.autogen.Boolean;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 
@@ -55,7 +61,7 @@ public class Config {
     @AutoGen(category = "farming", group = "general")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Farming Toggle")
+    @CustomName("§eFarming Toggle")
     @CustomDescription("Activates all the farming stuff.")
     public boolean funnyToggle = false;
 
@@ -126,7 +132,7 @@ public class Config {
     @AutoGen(category = "farming", group = "general")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Insta-Lane Switching")
+    @CustomName("§eInsta-Lane Switching")
     @CustomDescription("150ms when switching from right to left, useful in farming contests.")
     public boolean instaSwitch = false;
 
@@ -146,7 +152,7 @@ public class Config {
 
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
-    @SerialEntry
+    //@SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
     public boolean autoSellJunk = false;
@@ -175,14 +181,14 @@ public class Config {
     @AutoGen(category = "farming", group = "pests")
     @EnumCycler
     @SerialEntry
-    @CustomName("Teleporting To Plot Type")
+    @CustomName("§cTeleporting To Plot Type §e(Disco is safe)")
     @CustomDescription("Select the method used to tp above a plot to kill pests.")
-    public TeleportingToPlotType teleportingToPlotType = TeleportingToPlotType.AOTV;
+    public TeleportingToPlotType teleportingToPlotType = TeleportingToPlotType.Disco;
 
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Auto Pest Killing")
+    @CustomName("§cAuto Pest Killing")
     @CustomDescription("Automatically kills pests (risky).")
     public boolean pestKilling = false;
 
@@ -224,28 +230,28 @@ public class Config {
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Fishing Helper")
+    @CustomName("§eFishing Helper")
     @CustomDescription("Enables the fishing helper.")
     public boolean fishingHelper = false;
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Slug Trophy Fishing")
+    @CustomName("§eSlug Trophy Fishing")
     @CustomDescription("Enables the slug trophy fishing helper.")
     public boolean slugFishing = false;
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Look Down Item Use")
+    @CustomName("§cLook Down Item Use")
     @CustomDescription("Automatically looks down and uses your weapon, very useful if using a hyperion and not fishing inside water/lava.")
     public boolean fishingLookDown = false;
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Sea Creature Killing")
+    @CustomName("§eSea Creature Killing")
     @CustomDescription("Automatically helps kill sea creatures (useful for lava fishing).")
     public boolean fishingHelperKilling = false;
 
@@ -294,7 +300,7 @@ public class Config {
     @AutoGen(category = "qol", group = "other")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("1.8.9 Sneaking")
+    @CustomName("§c1.8.9 Sneaking")
     @CustomDescription("Brings back the old sneaking height.")
     public boolean oldSneak = false;
 
@@ -329,7 +335,7 @@ public class Config {
     @AutoGen(category = "qol", group = "other")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Full Block Panes")
+    @CustomName("§cFull Block Panes")
     @CustomDescription("Increases the bounding box size of glass panes.")
     public boolean fullBlockPanes = false;
 
@@ -341,7 +347,8 @@ public class Config {
     public boolean debug = false;
 
     public static Screen createScreen(Screen parent) {
-        return HANDLER.generateGui().generateScreen(parent);
+        Screen configScreen = HANDLER.generateGui().generateScreen(parent);
+        return new InfoScreen(parent, configScreen);
     }
 
     public enum PetSwapType {
