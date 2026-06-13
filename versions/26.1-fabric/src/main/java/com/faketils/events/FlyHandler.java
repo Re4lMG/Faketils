@@ -614,7 +614,7 @@ public class FlyHandler {
         return true;
     }
 
-    private static void setFlying(boolean enable) {
+    public static void setFlying(boolean enable) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.getConnection() == null) return;

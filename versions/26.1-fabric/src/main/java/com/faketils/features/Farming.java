@@ -319,7 +319,7 @@ public class Farming {
                         mc.player.connection.sendCommand("warp garden");
                         new Thread(() -> {
                             try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-                            mc.player.getAbilities().flying = false;
+                            FlyHandler.setFlying(false);
                         }).start();
                     }
                     currentPestTarget = null;
@@ -1083,7 +1083,7 @@ public class Farming {
                     mc.player.connection.sendCommand("warp garden");
                     new Thread(() -> {
                         try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-                        mc.player.getAbilities().flying = false;
+                        FlyHandler.setFlying(false);
                     }).start();
                 }
                 currentPestTarget = null;
@@ -1257,7 +1257,7 @@ public class Farming {
                 mc.player.connection.sendCommand("warp garden");
                 new Thread(() -> {
                     try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-                    mc.player.getAbilities().flying = false;
+                    FlyHandler.setFlying(false);
                 }).start();
                 mc.player.sendSystemMessage(Component.literal("§7[§bFaketils§7] §eWarping back!"));
                 Utils.log("Macro resumed (warp garden)");
