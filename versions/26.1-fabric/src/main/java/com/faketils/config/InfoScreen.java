@@ -10,7 +10,7 @@ import net.minecraft.ChatFormatting;
 
 public class InfoScreen extends Screen {
 
-    private static final Identifier ICON = Identifier.fromNamespaceAndPath("faketils", "icon.png");
+    private static final Identifier ICON = Identifier.fromNamespaceAndPath("faketils", "banner.png");
 
     private final Screen parent;
     private final Screen configScreen;
@@ -37,18 +37,17 @@ public class InfoScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
         super.extractRenderState(graphics, mouseX, mouseY, a);
 
-        int iconSize = 64;
+        int iconWidth = 280;
+        int iconHeight = 80;
         int cx = width / 2;
 
         graphics.blit(RenderPipelines.GUI_TEXTURED, ICON,
-                cx - iconSize / 2, height / 4 - iconSize - 8,
-                0, 0, iconSize, iconSize, iconSize, iconSize);
+                cx - iconWidth / 2, height / 4 - iconHeight - 8,
+                0, 0, iconWidth, iconHeight, iconWidth, iconHeight);
 
         int y = height / 4;
         int gap = 12;
 
-        drawCentered(graphics, Component.literal("Faketils").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), y);
-        y += gap + 4;
         drawCentered(graphics, Component.literal("A Hypixel SkyBlock mod.").withStyle(ChatFormatting.GRAY), y);
         y += gap * 2;
         drawCentered(graphics, Component.literal("Red options: ").withStyle(ChatFormatting.RED)

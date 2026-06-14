@@ -150,8 +150,8 @@ public class Config {
     @CustomDescription("Automatically sprays the plot you are currently farming in.")
     public boolean autoSpray = false;
 
-    @AutoGen(category = "farming", group = "pests")
-    @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
+    //@AutoGen(category = "farming", group = "pests")
+    //@Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     //@SerialEntry
     @CustomName("Auto Sell Farming Junk (bugged)")
     @CustomDescription("Automatically sells vinyls and overclockers. Requires a Booster Cookie.")
@@ -174,7 +174,7 @@ public class Config {
     @AutoGen(category = "farming", group = "pests")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
-    @CustomName("Pest Farming Mode")
+    @CustomName("Equipment and Pet swapping")
     @CustomDescription("Automatically swaps equipment and pet when the pest cooldown is over.")
     public boolean pestFarming = false;
 
