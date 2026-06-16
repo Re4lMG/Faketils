@@ -138,7 +138,7 @@ public class Farming {
     private static final long OFFSET_CHANGE_INTERVAL_MS = 900L + random.nextInt(600);
     private static final float OFFSET_MAX_HORIZONTAL = 0.5f;
     private static final float OFFSET_MAX_VERTICAL   = 0.5f;
-    private static long nextClickTime = 0;
+    private static long phillipDelay = 0;
 
     private record ParticleSample(Vec3 pos, long time) {}
     private static final java.util.ArrayDeque<ParticleSample> particleSamples = new java.util.ArrayDeque<>();
@@ -1699,6 +1699,7 @@ public class Farming {
         if (eqActive) return;
         if (killingPests) return;
 
+        if (System.currentTimeMillis() - phillipDelay >= 5000) return;
         if (phillipPhase == PhillipPhase.IDLE) {
             if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Bonus: INACTIVE"))) {
                 mc.player.connection.sendCommand("call phillip");
@@ -1786,6 +1787,8 @@ public class Farming {
                 mc.player.closeContainer();
                 Utils.log("Closing Pesthunter screen");
                 phillipPhase = PhillipPhase.DONE;
+                phillipDelay = System.currentTimeMillis();
+                holdKeys();
                 phillipPhaseStart = now;
                 break;
 
