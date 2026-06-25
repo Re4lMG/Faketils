@@ -235,6 +235,13 @@ public class Config {
     public boolean fishingHelper = false;
 
     @AutoGen(category = "fishing", group = "helpers")
+    @StringField
+    @SerialEntry
+    @CustomName("§eFishing Pet swap")
+    @CustomDescription("Enables the fishing pet swapper, useful for burnt text swapping.")
+    public String fishingPetSwap = "";
+
+    @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
     @SerialEntry
     @CustomName("§eSlug Trophy Fishing")

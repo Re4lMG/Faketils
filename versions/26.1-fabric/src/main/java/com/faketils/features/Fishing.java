@@ -7,7 +7,10 @@ import com.faketils.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.sounds.SoundEvents;
@@ -40,6 +43,10 @@ public class Fishing {
     private static boolean slugFishingActive = false;
     private static long slugStartTime = 0L;
     private static int lastBobberId = -1;
+
+    private static String pendingPetSwap = null;
+    private static long petSwapTimeout = 0;
+    private static int petScreenDelay = 0;
 
     private static final Set<Integer> handledArmorStands = new HashSet<>();
 
@@ -92,7 +99,24 @@ public class Fishing {
 
     private static void onClientTick() {
         if (!Utils.isInSkyblock() || !Faketils.config().fishingHelper) return;
-        if (mc.screen != null || mc.player == null || mc.gameMode == null) return;
+        if (mc.player == null || mc.gameMode == null) return;
+
+        if (pendingPetSwap != null && mc.screen instanceof AbstractContainerScreen containerScreen) {
+
+            if (petScreenDelay < 5) {
+                petScreenDelay++;
+                return;
+            }
+
+            onScreenOpen(containerScreen);
+            petScreenDelay = 0;
+        }
+
+        if (petSwapTimeout != 0 && System.currentTimeMillis() > petSwapTimeout) {
+            Utils.log("Pet swap timed out");
+            pendingPetSwap = null;
+            petSwapTimeout = 0;
+        }
 
         var player = mc.player;
         var gameMode = mc.gameMode;
@@ -224,9 +248,80 @@ public class Fishing {
             clickTimer--;
             if (clickTimer == 0 && hasClickedOnce) {
                 Utils.simulateUseItem(gameMode);
+                petSwap();
                 hasClickedOnce = false;
             }
         }
+    }
+
+    private static void onScreenOpen(AbstractContainerScreen containerScreen) {
+
+        if (pendingPetSwap == null) return;
+
+        var player = mc.player;
+        if (player == null) return;
+
+        AbstractContainerMenu menu = containerScreen.getMenu();
+
+        for (int slot = 0; slot < menu.slots.size(); slot++) {
+            ItemStack stack = menu.getSlot(slot).getItem();
+
+            if (stack.isEmpty()) continue;
+
+            Component displayName = stack.getHoverName();
+
+            if (displayName.getString()
+                    .trim()
+                    .toLowerCase()
+                    .contains(pendingPetSwap.trim().toLowerCase())) {
+
+                Utils.log("Found pet '" + pendingPetSwap + "' in slot " + slot);
+
+                assert mc.gameMode != null;
+
+                mc.gameMode.handleContainerInput(
+                        menu.containerId,
+                        slot,
+                        0,
+                        ContainerInput.PICKUP,
+                        player
+                );
+
+                pendingPetSwap = null;
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(100);
+                        mc.execute(() -> {
+                            if (mc.player != null) {
+                                mc.player.closeContainer();
+                            }
+                        });
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }).start();
+                return;
+            }
+        }
+
+        Utils.log("Pet '" + pendingPetSwap + "' not found in menu");
+    }
+
+    public static void petSwap() {
+        if (Faketils.config().fishingPetSwap.trim().isEmpty()) return;
+
+        pendingPetSwap = Faketils.config().fishingPetSwap;
+        petSwapTimeout = System.currentTimeMillis() + 2000;
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(100);
+                petScreenDelay = 0;
+                mc.getConnection().sendChat("/pets");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
     }
 
     public static class WeaponResult {

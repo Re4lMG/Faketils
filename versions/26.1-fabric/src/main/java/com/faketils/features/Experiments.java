@@ -166,7 +166,7 @@ public class Experiments {
             if (now > clickDelay) {
                 clickSlot(client, handler, chronomatronOrder.get(clicks), 2, ContainerInput.CLONE);
                 clicks++;
-                clickDelay = now + rng.nextInt(1000 - 250) + 250;
+                clickDelay = -1;
             }
         }
     }
@@ -213,7 +213,7 @@ public class Experiments {
                 if (slot != null) {
                     clickSlot(client, handler, slot, 2, ContainerInput.CLONE);
                     clicks++;
-                    clickDelay = now + rng.nextInt(750 - 250) + 250;
+                    clickDelay = -1;
                 }
             }
         }

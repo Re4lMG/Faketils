@@ -1699,7 +1699,10 @@ public class Farming {
         if (eqActive) return;
         if (killingPests) return;
 
-        if (System.currentTimeMillis() - phillipDelay >= 5000) return;
+        long now = System.currentTimeMillis();
+
+        if (now - phillipDelay <= 5000) return;
+
         if (phillipPhase == PhillipPhase.IDLE) {
             if (TabListParser.getTabLines().stream().anyMatch(s -> s.contains("Bonus: INACTIVE"))) {
                 mc.player.connection.sendCommand("call phillip");
@@ -1709,8 +1712,6 @@ public class Farming {
             }
             return;
         }
-
-        long now = System.currentTimeMillis();
 
         switch (phillipPhase) {
             case COMMAND_SENT:
@@ -1787,7 +1788,7 @@ public class Farming {
                 mc.player.closeContainer();
                 Utils.log("Closing Pesthunter screen");
                 phillipPhase = PhillipPhase.DONE;
-                phillipDelay = System.currentTimeMillis();
+                phillipDelay = now;
                 holdKeys();
                 phillipPhaseStart = now;
                 break;
