@@ -103,7 +103,7 @@ public class Fishing {
 
         if (pendingPetSwap != null && mc.screen instanceof AbstractContainerScreen containerScreen) {
 
-            if (petScreenDelay < 5) {
+            if (petScreenDelay < 9) {
                 petScreenDelay++;
                 return;
             }

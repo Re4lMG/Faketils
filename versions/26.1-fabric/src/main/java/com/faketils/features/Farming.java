@@ -58,6 +58,11 @@ public class Farming {
     private static WardrobePhase wardrobePhase = WardrobePhase.IDLE;
     private static long wardrobePhaseStart = 0L;
     private static boolean wardrobeSuccess = false;
+    private enum EqPhase { IDLE, OPEN_SENT, CLICKING_SLOT, WAIT_AFTER_CLICK, CLOSING, DONE }
+    private static EqPhase eqPhase = EqPhase.IDLE;
+    private static long eqPhaseStart = 0L;
+    private static int eqTargetSlot = 0;
+    private static long lastSellTime = 0L;
 
     private static enum EqState { IDLE, OPENING, WAIT_AFTER_OPEN, SEARCHING_ITEMS, PICKUP_CLICKED, PLACE_CLICKED, FINISHED_ITEMS }
     private static EqState eqState = EqState.IDLE;
@@ -283,6 +288,7 @@ public class Farming {
                         try {
                             Thread.sleep(2000);
                             mc.player.connection.sendCommand("equipment");
+                            startEqSequence(PestPhase.ROOTED);
                             eqActive = true;
                             currentState = "Changing EQ";
                             eqState = EqState.OPENING;
@@ -450,134 +456,105 @@ public class Farming {
                 });
     }
 
+    private static void startEqSequence(PestPhase phase) {
+        if (mc.player == null) return;
+        currentPestPhase = phase;
+        eqTargetSlot = (phase == PestPhase.ROOTED)
+                ? Faketils.config().eqSlot
+                : Faketils.config().eqSlotOld;
+        eqPhase = EqPhase.OPEN_SENT;
+        eqPhaseStart = System.currentTimeMillis();
+        eqActive = true;
+        currentState = "Changing EQ";
+        mc.player.connection.sendCommand("equipment");
+        Utils.log("Equipment sequence started for " + phase + ", target slot " + eqTargetSlot);
+    }
+
     private static void handleEqSequence() {
-        if (mc.player == null || mc.player.containerMenu == null || mc.player.containerMenu.containerId == 0) {
-            if (eqState == EqState.OPENING && System.currentTimeMillis() - eqStateStart > 12000) {
-                Utils.log("EQ menu timeout - aborting");
-                eqActive = false;
-                eqState = EqState.IDLE;
-            }
+        if (eqPhase == EqPhase.IDLE || mc.player == null) return;
+
+        long now = System.currentTimeMillis();
+
+        if (now - eqPhaseStart > 10_000) {
+            Utils.log("Equipment screen never opened → aborting");
+            eqPhase = EqPhase.IDLE;
+            eqActive = false;
             return;
         }
 
         if (mc.screen == null) return;
-        if (!mc.screen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase().contains("your equipment")) return;
+
+        String title = mc.screen.getTitle().getString().replaceAll("§.", "").trim().toLowerCase();
+        if (!title.contains("equipment")) return;
 
         AbstractContainerMenu handler = mc.player.containerMenu;
+        int syncId = handler.containerId;
 
-        if (!handler.getCarried().isEmpty()) {
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-
-        int delayMs = Faketils.config().swapDelay + random.nextInt(100);
-        if (now - lastClickTime < delayMs) {
-            return;
-        }
-
-        boolean didAction = false;
-
-        if (eqState == EqState.OPENING && isActive) {
-            eqState = EqState.WAIT_AFTER_OPEN;
-            eqStateStart = now;
-            Utils.log("EQ menu detected open - waiting initial delay before scanning");
-            return;
-        }
-
-        if (eqState == EqState.WAIT_AFTER_OPEN) {
-            if (now - eqStateStart >= delayMs) {
-                eqState = EqState.SEARCHING_ITEMS;
-                eqStateStart = now;
-                Utils.log("Initial delay finished - now starting item search");
-            }
-            return;
-        }
-
-        if (eqState == EqState.SEARCHING_ITEMS) {
-            Utils.log("Scanning for next " + (currentPestPhase == PestPhase.ROOTED ? "Rooted" : "Squeaky") + " item...");
-
-            for (int i = 0; i < handler.slots.size(); i++) {
-                Slot slot = handler.slots.get(i);
-
-                if (!(slot.container instanceof Inventory)) continue;
-
-                ItemStack stack = slot.getItem();
-                if (stack.isEmpty()) continue;
-
-                String name = stack.getHoverName().getString().toLowerCase().replaceAll("§.", "").trim();
-                boolean isMatch = currentPestPhase == PestPhase.ROOTED
-                        ? name.contains("rooted")
-                        : name.contains("squeaky pest");
-
-                if (isMatch) {
-                    mc.gameMode.handleContainerInput(handler.containerId, i, 2, ContainerInput.CLONE, mc.player);
-                    lastClickTime = now;
-                    eqState = EqState.PICKUP_CLICKED;
-                    eqStateStart = now;
-                    itemsUsedThisPhase++;
-                    Utils.log("Pickup clicked on " + (currentPestPhase == PestPhase.ROOTED ? "Rooted" : "Squeaky") + " item in slot " + slot);
-                    didAction = true;
-                    break;
+        switch (eqPhase) {
+            case OPEN_SENT -> {
+                if (now - eqPhaseStart > 400 + random.nextInt(300)) {
+                    eqPhase = EqPhase.CLICKING_SLOT;
+                    eqPhaseStart = now;
+                    Utils.log("Equipment window ready");
                 }
             }
+            case CLICKING_SLOT -> {
+                if (now - eqPhaseStart < 300 + random.nextInt(300)) return;
 
-            if (!didAction) {
-                eqState = EqState.FINISHED_ITEMS;
-                eqStateStart = now;
-                Utils.log("No more matching items found - preparing to close");
-            }
-        }
-        else if (eqState == EqState.PICKUP_CLICKED) {
-            if (now - eqStateStart >= Faketils.config().swapDelay + random.nextInt(100)) {
-                int placeSlot = -1;
                 for (int i = 0; i < handler.slots.size(); i++) {
-                    Slot slot = handler.slots.get(i);
-
-                    if (!(slot.container instanceof Inventory)) {
-                        continue;
-                    }
-
-                    if (slot.getItem().isEmpty()) {
-                        placeSlot = i;
-                        break;
+                    ItemStack stack = handler.getSlot(i).getItem();
+                    if (stack.isEmpty()) continue;
+                    String name = stack.getHoverName().getString()
+                            .replaceAll("§.", "").toLowerCase().trim();
+                    if (name.contains("slot") && name.contains(String.valueOf(eqTargetSlot))) {
+                        mc.gameMode.handleContainerInput(syncId, i, 0, ContainerInput.PICKUP, mc.player);
+                        Utils.log("Clicked equipment preset slot " + eqTargetSlot + " at index " + i);
+                        eqPhase = EqPhase.WAIT_AFTER_CLICK;
+                        eqPhaseStart = now;
+                        return;
                     }
                 }
-
-                if (placeSlot != -1) {
-                    mc.gameMode.handleContainerInput(handler.containerId, placeSlot, 2, ContainerInput.CLONE, mc.player);
-                    lastClickTime = now;
-                    eqState = EqState.SEARCHING_ITEMS;
-                    eqStateStart = now;
-                    Utils.log("Place clicked in slot " + placeSlot + " - back to searching");
-                    didAction = true;
-                } else {
-                    Utils.log("No empty slot to place - closing early");
-                    eqState = EqState.FINISHED_ITEMS;
+                if (now - eqPhaseStart > 8_000) {
+                    Utils.log("Equipment slot " + eqTargetSlot + " not found → aborting");
+                    mc.player.closeContainer();
+                    eqPhase = EqPhase.IDLE;
+                    eqActive = false;
                 }
             }
+            case WAIT_AFTER_CLICK -> {
+                if (now - eqPhaseStart > 150 + random.nextInt(150)) {
+                    eqPhase = EqPhase.CLOSING;
+                    eqPhaseStart = now;
+                }
+            }
+            case CLOSING -> {
+                mc.player.closeContainer();
+                Utils.log("Closing equipment screen");
+                eqPhase = EqPhase.DONE;
+                onEqSequenceDone(now);
+                eqPhaseStart = now;
+            }
+            case DONE -> {
+                //can't add anything cuz screen==null check above
+            }
+            default -> {}
         }
+    }
 
-        if (eqState == EqState.FINISHED_ITEMS && now - eqStateStart > 500) {
-            mc.player.closeContainer();
-            windowReady = false;
-            lastSeenSyncId = -1;
-            Utils.log("Closing EQ after finishing items");
-            if (Faketils.config().petSwapType == Config.PetSwapType.ROD) startRodSequence(now);
-            if (Faketils.config().petSwapType == Config.PetSwapType.ARMOR) {
-                if (currentPestPhase == PestPhase.ROOTED) {
-                    wardrobeSlot = Faketils.config().wardrobeSlot;
-                }
-                if (currentPestPhase == PestPhase.SQUEAKY) {
-                    wardrobeSlot = Faketils.config().wardrobeSlotOld;
-                }
-                mc.player.connection.sendCommand("wardrobe");
-                eqState = EqState.IDLE;
-                wardrobePhase = WardrobePhase.OPEN_SENT;
-                wardrobePhaseStart = now;
-                wardrobeSuccess = false;
-                Utils.log("Sent /wardrobe command → starting wardrobe phase");
-            }
+    private static void onEqSequenceDone(long now) {
+        eqPhase = EqPhase.IDLE;
+
+        if (Faketils.config().petSwapType == Config.PetSwapType.ROD) {
+            startRodSequence(now);
+        } else if (Faketils.config().petSwapType == Config.PetSwapType.ARMOR) {
+            wardrobeSlot = (currentPestPhase == PestPhase.ROOTED)
+                    ? Faketils.config().wardrobeSlot
+                    : Faketils.config().wardrobeSlotOld;
+            mc.player.connection.sendCommand("wardrobe");
+            wardrobePhase = WardrobePhase.OPEN_SENT;
+            wardrobePhaseStart = now;
+            wardrobeSuccess = false;
+            Utils.log("Equipment done → /wardrobe slot " + wardrobeSlot);
         }
     }
 
@@ -649,7 +626,7 @@ public class Farming {
                 break;
 
             case WAIT_AFTER_CLICK:
-                if (now - wardrobePhaseStart > 350 + random.nextInt(250)) {
+                if (now - wardrobePhaseStart > 150 + random.nextInt(150)) {
                     wardrobePhase = WardrobePhase.CLOSING;
                     wardrobePhaseStart = now;
                 }
@@ -1149,9 +1126,10 @@ public class Farming {
             pestsSpawned = false;
             if (isActive && !isPaused) {
                 releaseAllKeys();
+                eqActive = true;
+                startEqSequence(PestPhase.SQUEAKY);
                 mc.player.connection.sendCommand("equipment");
             }
-            eqActive = true;
             eqState = EqState.OPENING;
             eqStateStart = now;
             currentPestPhase = PestPhase.SQUEAKY;

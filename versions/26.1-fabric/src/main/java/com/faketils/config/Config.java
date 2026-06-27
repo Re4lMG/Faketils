@@ -216,6 +216,20 @@ public class Config {
     @AutoGen(category = "farming", group = "pet_swapping")
     @IntField(min = 1, max = 9)
     @SerialEntry
+    @CustomName("Rooted Equipment Slot")
+    @CustomDescription("Equipment slot used for Rooted equipment.")
+    public int eqSlot = 1;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @IntField(min = 1, max = 9)
+    @SerialEntry
+    @CustomName("Squeaky Equipment Slot")
+    @CustomDescription("Equipment slot used for Squeaky equipment.")
+    public int eqSlotOld = 2;
+
+    @AutoGen(category = "farming", group = "pet_swapping")
+    @IntField(min = 1, max = 9)
+    @SerialEntry
     @CustomName("Mossy Wardrobe Slot")
     @CustomDescription("Wardrobe slot used for Mossy equipment.")
     public int wardrobeSlot = 1;
