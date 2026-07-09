@@ -200,46 +200,18 @@ public class Config {
     public int pestTime = 135;
 
     @AutoGen(category = "farming", group = "pet_swapping")
-    @EnumCycler
+    @StringField
     @SerialEntry
-    @CustomName("Pet Swap Type")
-    @CustomDescription("Select the method used to swap pets.")
-    public PetSwapType petSwapType = PetSwapType.ROD;
+    @CustomName("Rooted Loadout Slot")
+    @CustomDescription("Loadout slot used for Rooted equipment.")
+    public String eqSlot = "";
 
     @AutoGen(category = "farming", group = "pet_swapping")
-    @IntField(min = 20, max = 1500)
+    @StringField
     @SerialEntry
-    @CustomName("Equipment Click Delay")
-    @CustomDescription("Delay between equipment clicks in milliseconds.")
-    public int swapDelay = 150;
-
-    @AutoGen(category = "farming", group = "pet_swapping")
-    @IntField(min = 1, max = 9)
-    @SerialEntry
-    @CustomName("Rooted Equipment Slot")
-    @CustomDescription("Equipment slot used for Rooted equipment.")
-    public int eqSlot = 1;
-
-    @AutoGen(category = "farming", group = "pet_swapping")
-    @IntField(min = 1, max = 9)
-    @SerialEntry
-    @CustomName("Squeaky Equipment Slot")
-    @CustomDescription("Equipment slot used for Squeaky equipment.")
-    public int eqSlotOld = 2;
-
-    @AutoGen(category = "farming", group = "pet_swapping")
-    @IntField(min = 1, max = 9)
-    @SerialEntry
-    @CustomName("Mossy Wardrobe Slot")
-    @CustomDescription("Wardrobe slot used for Mossy equipment.")
-    public int wardrobeSlot = 1;
-
-    @AutoGen(category = "farming", group = "pet_swapping")
-    @IntField(min = 1, max = 9)
-    @SerialEntry
-    @CustomName("Mantid Wardrobe Slot")
-    @CustomDescription("Wardrobe slot used for Mantid equipment.")
-    public int wardrobeSlotOld = 2;
+    @CustomName("Squeaky Loadout Slot")
+    @CustomDescription("Loadout slot used for Squeaky equipment.")
+    public String eqSlotOld = "";
 
     @AutoGen(category = "fishing", group = "helpers")
     @Boolean(formatter = Boolean.Formatter.YES_NO, colored = true)
