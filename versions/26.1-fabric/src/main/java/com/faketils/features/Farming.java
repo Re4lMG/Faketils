@@ -987,7 +987,6 @@ public class Farming {
                 releaseAllKeys();
                 eqActive = true;
                 startEqSequence(PestPhase.SQUEAKY);
-                mc.player.connection.sendCommand("equipment");
             }
             eqState = EqState.OPENING;
             eqStateStart = now;
