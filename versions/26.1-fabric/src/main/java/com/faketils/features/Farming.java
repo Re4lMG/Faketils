@@ -1673,7 +1673,7 @@ public class Farming {
                     .toLowerCase()
                     .trim();
 
-            if (name.equals("sprayonator")) {
+            if (name.contains("sprayonator")) {
                 originalSpraySlot = inv.getSelectedSlot();
                 sprayHotbarSlot = i;
 
