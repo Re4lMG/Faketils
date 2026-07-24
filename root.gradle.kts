@@ -11,6 +11,7 @@ allprojects {
         maven("https://repo.spongepowered.org/repository/maven-public/")
         maven("https://repo.polyfrost.org/releases")
         maven("https://jitpack.io")
+        maven("https://maven.terraformersmc.com/releases/")
     }
 }
 
